@@ -1,0 +1,129 @@
+"""Typed run configuration for the whole pipeline.
+
+Uses pydantic models (not raw dicts) so every experimental knob in the paper --- window
+length W, Dirichlet alpha, local epochs E, feature count F, rounds R, seeds --- is declared
+in one validated place and serialized verbatim into the per-run manifest (Section III-I4).
+
+The sweep lists encode the six ablations of Section III-I3:
+    * window length      W in {1, 8, 16, 32}
+    * heterogeneity      alpha in {0.1, 0.5, 100}
+    * local epochs       E in {1, 3, 5}
+    * feature count      F in {8, 12, 16, 24, F0}
+    * aggregation        weighted vs. unweighted
+    * rounds             R up to 20
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Literal
+
+import yaml
+from pydantic import BaseModel, Field, field_validator
+
+
+class DataConfig(BaseModel):
+    """Subsampling + leakage control (Section III-B)."""
+
+    dataset_root: Path = Path("data/ciciot2023")
+    # Capped, stratified subsample target M ~ 1.5-2e6 records (III-B1 / R1).
+    subsample_target: int = 1_800_000
+    # Per-class cap kappa_c: compress dominant DDoS classes, keep every rare-family instance.
+    per_class_cap: int = 200_000
+    chunk_size: int = 500_000  # fixed-size CSV parts read to bound peak memory (R1)
+    block_size: int = 256  # contiguous-record block; splitting operates on blocks (III-B3)
+    test_fraction: float = 0.2  # stratified subset of blocks -> shared global test set
+    seed: int = 0
+
+
+class FeatureConfig(BaseModel):
+    """Four-stage selection, fitted on training blocks only (Section III-C)."""
+
+    correlation_tau: float = 0.95  # Stage 2 Spearman prune threshold
+    f_sweep: list[int] = Field(default_factory=lambda: [8, 12, 16, 24])  # + F0, Stage 4
+    selected_f: int = 16  # chosen at the knee of the validation macro-F1 curve
+    rf_n_estimators: int = 200  # for Stage-3 impurity importance
+
+
+class SequenceConfig(BaseModel):
+    """Windowing over contiguous same-label runs (Section III-D)."""
+
+    window: int = 16  # W; label is that of the final record: y_i = y_{i+W-1}
+    w_sweep: list[int] = Field(default_factory=lambda: [1, 8, 16, 32])  # W=1 = ablation
+
+
+class ModelConfig(BaseModel):
+    """GRU detector (Section III-E). Default sizing reproduces Eq. (19) = 33,800 params."""
+
+    n_features: int = 16  # F
+    hidden_size: int = 96  # H
+    n_classes: int = 8  # C: benign + 7 attack families
+
+    @field_validator("n_classes")
+    @classmethod
+    def _classes_is_eight(cls, v: int) -> int:
+        if v != 8:
+            raise ValueError("Primary task is C=8 (benign + 7 families) per Section III-B3.")
+        return v
+
+
+class FederatedConfig(BaseModel):
+    """Federated simulation (Section III-F)."""
+
+    n_clients: int = 3  # K (A1: simulated as independent processes/objects)
+    dirichlet_alpha: float = 0.5  # block-level Dirichlet partition (Eq. 20)
+    alpha_sweep: list[float] = Field(default_factory=lambda: [0.1, 0.5, 100.0])
+    rounds: int = 20  # R
+    local_epochs: int = 3  # E
+    e_sweep: list[int] = Field(default_factory=lambda: [1, 3, 5])
+    aggregation: Literal["weighted", "unweighted"] = "weighted"
+    # FedProx proximal coefficient (R4 fallback). None => plain FedAvg.
+    fedprox_mu: float | None = None
+
+
+class CryptoConfig(BaseModel):
+    """Ascon-AEAD128, NIST SP 800-232 (Section III-G)."""
+
+    key_bits: int = 128
+    nonce_bits: int = 128
+    tag_bits: int = 128
+    # Associated data layout, Eq. (27): authenticated, not encrypted.
+    ad_fields: list[str] = Field(
+        default_factory=lambda: ["edge_id", "device_id", "counter", "schema_version"]
+    )
+
+
+class EvalConfig(BaseModel):
+    """Evaluation protocol (Section III-I)."""
+
+    seeds: list[int] = Field(default_factory=lambda: [0, 1, 2])  # >= 3, mean +/- std
+    # Accuracy at/above this triggers the "expected, look at macro-F1/FPR" note (III-I5).
+    near_ceiling_accuracy: float = 0.98
+
+    @field_validator("seeds")
+    @classmethod
+    def _at_least_three_seeds(cls, v: list[int]) -> list[int]:
+        if len(v) < 3:
+            raise ValueError("Section III-I4 requires >= 3 seeds; single runs are not findings.")
+        return v
+
+
+class RunConfig(BaseModel):
+    """Top-level config aggregating every stage."""
+
+    run_name: str = "default"
+    output_dir: Path = Path("artifacts")
+    data: DataConfig = Field(default_factory=DataConfig)
+    features: FeatureConfig = Field(default_factory=FeatureConfig)
+    sequence: SequenceConfig = Field(default_factory=SequenceConfig)
+    model: ModelConfig = Field(default_factory=ModelConfig)
+    federated: FederatedConfig = Field(default_factory=FederatedConfig)
+    crypto: CryptoConfig = Field(default_factory=CryptoConfig)
+    evaluation: EvalConfig = Field(default_factory=EvalConfig)
+
+
+def load_run_config(path: str | Path) -> RunConfig:
+    """Load and validate a :class:`RunConfig` from a YAML file."""
+    with Path(path).open("r", encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh) or {}
+    return RunConfig.model_validate(raw)

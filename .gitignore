@@ -1,0 +1,43 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Data (CICIoT2023 is large and must not be committed) ---
+data/
+*.csv
+*.parquet
+!tests/**/*.csv          # small fixture CSVs used by tests may be committed
+
+# --- Run artifacts (models, reports, manifests, figures) ---
+artifacts/
+*.safetensors
+*.pt
+*.ckpt
+
+# --- Key material: NEVER commit (III-J3 ethics). Demo keys must be labelled as such. ---
+*.key
+*.pem
+secrets/
+keys/
+*.demo.key            # even labelled demo keys stay out of version control
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

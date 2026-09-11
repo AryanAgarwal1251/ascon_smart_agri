@@ -1,0 +1,51 @@
+# Pre-commit hooks: ruff (lint + format), vulture, mypy. Run before every commit.
+# Install once with:  pre-commit install
+# Run on demand with: pre-commit run --all-files
+minimum_pre_commit_version: "3.7.0"
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff            # lint
+        args: [--fix]
+      - id: ruff-format     # format
+
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.13
+    hooks:
+      - id: vulture
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^src/
+        additional_dependencies:
+          - pydantic>=2.6
+          - pandas-stubs
+          - types-PyYAML
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key   # backstop for the III-J3 no-keys-in-VCS rule
+
+  # Run the test suite (incl. the gating tests) before every commit, as its own hook.
+  # `language: system` uses the active environment's pytest (no isolated hook env), so it
+  # sees torch and the scientific stack already installed.
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
