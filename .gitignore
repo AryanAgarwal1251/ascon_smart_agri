@@ -18,7 +18,6 @@ venv/
 env/
 
 # --- Data (CICIoT2023 is large and must not be committed) ---
-data/
 *.csv
 *.parquet
 !tests/**/*.csv          # small fixture CSVs used by tests may be committed
