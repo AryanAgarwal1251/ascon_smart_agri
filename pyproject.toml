@@ -39,13 +39,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# KAT-GATED candidate. The widely-installed `ascon` package implements the pre-standard
-# Ascon v1.2 variants (Ascon-128/128a), NOT necessarily NIST SP 800-232 Ascon-AEAD128.
-# It is installed here as a *candidate only*; conformance is unverified until
-# tests/test_ascon_kat.py passes against the official known-answer vectors (III-G1, R5).
-# If it fails the KATs, the paper-consistent fallback (III-G1: "no primitive implemented
-# from scratch") is to bind the official reference implementation -- NOT hand-roll one.
-crypto = ["ascon>=1.3"]
+# Ascon-AEAD128 backend: no PyPI dependency. The KAT-gated candidate `ascon` was rejected --
+# only version 0.0.9 is published (the earlier `>=1.3` pin was unsatisfiable) and it implements
+# only the pre-standard Ascon v1.2 variants (Ascon-128/128a), not NIST SP 800-232 Ascon-AEAD128,
+# so it fails the KAT (III-G1, R5). Per the paper-consistent fallback (III-G1: "no primitive
+# implemented from scratch"), the official reference implementation is vendored under
+# src/ascon_smart_agri/crypto/_vendor/pyascon (pure Python, CC0; see its PROVENANCE.md) and
+# gated by tests/test_ascon_kat.py. No `crypto` extra is needed.
 dev = [
     "ruff>=0.6",
     "mypy>=1.10",
@@ -70,6 +70,9 @@ packages = ["src/ascon_smart_agri"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
+# Vendored third-party code is kept byte-identical to upstream (see crypto/_vendor); never lint
+# or reformat it, so it stays diff-verifiable against the pinned commit.
+extend-exclude = ["src/ascon_smart_agri/crypto/_vendor"]
 
 [tool.ruff.lint]
 select = [
@@ -110,13 +113,18 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = [
     "torch.*",
-    "ascon.*",
     "sklearn.*",
     "scipy.*",
     "safetensors.*",
     "yaml.*",
 ]
 ignore_missing_imports = true
+
+# Vendored reference implementation is kept verbatim; do not hold it to this repo's strict
+# typing (see crypto/_vendor/pyascon/PROVENANCE.md).
+[[tool.mypy.overrides]]
+module = ["ascon_smart_agri.crypto._vendor.*"]
+ignore_errors = true
 
 # --------------------------------------------------------------------------------------
 # Vulture: dead-code detection. min_confidence=80 filters out the "defined-but-not-yet-
@@ -127,6 +135,7 @@ ignore_missing_imports = true
 [tool.vulture]
 min_confidence = 80
 paths = ["src", "vulture_whitelist.py"]
+exclude = ["*/_vendor/*"]  # vendored reference impl kept verbatim; not our dead code to prune
 
 # --------------------------------------------------------------------------------------
 # Pytest + coverage. The gating tests (leakage, nonce-collision, path-disjointness,
