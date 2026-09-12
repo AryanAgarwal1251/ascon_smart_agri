@@ -26,6 +26,12 @@ every module under `src/` is a typed stub tagged with the phase in which its log
    Do not add a `.github/workflows` pipeline unless the user asks.
 5. **Don't pad demos with out-of-scope features.** If tempted to add one, stub it with a
    comment citing this constraint instead (see "Out of scope").
+6. **Keep [CHANGELOG.md](CHANGELOG.md) current.** After every change to this repository
+   (implementing or editing any module, adding/modifying tests, changing configs or gates,
+   or advancing a phase), update `CHANGELOG.md` in the same piece of work: move completed
+   items out of "Unreleased" if appropriate, update the phase-status table, and add a dated
+   entry describing what changed and why. Do this before considering the change finished —
+   don't defer it to a later commit.
 
 ## The seven phases (do them in order)
 
@@ -124,3 +130,7 @@ The pytest pre-commit hook is `language: system`, so commit with `.venv` active 
 Paper III-G1 ("no primitive from scratch") vs. an earlier "vendor a reference impl" fallback:
 resolution is to pin the `ascon` candidate, gate on the KAT test, and if it fails, bind the
 **official reference implementation** rather than hand-rolling. Confirm with the user at Phase 6.
+See [docs/plans/phase6-ascon-implementation.md](docs/plans/phase6-ascon-implementation.md) for
+the library research (candidates, licenses, KAT vector sources) and a proposed step-by-step
+sequence — read it before starting Phase 6 work, but re-verify its factual claims rather than
+trusting them as current.
