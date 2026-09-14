@@ -13,7 +13,7 @@ kept current.
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | In progress: **both blocking invariants green** (`test_fedavg_weighting.py`, `test_scaler_equivalence.py` — the last two skips in the suite are gone); partition/aggregation/serialization/client/server implemented and Eq. (22)'s cost figures reproduced. **Not** done: baselines 4-5 are still stubs and the federated experiment has not been run | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅ |
+| 4 | Three-client federated simulation, weighted FedAvg | In progress: **both blocking invariants green** (`test_fedavg_weighting.py`, `test_scaler_equivalence.py`); partition/aggregation/serialization/client/server implemented and Eq. (22)'s cost figures reproduced. **Baselines 4-5 now implemented** and the runner `scripts/run_phase4.py` is wired end-to-end (smoke-verified on synthetic arrays). **Not** done: the federated experiment has not been run on the real corpus, so no Phase 4 figure is a finding yet | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
 | 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
 | 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
@@ -72,6 +72,62 @@ run, and the system-Python claim is no longer true anywhere.
   track the `dev` extra.
 - Dropped README's "add `,crypto` once the Ascon backend is chosen" -- there is no `crypto`
   extra; the backend is vendored.
+
+### Added: Phase 4 baselines 4-5 and the federated experiment runner
+
+- **Baselines 4 and 5 of Section III-I1 implemented** in `eval/baselines.py`, the last two
+  `NotImplementedError` stubs Phase 4 owed. `local_only_grus` trains one GRU per client on that
+  client's partition alone; `federated_global_gru` runs R rounds of Algorithm 1 and scores the
+  resulting global model. Together with baseline 3 they form the bracket that answers gap G4.
+  - **Signatures widened to take an explicit test set**, exactly as baselines 1-3 were: the
+    scaffold's `(client_seqs, client_y, seed)` cannot express a train/test split and so could
+    not return test metrics at all. Flagged here as a scaffold correction, not worked around.
+  - **Every baseline is scored on the shared global test set** (Section III-B3), local-only
+    clients included. Scoring a local model on its own partition's held-out slice would ask it
+    an easier, different question -- its partition is class-skewed by the Eq. (20) draw -- and
+    would make baselines 3, 4 and 5 three unrelated numbers instead of a bracket.
+  - **A client with zero sequences yields `None`, not a zero-filled metric bundle.** Under
+    alpha = 0.1 a client can legitimately receive no blocks (see `federated/partition.py`) and
+    has no detector to report. A bundle of zeros would silently drag a reported mean down as
+    though the client had trained and failed. This widens baseline 4's return type to
+    `list[MulticlassMetrics | None]`, deliberately.
+  - **Per-client seeds come from a `SeedSequence` spawned off the run seed**, so client 0 at
+    seed 1 is not the same run as client 1 at seed 0.
+  - `run_federation` returns a `FederatedRun` carrying the pieces the manifest needs beyond the
+    headline metric: the Eq. (21) weights actually applied, the Eq. (22) bytes actually sent per
+    round, and (optionally) the per-round convergence curve. `federated_global_gru` is a thin
+    wrapper over it so the Section III-I1 baseline contract stays a single metric bundle.
+
+- **`scripts/run_phase4.py`** -- the federated experiment, mirroring `run_phase3_complete.py`.
+  Runs baselines 3-5 over >= 3 seeds at a given alpha, publishes the per-client class histograms
+  (Section III-F1 / gap G3) including zero counts, reports the bracket, and writes a manifest.
+  - **The global scaler is built federatedly and is now actually exercised** (Eqs. 23-24).
+    `build_pipeline` deliberately does **not** standardise: clients emit count/mean/M2 only, the
+    server combines them, and the scaled arrays are derived from that result. An earlier draft
+    scaled with a pooled fit in the pipeline and computed the federated statistics beside it,
+    which made the III-F4 path dead code; that was wrong and is fixed. The run prints the
+    federated-vs-pooled gap as a live check (4e-15 on the synthetic smoke run).
+  - Carries its **own cache format** (`--save-cache`/`--cache`) because Phase 4 needs the
+    per-row block ids that the Phase 3 cache does not store.
+
+- **Tests:** `test_phase4_baselines_remain_gated` -- which asserted the two stubs still raised --
+  is removed, being obsolete the moment they were implemented, and replaced by seven tests
+  covering the shared-test-set property, the empty-client `None`, seed independence, learning,
+  the published Eq. (21)/Eq. (22) figures, and malformed-partition rejection. Suite: **247
+  passed, 1 skipped** (the remaining skip is Phase 6 routing).
+
+### Not done, and not to be reported as done
+
+- **The federated experiment has not been run on CICIoT2023.** The runner was verified end-to-end
+  on synthetic arrays only; every macro-F1 it printed there is noise from generated data. No
+  Phase 4 number is a finding until the run happens on the real corpus, and the synthetic-data
+  manifest that smoke run produced was deleted rather than committed.
+- **Observation for the team, not silently changed:** `FederatedClient.local_train` seeds
+  `train_module` with `self.client_id`, so a client's batch shuffling is identical across
+  experiment seeds. Run-to-run variance therefore comes only from the initial global parameters
+  and the Dirichlet partition, which under-samples the spread that III-I4's mean +/- std is
+  meant to report. Left as-is because it is Phase 4 infrastructure someone else wrote and its
+  tests pass; worth a decision before the real run.
 
 ### Added
 

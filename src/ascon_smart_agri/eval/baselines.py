@@ -32,9 +32,27 @@ Design decisions, flagged per Golden Rule 1:
 * The random forest is the one baseline that does **not** share the training regime, because it
   is not a gradient model; it gets ``class_weight="balanced"``, the tree analogue of Eq. (18)'s
   reweighting, and no oversampling.
+
+Baselines 4-5 (Phase 4) add three more, flagged the same way:
+
+* **Every baseline is scored on the SAME shared global test set** (Section III-B3), including
+  the local-only clients. A local model evaluated on its own partition's held-out slice would
+  be measuring a different, easier question -- each client's partition is class-skewed by the
+  Dirichlet draw (Eq. 20), so a client that never saw a rare family would never be asked about
+  it. Scoring every model on the shared test set is what makes baselines 3, 4 and 5 a bracket
+  rather than three unrelated numbers.
+* **A client with zero sequences yields ``None``, not a zero-filled metric bundle.** Under
+  alpha = 0.1 a client can legitimately receive no blocks at all (see ``federated/partition.py``),
+  and it cannot train a detector. Returning a bundle of zeros would silently drag a reported
+  mean downward as if the client had trained and failed; returning ``None`` forces the caller to
+  say what it did. This is the one place baseline 4's return type widens, and it is deliberate.
+* **Local-only clients are seeded from a ``SeedSequence`` spawned off the run seed**, not from
+  ``seed + client_id``, so client 0 at seed 1 and client 1 at seed 0 are not the same run.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -42,7 +60,10 @@ from sklearn.ensemble import RandomForestClassifier
 from torch import nn
 
 from .._types import Array
-from ..model.gru import expected_param_count
+from ..federated.client import FederatedClient
+from ..federated.serialization import StateDict
+from ..federated.server import FederatedServer
+from ..model.gru import build_detector, expected_param_count
 from ..model.train import predict, train_centralized, train_module
 from .metrics import MulticlassMetrics, multiclass_metrics
 
@@ -189,17 +210,218 @@ def centralized_gru(
     return multiclass_metrics(y_test, y_pred, class_names)
 
 
+def _check_partitions(client_seqs: list[Array], client_y: list[Array]) -> None:
+    """Validate a per-client partition list before anything expensive happens."""
+    if not client_seqs:
+        raise ValueError("need at least one client partition")
+    if len(client_seqs) != len(client_y):
+        raise ValueError(
+            f"partition lengths disagree: {len(client_seqs)} feature sets, {len(client_y)} labels"
+        )
+    for index, (seqs, labels) in enumerate(zip(client_seqs, client_y, strict=True)):
+        if len(seqs) != len(labels):
+            raise ValueError(f"client {index}: {len(seqs)} sequences but {len(labels)} labels")
+        if len(seqs) > 0 and np.asarray(seqs).ndim != 3:
+            raise ValueError(f"client {index}: sequences must be (N, W, F)")
+
+
 def local_only_grus(
-    client_seqs: list[Array], client_y: list[Array], *, seed: int
-) -> list[MulticlassMetrics]:
-    """Baseline 4: one GRU per client, no federation (lower bound)."""
-    del client_seqs, client_y, seed
-    raise NotImplementedError("Phase 4: local-only baseline not implemented yet.")
+    client_seqs: list[Array],
+    client_y: list[Array],
+    x_test: Array,
+    y_test: Array,
+    *,
+    seed: int,
+    class_names: list[str],
+    n_classes: int,
+    epochs: int,
+    hidden_size: int = 96,
+    batch_size: int = 1024,
+    device: str = "cpu",
+    verbose: bool = False,
+) -> list[MulticlassMetrics | None]:
+    """Baseline 4: one GRU per client, no federation (lower bound).
+
+    This is what an operator gets by declining to federate: each client trains on its own
+    partition alone and is scored on the shared global test set. Together with baseline 3 it
+    brackets the federated result and answers gap G4.
+
+    Returns one entry per client, in client order. An entry is ``None`` where the client holds
+    zero sequences and therefore has no detector to report -- see the module docstring.
+    """
+    _check_partitions(client_seqs, client_y)
+
+    # Independent, collision-free per-client seeds derived from the run seed.
+    client_seeds = np.random.SeedSequence(seed).generate_state(len(client_seqs))
+
+    results: list[MulticlassMetrics | None] = []
+    for client_id, (seqs, labels) in enumerate(zip(client_seqs, client_y, strict=True)):
+        if len(seqs) == 0:
+            # No data, so no model. Reported as absent rather than as a zero score.
+            results.append(None)
+            continue
+        model = train_centralized(
+            np.asarray(seqs),
+            np.asarray(labels),
+            hidden_size=hidden_size,
+            n_classes=n_classes,
+            epochs=epochs,
+            seed=int(client_seeds[client_id]),
+            batch_size=batch_size,
+            device=device,
+            verbose=verbose,
+        )
+        y_pred, _ = predict(model, x_test, device=device)
+        results.append(multiclass_metrics(y_test, y_pred, class_names))
+    return results
+
+
+@dataclass(frozen=True)
+class FederatedRun:
+    """One federated run's outcome, carrying what Sections III-F and III-I want recorded.
+
+    ``federated_global_gru`` returns only :attr:`metrics`, matching the Section III-I1 baseline
+    contract; the runner script uses the rest for the manifest (Eq. 22's measured cost, the
+    Eq. 21 weights actually applied, and the convergence curve over R rounds).
+    """
+
+    metrics: MulticlassMetrics
+    sequence_counts: list[int]  # n_k per client -- the Eq. (21) weights
+    bytes_per_round: list[int]  # measured, not assumed (Eq. 22)
+    per_round_macro_f1: list[float]  # empty unless evaluate_each_round was set
+
+
+def _evaluate_state(
+    state: StateDict,
+    x_test: Array,
+    y_test: Array,
+    *,
+    n_features: int,
+    hidden_size: int,
+    n_classes: int,
+    class_names: list[str],
+    device: str,
+) -> MulticlassMetrics:
+    """Load a global parameter vector into a fresh detector and score it on the test set."""
+    model = build_detector(n_features, hidden_size, n_classes)
+    model.load_state_dict({name: tensor.clone() for name, tensor in state.items()})
+    y_pred, _ = predict(model, x_test, device=device)
+    return multiclass_metrics(y_test, y_pred, class_names)
+
+
+def run_federation(
+    client_seqs: list[Array],
+    client_y: list[Array],
+    x_test: Array,
+    y_test: Array,
+    *,
+    seed: int,
+    class_names: list[str],
+    n_classes: int,
+    rounds: int,
+    local_epochs: int,
+    hidden_size: int = 96,
+    batch_size: int = 1024,
+    aggregation: str = "weighted",
+    device: str = "cpu",
+    evaluate_each_round: bool = False,
+    verbose: bool = False,
+) -> FederatedRun:
+    """Run R rounds of Algorithm 1 over K clients and score the final global model.
+
+    ``evaluate_each_round`` costs one extra prediction pass per round and is off by default;
+    the runner turns it on to record the convergence curve.
+    """
+    _check_partitions(client_seqs, client_y)
+    if rounds <= 0:
+        raise ValueError(f"rounds must be positive, got {rounds}")
+
+    n_features = int(np.asarray(x_test).shape[2])
+
+    # Seed before construction so the initial broadcast theta is reproducible (III-I4).
+    torch.manual_seed(seed)
+    initial = build_detector(n_features, hidden_size, n_classes)
+    global_state: StateDict = {
+        name: tensor.detach().clone() for name, tensor in initial.state_dict().items()
+    }
+
+    clients = [
+        FederatedClient(
+            client_id,
+            np.asarray(seqs) if len(seqs) > 0 else None,
+            np.asarray(labels) if len(labels) > 0 else None,
+            hidden_size=hidden_size,
+            n_classes=n_classes,
+            batch_size=batch_size,
+            device=device,
+        )
+        for client_id, (seqs, labels) in enumerate(zip(client_seqs, client_y, strict=True))
+    ]
+    server = FederatedServer(clients, aggregation=aggregation)
+
+    def evaluate(state: StateDict) -> MulticlassMetrics:
+        return _evaluate_state(
+            state,
+            x_test,
+            y_test,
+            n_features=n_features,
+            hidden_size=hidden_size,
+            n_classes=n_classes,
+            class_names=class_names,
+            device=device,
+        )
+
+    bytes_per_round: list[int] = []
+    per_round_macro_f1: list[float] = []
+
+    for round_index in range(rounds):
+        global_state = server.run_round(global_state, local_epochs=local_epochs)
+        bytes_per_round.append(server.last_round_bytes)
+        if evaluate_each_round:
+            macro_f1 = evaluate(global_state).macro_f1
+            per_round_macro_f1.append(macro_f1)
+            if verbose:
+                print(f"  round {round_index + 1}/{rounds}  macro-F1 {macro_f1:.4f}")
+
+    return FederatedRun(
+        metrics=evaluate(global_state),
+        sequence_counts=server.sequence_counts(),
+        bytes_per_round=bytes_per_round,
+        per_round_macro_f1=per_round_macro_f1,
+    )
 
 
 def federated_global_gru(
-    client_seqs: list[Array], client_y: list[Array], *, seed: int
+    client_seqs: list[Array],
+    client_y: list[Array],
+    x_test: Array,
+    y_test: Array,
+    *,
+    seed: int,
+    class_names: list[str],
+    n_classes: int,
+    rounds: int,
+    local_epochs: int,
+    hidden_size: int = 96,
+    batch_size: int = 1024,
+    aggregation: str = "weighted",
+    device: str = "cpu",
+    verbose: bool = False,
 ) -> MulticlassMetrics:
     """Baseline 5: the federated global GRU (method under test)."""
-    del client_seqs, client_y, seed
-    raise NotImplementedError("Phase 4: federated-global baseline not implemented yet.")
+    return run_federation(
+        client_seqs,
+        client_y,
+        x_test,
+        y_test,
+        seed=seed,
+        class_names=class_names,
+        n_classes=n_classes,
+        rounds=rounds,
+        local_epochs=local_epochs,
+        hidden_size=hidden_size,
+        batch_size=batch_size,
+        aggregation=aggregation,
+        device=device,
+        verbose=verbose,
+    ).metrics
