@@ -32,6 +32,17 @@ Design decisions, flagged per Golden Rule 1:
 * The random forest is the one baseline that does **not** share the training regime, because it
   is not a gradient model; it gets ``class_weight="balanced"``, the tree analogue of Eq. (18)'s
   reweighting, and no oversampling.
+* **Baselines 4 and 5 share the widened-signature correction above**, plus one addition:
+  ``federated_global_gru`` returns ``(metrics, macro_f1_per_round, measured_bytes_per_round)``
+  rather than ``MulticlassMetrics`` alone. Running the rounds already produces the per-round
+  convergence curve Section III-I2 asks for ("federated convergence as macro-F1 against round")
+  and the measured Eq. (22) communication cost as cheap byproducts; returning them here means
+  the caller does not have to re-run Algorithm 1 a second time just to obtain the curve.
+* **A local-only client with zero sequences reports degenerate metrics against a constant-benign
+  prediction, rather than raising.** Under a strongly heterogeneous partition a client can
+  legitimately receive no sequences at all; that is data about the heterogeneity, and Section
+  III-I1 asks for "three local-only GRUs" as a report, not a filtered list of the ones that
+  happened to get data.
 """
 
 from __future__ import annotations
@@ -42,7 +53,9 @@ from sklearn.ensemble import RandomForestClassifier
 from torch import nn
 
 from .._types import Array
-from ..model.gru import expected_param_count
+from ..federated.client import FederatedClient
+from ..federated.server import FederatedServer
+from ..model.gru import build_detector, expected_param_count
 from ..model.train import predict, train_centralized, train_module
 from .metrics import MulticlassMetrics, multiclass_metrics
 
@@ -190,16 +203,104 @@ def centralized_gru(
 
 
 def local_only_grus(
-    client_seqs: list[Array], client_y: list[Array], *, seed: int
+    client_seqs: list[Array],
+    client_y: list[Array],
+    x_test: Array,
+    y_test: Array,
+    *,
+    seed: int,
+    class_names: list[str],
+    n_classes: int,
+    epochs: int,
+    hidden_size: int = 96,
+    batch_size: int = 1024,
+    verbose: bool = False,
 ) -> list[MulticlassMetrics]:
-    """Baseline 4: one GRU per client, no federation (lower bound)."""
-    del client_seqs, client_y, seed
-    raise NotImplementedError("Phase 4: local-only baseline not implemented yet.")
+    """Baseline 4: one GRU per client, trained ONLY on its own partition (lower bound).
+
+    Evaluated on the SAME shared global test set as every other baseline (Section III-B3: "a
+    stratified subset of blocks forms a global test set shared by every client and every
+    baseline"), so a client's metrics are directly comparable to baselines 1, 2, 3 and 5. A
+    client holding zero sequences (possible under strong heterogeneity, alpha small) reports
+    degenerate metrics against a constant-benign prediction rather than raising, since it is a
+    legitimate outcome of the partition, not an error in this function.
+    """
+    results = []
+    for seqs, y in zip(client_seqs, client_y, strict=True):
+        if len(seqs) == 0:
+            degenerate = np.zeros(len(y_test), dtype=np.int64)  # predicts class 0 (benign)
+            results.append(multiclass_metrics(y_test, degenerate, class_names))
+            continue
+        model = train_centralized(
+            seqs,
+            y,
+            hidden_size=hidden_size,
+            n_classes=n_classes,
+            epochs=epochs,
+            seed=seed,
+            batch_size=batch_size,
+            verbose=verbose,
+        )
+        y_pred, _ = predict(model, x_test)
+        results.append(multiclass_metrics(y_test, y_pred, class_names))
+    return results
 
 
 def federated_global_gru(
-    client_seqs: list[Array], client_y: list[Array], *, seed: int
-) -> MulticlassMetrics:
-    """Baseline 5: the federated global GRU (method under test)."""
-    del client_seqs, client_y, seed
-    raise NotImplementedError("Phase 4: federated-global baseline not implemented yet.")
+    client_seqs: list[Array],
+    client_y: list[Array],
+    x_test: Array,
+    y_test: Array,
+    *,
+    seed: int,
+    class_names: list[str],
+    n_classes: int,
+    rounds: int,
+    local_epochs: int,
+    hidden_size: int = 96,
+    aggregation: str = "weighted",
+    batch_size: int = 1024,
+    verbose: bool = False,
+) -> tuple[MulticlassMetrics, list[float], int]:
+    """Baseline 5: the federated global GRU (method under test), Algorithm 1 over ``rounds``.
+
+    Returns ``(final_metrics, macro_f1_per_round, measured_bytes_per_round)`` -- the convergence
+    curve (Section III-I2: "federated convergence as macro-F1 against round") and the measured
+    Eq. (22) communication cost of the LAST round are cheap byproducts of running the rounds and
+    are recorded here rather than discarded.
+    """
+    non_empty = [s for s in client_seqs if len(s)]
+    if not non_empty:
+        raise ValueError("every client holds zero sequences; cannot train a federated model")
+    n_features = non_empty[0].shape[2]
+
+    torch.manual_seed(seed)
+    global_model = build_detector(n_features, hidden_size, n_classes)
+    global_state = {k: v.clone() for k, v in global_model.state_dict().items()}
+
+    clients = [
+        FederatedClient(
+            i,
+            seqs,
+            y,
+            hidden_size=hidden_size,
+            n_classes=n_classes,
+            batch_size=batch_size,
+        )
+        for i, (seqs, y) in enumerate(zip(client_seqs, client_y, strict=True))
+    ]
+    server = FederatedServer(clients, aggregation=aggregation)
+
+    convergence: list[float] = []
+    for round_index in range(rounds):
+        global_state = server.run_round(global_state, local_epochs=local_epochs)
+        global_model.load_state_dict(global_state)
+        y_pred, _ = predict(global_model, x_test)
+        macro_f1 = multiclass_metrics(y_test, y_pred, class_names).macro_f1
+        convergence.append(macro_f1)
+        if verbose:
+            print(f"    round {round_index + 1}/{rounds}  macro-F1 {macro_f1:.4f}")
+
+    y_pred, _ = predict(global_model, x_test)
+    final = multiclass_metrics(y_test, y_pred, class_names)
+    return final, convergence, server.last_round_bytes
