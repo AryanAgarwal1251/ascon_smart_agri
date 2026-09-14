@@ -226,6 +226,9 @@ def main() -> None:
             local_epochs=cfg.federated.local_epochs,
             hidden_size=cfg.model.hidden_size,
             aggregation=cfg.federated.aggregation,
+            # Without this, nothing prints for an entire seed's R rounds (~70+ min at the
+            # default config) -- found the hard way on the run this script was written for.
+            verbose=True,
         )
         measured_bytes = bytes_per_round
         convergence_by_seed[seed] = convergence
