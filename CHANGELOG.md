@@ -159,6 +159,20 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
 
+### Changed: run manifests are now version-controlled
+
+`artifacts/` was gitignored wholesale, so every manifest and phase report existed only on the
+machine that produced it. That contradicts Section III-I4 ("no headline number is reported
+without a manifest"): the figures quoted throughout this file were claims with their evidence
+sitting outside the repository, and losing one laptop would have meant re-deriving them (114
+minutes for the Phase 3 run alone). Manifests and phase reports are provenance, not bulk output
+— all five total ~200 KB, and each records the git commit it belongs to, so the repo is exactly
+where they belong. Model checkpoints, figures and scratch output stay ignored.
+
+Note for anyone editing the rule: the pattern is `artifacts/*`, **not** `artifacts/`. Git never
+descends into an excluded *directory*, so a `!` re-include beneath one is silently ignored —
+the first attempt at this change looked correct and tracked nothing.
+
 ### Phase 3 gate CLOSED — baselines 1-3 and the window ablation
 
 Answers the correction below. `eval/baselines.py` implemented (baselines 1-3; 4-5 stay Phase 4

@@ -43,7 +43,10 @@ class RunManifest:
         """Serialise the manifest into ``output_dir`` and return the written path."""
         output_dir.mkdir(parents=True, exist_ok=True)
         path = output_dir / f"manifest_{self.run_name}.json"
-        path.write_text(json.dumps(asdict(self), indent=2, default=str), encoding="utf-8")
+        # Trailing newline: manifests are committed (they are III-I4 provenance), so they must
+        # satisfy the end-of-file-fixer pre-commit hook or every run dirties the tree.
+        payload = json.dumps(asdict(self), indent=2, default=str) + "\n"
+        path.write_text(payload, encoding="utf-8")
         return path
 
 
