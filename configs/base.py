@@ -25,11 +25,16 @@ from pydantic import BaseModel, Field, field_validator
 class DataConfig(BaseModel):
     """Subsampling + leakage control (Section III-B)."""
 
-    dataset_root: Path = Path("data/ciciot2023")
+    # The official UNB raw distribution, not the pre-merged Kaggle mirror -- see the dataset
+    # root decision documented in ascon_smart_agri.data.subsample's module docstring.
+    dataset_root: Path = Path("data/ciciot2023_raw")
     # Capped, stratified subsample target M ~ 1.5-2e6 records (III-B1 / R1).
     subsample_target: int = 1_800_000
     # Per-class cap kappa_c: compress dominant DDoS classes, keep every rare-family instance.
-    per_class_cap: int = 200_000
+    # Calibrated against the raw UNB distribution (not the Kaggle mirror this project no longer
+    # uses): 70_000 caps 24 of 34 classes and lands the realised total at 1,772,371 records,
+    # inside the paper's stated M ~ 1.5-2e6 (Section III-B1). See ascon_smart_agri.data.subsample.
+    per_class_cap: int = 70_000
     chunk_size: int = 500_000  # fixed-size CSV parts read to bound peak memory (R1)
     block_size: int = 256  # contiguous-record block; splitting operates on blocks (III-B3)
     test_fraction: float = 0.2  # stratified subset of blocks -> shared global test set
@@ -43,6 +48,13 @@ class FeatureConfig(BaseModel):
     f_sweep: list[int] = Field(default_factory=lambda: [8, 12, 16, 24])  # + F0, Stage 4
     selected_f: int = 16  # chosen at the knee of the validation macro-F1 curve
     rf_n_estimators: int = 200  # for Stage-3 impurity importance
+    # Stage-3 reciprocal rank fusion constant. The paper's equation for this is missing from
+    # docs/design_paper.md (the extraction dropped every display equation before Eq. 12), so
+    # this is the canonical k=60 of Cormack et al. (2009) -- see features/selection.py.
+    rrf_k: int = 60
+    # Rows drawn (seeded) from the training split for Spearman/MI/random-forest statistics.
+    # None uses every training row; 200k keeps a full fit near a minute at stable estimates.
+    selection_sample_size: int | None = 200_000
 
 
 class SequenceConfig(BaseModel):

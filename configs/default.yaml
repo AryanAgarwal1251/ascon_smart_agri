@@ -11,9 +11,11 @@ run_name: default
 output_dir: artifacts
 
 data:
-  dataset_root: data/ciciot2023
+  dataset_root: data/ciciot2023_raw   # official UNB raw distribution, not the Kaggle mirror
+                                       # (see ascon_smart_agri.data.subsample docstring)
   subsample_target: 1800000       # M ~ 1.5-2e6 (III-B1)
-  per_class_cap: 200000           # compress DDoS, keep rare families (III-B1)
+  per_class_cap: 70000            # compress DDoS, keep rare families -- calibrated to land
+                                   # near M ~ 1.5-2e6 on the raw distribution (III-B1)
   chunk_size: 500000
   block_size: 256                 # split on contiguous blocks, not rows (III-B3)
   test_fraction: 0.2
@@ -24,6 +26,8 @@ features:
   f_sweep: [8, 12, 16, 24]        # + F0, Stage 4 knee
   selected_f: 16
   rf_n_estimators: 200
+  rrf_k: 60                       # Stage-3 reciprocal rank fusion constant (see selection.py)
+  selection_sample_size: 200000   # seeded sample for Spearman/MI/RF stats; null = all rows
 
 sequence:
   window: 16                      # W; y_i = y_{i+W-1} (III-D)

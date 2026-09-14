@@ -126,6 +126,15 @@ ignore_missing_imports = true
 module = ["ascon_smart_agri.crypto._vendor.*"]
 ignore_errors = true
 
+# torch is deliberately NOT a pre-commit mypy additional_dependency: it would add a multi-
+# hundred-megabyte download to the hook environment for a stubs-only benefit. Without it
+# `nn.Module` resolves to Any in that environment and strict mode's disallow_subclassing_any
+# fires on the detector, while the local `mypy src` run (which does see torch) checks these
+# modules properly. Narrowed to the one package that subclasses a torch base class.
+[[tool.mypy.overrides]]
+module = ["ascon_smart_agri.model.*"]
+disallow_subclassing_any = false
+
 # --------------------------------------------------------------------------------------
 # Vulture: dead-code detection. min_confidence=80 filters out the "defined-but-not-yet-
 # called" stub functions/classes (confidence 60) during scaffolding while still catching

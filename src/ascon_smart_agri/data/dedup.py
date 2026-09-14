@@ -6,8 +6,14 @@ generalisation; the observed accuracy is inflated by ~= delta * rho (Section III
 order is therefore fixed as: DEDUP -> SPLIT, and asserted by ``tests/test_leakage.py`` (a
 blocking gate, R3). Nothing downstream is trusted until that test exists and passes.
 
-TODO(Phase 2): implement record hashing + exact-duplicate removal on the pooled frame,
-BEFORE any split is drawn.
+Ordering note (not stated explicitly by the paper, resolved here): this module's functions
+operate on an already-fully-loaded, in-memory ``pd.DataFrame`` -- feasible for the ~1.5-2e6-row
+capped subsample of Section III-B1, not for the raw ~46.7M-row corpus (which does not fit in
+memory as a single frame; Phase 1's ``characterize_dataset`` handles that scale by streaming).
+The paper's R3 invariant only fixes dedup *before split*; it says nothing about dedup's position
+relative to subsampling. Given these signatures, the intended pipeline order is therefore
+SUBSAMPLE -> DEDUP -> SPLIT, not DEDUP -> SUBSAMPLE -> SPLIT. Flagging this inference rather than
+leaving it implicit, since it fixes an ordering the paper left open.
 """
 
 from __future__ import annotations
@@ -20,12 +26,24 @@ def record_hash(frame: pd.DataFrame) -> pd.Series[str]:
 
     The same hashing is reused by the leakage gate to assert that no hash appears in both
     the train and test partitions.
+
+    Implementation: a single 64-bit hash per row via ``pandas.util.hash_pandas_object`` (over
+    every column, order-sensitive), rendered as a fixed-width hex string. At the capped-subsample
+    scale this module is meant for (~1.5-2e6 rows, see the module docstring), the birthday-bound
+    collision probability is on the order of 1e-10 -- negligible, and consistent with the same
+    choice already made and documented for Phase 1's ``characterize.py`` reporting statistic.
     """
-    del frame
-    raise NotImplementedError("Phase 2: record hashing not implemented yet.")
+    hashed = pd.util.hash_pandas_object(frame, index=False)
+    return hashed.map(lambda value: format(value, "016x")).astype(str)
 
 
 def deduplicate(frame: pd.DataFrame) -> pd.DataFrame:
-    """Drop exact duplicate records from the pooled frame *before* splitting."""
-    del frame
-    raise NotImplementedError("Phase 2: deduplication not implemented yet.")
+    """Drop exact duplicate records from the pooled frame *before* splitting.
+
+    Keeps the first occurrence of each distinct row (by :func:`record_hash`) and preserves the
+    original row order of the survivors -- required, since rows must never be shuffled before
+    windowing (Section III-D). The index is reset to a clean contiguous range afterwards; this
+    renumbers positions but does not reorder or shuffle the surviving rows.
+    """
+    hashes = record_hash(frame)
+    return frame.loc[~hashes.duplicated(keep="first")].reset_index(drop=True)

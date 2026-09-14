@@ -4,19 +4,48 @@ Phase 3 is a HARD GATE (III-J4): federation does not begin until single-client d
 proven, because debugging an aggregation fault and a modelling fault at once is much harder
 than either alone. Device-agnostic (CPU-only must suffice; a GPU may be used if present).
 
-TODO(Phase 3): class-weighted CE (w_c = n / (C * n_c), Eq. 18, training data only), training
-loop, checkpointing via safetensors, and full evaluation hookup.
+Implementation notes:
+
+* **Class-weighted cross-entropy, weights from TRAINING data only** (Eq. 18,
+  w_c = n / (C * n_c)). This is the first line of defence against the imbalance of Section
+  II-C. There is deliberately no synthetic oversampling: interpolating flow records fabricates
+  temporal structure that never occurred, and the windows built from it would be fiction.
+* **Complete sequences are shuffled at batch time, never rows** (Section III-D). The shuffle
+  happens over the first axis of an already-built ``(N, W, F)`` array, so within-window ordering
+  is untouched.
+* **A class absent from the training split gets weight 0**, not an infinite one. Eq. (18) divides
+  by n_c, which is undefined at n_c = 0; weighting an unobservable class infinitely would let a
+  single stray prediction dominate the loss. The absence is instead visible in the per-class F1
+  of the evaluation report.
+* Training is seeded end to end (torch, numpy and the batch permutation) so a run is
+  reproducible from the manifest, as Section III-I4 requires.
 """
 
 from __future__ import annotations
 
+import numpy as np
+import torch
+from torch import nn
+
 from .._types import Array
+from .gru import build_detector
 
 
 def class_weights(label_counts: dict[str, int]) -> dict[str, float]:
     """Class weights w_c = n / (C * n_c) from TRAINING counts only (Eq. 18)."""
-    del label_counts
-    raise NotImplementedError("Phase 3: class weighting not implemented yet.")
+    if not label_counts:
+        raise ValueError("cannot compute class weights from an empty count map")
+    if any(count < 0 for count in label_counts.values()):
+        raise ValueError(f"negative class counts are not meaningful: {label_counts}")
+
+    n = sum(label_counts.values())
+    if n == 0:
+        raise ValueError("cannot compute class weights when every class count is zero")
+    n_classes = len(label_counts)
+    return {
+        name: (n / (n_classes * count) if count > 0 else 0.0)
+        for name, count in label_counts.items()
+    }
 
 
 def train_centralized(
@@ -27,7 +56,87 @@ def train_centralized(
     n_classes: int,
     epochs: int,
     seed: int,
-) -> object:
+    batch_size: int = 1024,
+    learning_rate: float = 1e-3,
+    device: str = "cpu",
+    verbose: bool = False,
+) -> nn.Module:
     """Train the centralised GRU reference model and return the trained model."""
-    del sequences, labels, hidden_size, n_classes, epochs, seed
-    raise NotImplementedError("Phase 3: centralised training not implemented yet.")
+    if sequences.ndim != 3:
+        raise ValueError(f"sequences must be (N, W, F), got shape {sequences.shape}")
+    if len(sequences) != len(labels):
+        raise ValueError(f"sequences/labels lengths disagree: {len(sequences)}, {len(labels)}")
+    if len(sequences) == 0:
+        raise ValueError("cannot train on zero sequences")
+    if epochs <= 0:
+        raise ValueError(f"epochs must be positive, got {epochs}")
+    if batch_size <= 0:
+        raise ValueError(f"batch_size must be positive, got {batch_size}")
+
+    torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+
+    n_features = sequences.shape[2]
+    model = build_detector(n_features, hidden_size, n_classes).to(device)
+
+    y = np.asarray(labels).astype(np.int64)
+    if y.min() < 0 or y.max() >= n_classes:
+        raise ValueError(f"labels must lie in [0, {n_classes}), got [{y.min()}, {y.max()}]")
+
+    # Eq. (18), on training data only.
+    counts = {index: int(np.sum(y == index)) for index in range(n_classes)}
+    weights = class_weights({str(k): v for k, v in counts.items()})
+    weight_tensor = torch.tensor(
+        [weights[str(index)] for index in range(n_classes)], dtype=torch.float32, device=device
+    )
+    criterion = nn.CrossEntropyLoss(weight=weight_tensor)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    x_all = torch.as_tensor(np.asarray(sequences, dtype=np.float32))
+    y_all = torch.as_tensor(y)
+
+    model.train()
+    for epoch in range(epochs):
+        # Shuffle COMPLETE SEQUENCES only -- never the rows inside a window (Section III-D).
+        order = rng.permutation(len(x_all))
+        running_loss = 0.0
+        n_batches = 0
+        for start in range(0, len(order), batch_size):
+            index = torch.as_tensor(order[start : start + batch_size])
+            x_batch = x_all[index].to(device)
+            y_batch = y_all[index].to(device)
+
+            optimizer.zero_grad(set_to_none=True)
+            loss = criterion(model(x_batch), y_batch)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += float(loss.detach())
+            n_batches += 1
+        if verbose:
+            print(f"  epoch {epoch + 1}/{epochs}  weighted CE {running_loss / n_batches:.4f}")
+
+    model.eval()
+    return model
+
+
+def predict(
+    model: nn.Module, sequences: Array, *, batch_size: int = 4096, device: str = "cpu"
+) -> tuple[Array, Array]:
+    """Return ``(predicted_class, class_probabilities)`` for a batch of sequences."""
+    if sequences.ndim != 3:
+        raise ValueError(f"sequences must be (N, W, F), got shape {sequences.shape}")
+
+    model.eval()
+    x_all = torch.as_tensor(np.asarray(sequences, dtype=np.float32))
+    probabilities = []
+    # The context-manager form, not the @torch.no_grad() decorator: the decorator is untyped
+    # in the pre-commit mypy environment (which has no torch), and an untyped decorator would
+    # silently make this whole function untyped.
+    with torch.no_grad():
+        for start in range(0, len(x_all), batch_size):
+            logits = model(x_all[start : start + batch_size].to(device))
+            probabilities.append(torch.softmax(logits, dim=1).cpu().numpy())
+
+    probability = np.concatenate(probabilities) if probabilities else np.empty((0, 0))
+    return probability.argmax(axis=1), probability
