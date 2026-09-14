@@ -27,6 +27,52 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-09-14
 
+### Changed: toolchain pinned to one set of versions; pre-commit hook actually installed
+
+`pre-commit install` had never been run in this checkout, and the config had drifted from the
+`dev` extra badly enough that installing it would have baked a contradiction into every commit.
+
+- **Hook revs realigned with `pyproject.toml`'s `dev` extra:** ruff `v0.6.9` -> `v0.16.7`,
+  vulture `v2.13` -> `v2.16`, mypy `v1.11.2` -> `v2.3.1`. pre-commit builds each hook its own
+  isolated environment at the pinned rev, so a drifted pin means the hook and a local
+  `ruff check .` are *different programs* -- one can pass while the other fails. vulture is the
+  sharpest case: `pyproject.toml` pins it with an exact `==2.16` while the hook asked for 2.13,
+  so the config contradicted itself. A comment at the top of the config now says to keep them
+  in step.
+- **`ruff` hook id -> `ruff-check`**; the bare `ruff` id is a deprecated alias in ruff-pre-commit
+  >= 0.12 and emitted a warning on every run.
+- **Python floor raised to 3.12** (`requires-python`, ruff `target-version`, mypy
+  `python_version`). This is forced by the dependencies rather than chosen: numpy (>= 2.4) and
+  scipy (>= 1.16) both declare `requires-python >= 3.12`, so `>= 3.11` was already a false
+  claim -- the pinned stack cannot install on 3.11. It also un-blocked mypy, which under a 3.11
+  target refuses to parse numpy's bundled stubs (they use PEP 695 `type` statements) and so
+  failed before reaching any of our code.
+- **`features/selection.py` Stage 2 now indexes the Spearman matrix as a float array**
+  (`.to_numpy(dtype=np.float64)` plus a column->position map) instead of `spearman.at[row, col]`.
+  Under the current pandas-stubs, `.at` is declared as a union spanning `str`/`bytes`/`datetime`,
+  which cannot be compared against a float threshold; `float(...)` does not fix it either, since
+  the union includes members `float()` rejects. A correlation is a float, so the array is the
+  honest type. **Behaviour is unchanged** -- all 18 feature-selection tests still pass. This was
+  a pre-existing failure surfaced, not caused, by the pin alignment.
+- **`pre-commit install` run**; `pre-commit run --all-files` is green on every hook.
+
+### Changed: setup docs now cover both platforms, and describe a venv that exists
+
+`CLAUDE.md`'s Commands section documented `./.venv/Scripts/ruff.exe` -- Windows paths -- while
+also claiming the scientific stack was "already installed in the system Python 3.11" and that
+`.venv` was created with `--system-site-packages`. On a POSIX checkout none of those commands
+run, and the system-Python claim is no longer true anywhere.
+
+- `CLAUDE.md` and `README.md` now give **both** macOS/Linux (`.venv/bin/`) and Windows
+  (`.venv\Scripts\*.exe`) invocations for setup and for every gate, state the 3.12 floor and
+  why it exists, and drop the stale `--system-site-packages` / system-Python framing: everything
+  installs into a project-local `.venv`.
+- Documented the two things that actually bite: the pytest hook is `language: system` so the
+  venv must be **activated** (not just addressed by path) when committing, and hook revs must
+  track the `dev` extra.
+- Dropped README's "add `,crypto` once the Ascon backend is chosen" -- there is no `crypto`
+  extra; the backend is vendored.
+
 ### Added
 
 - **Phase 3 completed: scaling, training loop, metrics, reporting guard and manifest.**

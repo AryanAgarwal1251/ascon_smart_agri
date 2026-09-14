@@ -118,17 +118,32 @@ control** (see [`.gitignore`](.gitignore)); demonstration keys must be labelled 
 
 ## Development
 
-Runtime deps (torch CPU, numpy, pandas, scikit-learn, scipy, safetensors, pydantic, pyyaml)
-are already present in the target environment. Install the dev tooling and hooks:
+**Python 3.12+ is required** — numpy and scipy both declare `requires-python >= 3.12`, so the
+pinned stack will not install on 3.11. Everything (runtime deps and dev tools) installs into a
+project-local `.venv`; nothing is assumed preinstalled in a system Python. There is no `crypto`
+extra — the Ascon backend is vendored (see the Ascon variant note above).
 
 ```bash
-python -m pip install -e ".[dev]"      # add ,crypto once the Ascon backend is chosen
-pre-commit install
+# macOS / Linux
+python3.12 -m venv .venv
+./.venv/bin/python -m pip install -e ".[dev]"
+./.venv/bin/pre-commit install
+```
+
+```powershell
+# Windows (PowerShell)
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\pre-commit.exe install
 ```
 
 Quality gates run **locally as pre-commit hooks before each commit** (no remote CI): ruff
 (lint + format), vulture (dead code), mypy (`src`), and pytest — each as its own hook. Run them
 on demand:
+
+Activate the venv first (`source .venv/bin/activate`, or `.\.venv\Scripts\Activate.ps1` on
+Windows) so these resolve to the project's tools — the pytest hook in particular is
+`language: system` and uses whatever `pytest` is on `PATH`.
 
 ```bash
 ruff check . && ruff format --check .

@@ -11,7 +11,9 @@ name = "ascon-smart-agri"
 version = "0.0.0"
 description = "Federated GRU intrusion detection with Ascon-authenticated telemetry for smart-agriculture IoT (CICIoT2023)."
 readme = "README.md"
-requires-python = ">=3.11"
+# 3.12 is a floor set by the dependencies, not a preference: numpy >= 2.4 and scipy >= 1.16
+# both declare requires-python >= 3.12, so the pinned stack cannot install on 3.11 at all.
+requires-python = ">=3.12"
 authors = [
     { name = "Abhishek Jadli", email = "abhishek.jadli2023@vitstudent.ac.in" },
     { name = "Aryan Agarwal", email = "aryan.agarwal2023@vitstudent.ac.in" },
@@ -68,7 +70,7 @@ packages = ["src/ascon_smart_agri"]
 # --------------------------------------------------------------------------------------
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 # Vendored third-party code is kept byte-identical to upstream (see crypto/_vendor); never lint
 # or reformat it, so it stays diff-verifiable against the pinned commit.
@@ -104,7 +106,9 @@ docstring-code-format = true
 # ones that most need typing; third-party libs without stubs are ignored for imports.
 # --------------------------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.11"
+# Must track requires-python: numpy's bundled stubs use PEP 695 `type` statements, which
+# mypy refuses to parse under a 3.11 target -- it fails before checking any of our code.
+python_version = "3.12"
 strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
