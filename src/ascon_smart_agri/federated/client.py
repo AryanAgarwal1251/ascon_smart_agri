@@ -16,10 +16,20 @@ How independence is enforced rather than asserted:
   than FedAvg while still looking like it converged.
 * ``n_k`` is the number of training **sequences**, taken from the client's windowed tensor, so
   the FedAvg weight (Eq. 21) cannot accidentally become a row count.
+* **The local training seed mixes the run seed, the client id AND the round index.** Seeding
+  with the bare ``client_id`` (as this class first did) has two consequences that only show up
+  in the reported numbers, never in a crash. Within a run, every round re-seeds identically, so
+  a client replays the *same* batch permutation in round 20 as in round 1 -- the shuffle stops
+  being a shuffle after the first round. Across runs, local training becomes independent of the
+  experiment seed, so the >= 3-seed spread of Section III-I4 samples only the initial parameters
+  and the Dirichlet draw, and reports a tighter std than the method actually has. Mixing all
+  three through a ``SeedSequence`` keeps the run fully reproducible from the manifest while
+  letting the variance that III-I4 reports be real.
 """
 
 from __future__ import annotations
 
+import numpy as np
 import torch
 from torch import nn
 
@@ -38,6 +48,7 @@ class FederatedClient:
         sequences: Array | None = None,
         labels: Array | None = None,
         *,
+        seed: int = 0,
         hidden_size: int = 96,
         n_classes: int = 8,
         batch_size: int = 1024,
@@ -45,6 +56,10 @@ class FederatedClient:
         device: str = "cpu",
     ) -> None:
         self.client_id = client_id
+        self.seed = seed
+        # Rounds completed so far; folded into the training seed so each round shuffles
+        # differently while the whole run stays reproducible (see the module docstring).
+        self._round = 0
         # Private: named with a leading underscore and never returned or logged. The server
         # receives (theta_k, n_k) and nothing else.
         self._sequences = sequences
@@ -54,6 +69,15 @@ class FederatedClient:
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.device = device
+
+    def training_seed(self, round_index: int) -> int:
+        """Local training seed for ``round_index``, mixing (run seed, client id, round).
+
+        Exposed rather than inlined so a test can assert the three inputs actually separate --
+        the failure this guards against is silent (see the module docstring).
+        """
+        entropy = [self.seed, self.client_id, round_index]
+        return int(np.random.SeedSequence(entropy).generate_state(1)[0])
 
     @property
     def n_sequences(self) -> int:
@@ -67,6 +91,7 @@ class FederatedClient:
         """
         if local_epochs <= 0:
             raise ValueError(f"local_epochs must be positive, got {local_epochs}")
+        self._round += 1
 
         # A client with no sequences returns the global parameters untouched and n_k = 0, so
         # weighted_fedavg gives it weight zero. This happens legitimately at alpha = 0.1.
@@ -85,7 +110,7 @@ class FederatedClient:
             self._labels,
             n_classes=self.n_classes,
             epochs=local_epochs,
-            seed=self.client_id,
+            seed=self.training_seed(self._round),
             batch_size=self.batch_size,
             learning_rate=self.learning_rate,
             device=self.device,

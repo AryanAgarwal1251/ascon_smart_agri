@@ -27,6 +27,48 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-09-14
 
+### Added: Phase 4 gate checker, and a real fix to the local training seed
+
+- **`scripts/check_phase4_gate.py`** -- the machine-checkable answer to "is Phase 4 done?",
+  mirroring `check_phase3_gate.py` so closing the phase is not a judgement call. It reads a
+  Phase 4 manifest and checks: >= 3 seeds; baselines 3-5 reported with mean +/- std; accuracy
+  never reported alone (III-I2); `aggregation == "weighted"` and the applied weights equal the
+  per-client **sequence** counts rather than the row counts (Eq. 21); the global model reached
+  all K clients; per-client class histograms published with a shared vocabulary so an absent
+  class shows as 0 (III-F1 / G3); the federated-vs-pooled scaler gap within floating-point
+  tolerance (Eqs. 23-24); communication cost measured against Eq. (22); the G4 bracket; and a
+  manifest carrying config, versions and a real git commit (III-I4).
+  - Like the Phase 3 checker it deliberately does **not** check that federation performed well.
+    A federated model at the bottom of its bracket, properly measured, closes the gate.
+  - **Verified to fail, not just to pass.** A gate that cannot reject is worse than none, so it
+    was run against eight deliberately broken manifests -- unweighted aggregation, weights
+    swapped to row counts, two seeds, a corrupted scaler gap, dropped histograms, a missing
+    bracket, an absent git commit, and a client the global model never reached. All eight exit
+    non-zero with the relevant item marked FAIL.
+
+- **`FederatedClient` now seeds local training from (run seed, client id, round)** via a
+  `SeedSequence`, replacing the bare `client_id`. The old seeding had two consequences that
+  never surface as a crash, only as distorted numbers: within a run every round re-seeded
+  identically, so a client replayed the *same* batch permutation in round 20 as in round 1 and
+  the shuffle stopped being a shuffle after the first round; and across runs local training was
+  independent of the experiment seed, so the >= 3-seed spread of Section III-I4 sampled only the
+  initial parameters and the Dirichlet draw and reported a tighter std than the method actually
+  has. This was raised twice as an open question before the real run rather than discovered
+  after it. `training_seed()` is exposed so a test can pin the three inputs apart, and three
+  tests in `test_federated.py` assert rounds differ, the run seed matters, clients differ from
+  each other, the derivation stays reproducible, and the round counter actually advances.
+  `run_federation` passes the run seed down to each client. Suite: **250 passed, 1 skipped**.
+
+### Still blocking Phase 4 (the phase is NOT closed)
+
+The federated experiment has still not been run on CICIoT2023, because the corpus is not on this
+machine: `data/ciciot2023_raw/` does not exist, and there is no prepared cache. Everything above
+was verified on synthetic arrays, which establishes that the runner and the gate behave
+correctly and **nothing else** -- no macro-F1, bracket position, or convergence curve from a
+synthetic run is a finding, and the synthetic manifest produced while testing the gate was
+deleted rather than committed. Phase 4 closes when `scripts/run_phase4.py` has been run against
+the real corpus and `scripts/check_phase4_gate.py` exits 0 on the resulting manifest.
+
 ### Changed: toolchain pinned to one set of versions; pre-commit hook actually installed
 
 `pre-commit install` had never been run in this checkout, and the config had drifted from the

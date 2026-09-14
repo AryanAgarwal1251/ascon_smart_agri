@@ -350,6 +350,7 @@ def run_federation(
             client_id,
             np.asarray(seqs) if len(seqs) > 0 else None,
             np.asarray(labels) if len(labels) > 0 else None,
+            seed=seed,  # mixed with client id and round inside the client
             hidden_size=hidden_size,
             n_classes=n_classes,
             batch_size=batch_size,
