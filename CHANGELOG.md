@@ -13,7 +13,7 @@ kept current.
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | In progress: **both blocking invariants green** (`test_fedavg_weighting.py`, `test_scaler_equivalence.py` — the last two skips in the suite are gone); partition/aggregation/serialization/client/server implemented and Eq. (22)'s cost figures reproduced. **Not** done: baselines 4-5 are still stubs and the federated experiment has not been run | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅ |
+| 4 | Three-client federated simulation, weighted FedAvg | **Minimal gate CLOSED**, verified by `scripts/check_phase4_gate.py` (25/25 PASS, exit 0): baselines 4-5 reported over 3 seeds at the paper's default config (α=0.5, R=20, E=3, weighted). Federated global macro-F1 **0.8334 ± 0.0026**, beating both local-only (0.73-0.77) and the Phase 3 centralised reference (0.8297) on every one of 3 seeds. **Not done:** the α/E/weighted-vs-unweighted/R ablation sweep of Section III-I3, deferred as separate scope (see entry below) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; minimal gate closed ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
 | 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
 | 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
@@ -158,6 +158,60 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 4 minimal gate CLOSED: baselines 4-5, real federated experiment run
+
+Runs `scripts/run_phase4.py` for real: 3 clients (Dirichlet α=0.5), R=20 rounds, E=3 local
+epochs, weighted FedAvg, 3 seeds, against `scripts/check_phase4_gate.py`'s criterion (written
+*before* this run, per the Phase 3 lesson). **25/25 checks PASS, exit 0 — `PHASE 4: MINIMAL GATE
+CLOSED`.** Results written to `artifacts/manifest_phase4_default.json` (full provenance) and
+`artifacts/phase4_results.json` (distilled summary, in the same relationship
+`phase2_feature_selection.json` has to its own run). Total wall-clock: 440.5 minutes.
+
+| macro-F1 | seed 0 | seed 1 | seed 2 | mean |
+| --- | --- | --- | --- | --- |
+| Baseline 4, client 0 (local-only) | -- | -- | -- | 0.7702 ± 0.0127 |
+| Baseline 4, client 1 (local-only) | -- | -- | -- | 0.7332 ± 0.0045 |
+| Baseline 4, client 2 (local-only) | -- | -- | -- | 0.7635 ± 0.0066 |
+| Baseline 5 (federated global) | 0.8338 | 0.8364 | 0.8301 | **0.8334 ± 0.0026** |
+| Baseline 3 (Phase 3 centralised, reference) | | | | 0.8297 |
+
+- **G4 answered, computed rather than eyeballed** (`summarize_phase4.py`'s bracket check):
+  federation beats every local-only client on every seed, **and slightly exceeds the
+  centralised reference on all three** (0.8334 vs 0.8297). The paper explicitly allows the
+  opposite finding (R4: federation underperforming local-only under heterogeneity is "a
+  legitimate finding... the quantity an operator most needs to know"); this run did not need
+  that allowance, but it was checked rather than assumed.
+- **Convergence.** All three seeds' round curves climb steeply to ~round 8-10 then plateau in a
+  tight 0.83-0.84 band with minor round-to-round noise (e.g. seed 0 dips to 0.811 at round 12,
+  recovers next round) -- visibly converged well before R=20, a data point for judging R's
+  necessity if the deferred R sweep is picked up later.
+- **Partition sanity-checked against real data, not just synthetic tests.** At α=0.5 the
+  per-client histograms are visibly skewed (client 1 holds 1,359 of class 1 against 12-24 of
+  several others) without any client being starved to zero -- the heterogeneity knob is doing
+  real work on the actual corpus, not only in `test_federated.py`'s synthetic fixtures.
+- **A real logging bug found mid-run, fixed for future runs, left uncorrected in this one.**
+  `federated_global_gru`'s `verbose` flag was never passed as `True` from `run_phase4.py`, so an
+  entire seed's 20 rounds (order of an hour) produced no output. Fixed in `983828f`; the fix
+  could not apply to the already-running process (Python had already loaded the old code), so
+  seed 0's per-round progress went unobserved -- the final metrics are unaffected, only their
+  visibility while running.
+- **A severe, misleading timing anomaly, root-caused rather than left unexplained.** Seed 1 took
+  14,807s (4.1h) against seed 0's 4,714s (1.3h) and seed 2's 4,008s (1.1h) -- a 3.1-3.7x outlier
+  with no code-level explanation, since the process's own memory footprint stayed flat (~430-590
+  MB RSS) throughout. Diagnosed as **system-wide memory pressure**: swap usage measured at 8.9 of
+  10 GB (87%) during the slow stretch, most plausibly from other applications competing for RAM
+  on the host, not from this process or its code. Recorded here so a future run's per-seed
+  timing spread is not mistaken for a regression in the federated code.
+- **Scope decision (flagged per Golden Rule 1, discussed with the user before this run started).**
+  Section III-J4's "work plan" states Phase 4's gate as "three clients with weighted FedAvg" --
+  narrower than Phase 3's, and the six ablations of Section III-I3 (α, E, weighted/unweighted,
+  W, F, R) are evaluation *reporting*, not listed among the seven phase-gate criteria. This is
+  the same summary-vs-source distinction that caused Phase 3 to be declared complete
+  prematurely (see the correction entry below); this time `check_phase4_gate.py` was written
+  first, against the paper text, specifically to not repeat it. The α/E/weighted-vs-unweighted/R
+  sweep is real remaining work, deferred as a separate, much larger task (a single configuration
+  alone cost 7.3 hours) -- not silently dropped.
 
 ### Phase 4 opened (user-authorised): federated infrastructure, both invariants green
 
