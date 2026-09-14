@@ -13,7 +13,7 @@ kept current.
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | In progress: **both blocking invariants green** (`test_fedavg_weighting.py`, `test_scaler_equivalence.py`); partition/aggregation/serialization/client/server implemented and Eq. (22)'s cost figures reproduced. **Baselines 4-5 now implemented** and the runner `scripts/run_phase4.py` is wired end-to-end (smoke-verified on synthetic arrays). **Not** done: the federated experiment has not been run on the real corpus, so no Phase 4 figure is a finding yet | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅ |
+| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0) on the real CICIoT2023 corpus. Baselines 3-5 of III-I1 over 3 seeds at alpha=0.5, R=20, E=3, W=16, compute-matched at 60 local passes each: federated global GRU macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040** — federation recovers **82.4 %** of the gap declining to federate leaves on the table | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; gate checker exit 0 ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
 | 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
 | 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
@@ -24,6 +24,72 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 (see the 2026-09-12 Phase 6 entry below), `data/characterize.py` (Phase 1), and
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
+
+## 2026-09-15
+
+### Phase 4 gate CLOSED — the federated simulation, run on the real corpus
+
+`scripts/run_phase4.py` ran end-to-end on the official UNB CICIoT2023 distribution and
+`scripts/check_phase4_gate.py` exits 0 on the resulting manifest
+(`artifacts/manifest_phase4_default.json`). Every number below is mean ± std over seeds
+{0, 1, 2} (III-I4); nothing here comes from synthetic data.
+
+Corpus as prepared by Phases 1-2: 46,776,700 raw records -> capped subsample -> dedup -> block
+split -> four-stage selection at F=16, giving **1,237,911 train / 311,565 test rows** across
+4,854 train blocks, 1,222,009 pooled training sequences at W=16. Wall clock 160.8 min.
+
+| baseline (III-I1) | macro-F1 | balanced acc. | MCC | accuracy |
+| --- | --- | --- | --- | --- |
+| 4. local-only GRUs (lower bound) | 0.7205 ± 0.0750 | — | — | — |
+| 5. **federated global GRU** | **0.8308 ± 0.0150** | 0.8404 ± 0.0088 | 0.8845 ± 0.0174 | 0.9090 ± 0.0151 |
+| 3. centralised GRU (upper bound) | 0.8543 ± 0.0040 | 0.8612 ± 0.0035 | 0.9021 ± 0.0020 | 0.9235 ± 0.0020 |
+
+**The G4 answer:** the federated model sits inside its bracket and recovers **82.4 %** of the
+macro-F1 that local-only training leaves on the table, for **815,136 measured bytes per round**
+(Eq. 22 predicts 811,200; the 0.5 % excess is safetensors framing). Local-only is also by far the
+least stable baseline (± 0.0750 against the federated ± 0.0150), because its score depends
+entirely on which classes its client happened to be dealt: at seed 1, where two clients were
+missing classes, local-only fell to 0.6145 while the federated model still reached 0.8145.
+
+**Read the FPR before reading anything else.** Under the Eq. (5) binary projection the federated
+model has a false-positive rate of **0.2975 ± 0.0512** (centralised 0.2767 ± 0.0283) at ~98.8 %
+attack recall — roughly **three in ten benign flows raise an alarm**. Section III-I2 makes FPR
+first-class precisely because this is the number that gets a detector switched off in
+production, and no amount of 0.92 accuracy compensates for it. Accuracy (0.9090) sits below the
+0.98 near-ceiling threshold, so the III-I5 note correctly does not fire — this run is not in
+the dataset-artifact regime, and the weak classes are real: BruteForce 0.6339, WebBased 0.6522
+and Benign 0.7148 per-class F1, against Mirai 0.9849 and Spoofing 0.9673.
+  - These FPR figures are **derived from the confusion matrices in the committed manifest**, not
+    separately measured: FPR is a pure function of the benign row. `run_phase4.py` now records
+    `false_positive_rate` per seed and carries it in the headline set, so the next run stores it
+    directly; this manifest predates that and was not re-run for a derived quantity.
+
+**Eqs. (23-24) verified on real data:** the federated scaler, built only from per-client
+count/mean/M2, matched a pooled fit to a maximum relative gap of **5.42e-12** across all three
+seeds -- the III-F4 claim holding on 1.2M real rows, not only in a unit test.
+
+### Fixed: the bracket was measuring the training budget, not the method
+
+The first real seed put the federated model (0.8507) **above** its own centralised upper bound
+(0.8293), which reads as "federation beats pooling" and is nothing of the sort. Federation makes
+R*E = 20*3 = 60 local passes; baseline 4 was already matched to that, but baseline 3 was left at
+the Phase 3 default of 10 epochs — a 6x training advantage handed to the method under test. With
+the budget equalised the centralised baseline rose to 0.8584 on that seed and the ordering came
+right. `--central-epochs` now defaults to `R*E`, the manifest records an `epoch_budget` block,
+and `check_phase4_gate.py` gained an item that **fails** if the three budgets ever diverge again.
+The run was stopped and restarted rather than allowed to finish and publish the inverted result.
+
+### Changed: the centralised baseline is windowed over the whole training split
+
+It previously trained on the concatenated client windows. "Upper bound attainable by pooling"
+means a trainer that never sees the partition, so its windows must not be fragmented at
+partition boundaries the way a client's are; concatenating handed the upper bound the federated
+setting's handicap. It also matches how Phase 3 built this baseline, which is what makes the two
+phases comparable — and that comparability is now evidence: at Phase 3's own 10-epoch budget
+this pipeline reproduced Phase 3's centralised macro-F1 to **0.8293 against 0.8297 ± 0.0013**,
+an independent end-to-end check that Phases 1-3 replay faithfully on this machine. Building the
+pooled tensor before the per-client ones and freeing it also removed a ~1.2 GB duplicate from
+peak memory.
 
 ## 2026-09-14
 

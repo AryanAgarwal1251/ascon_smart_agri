@@ -59,7 +59,8 @@ from ascon_smart_agri.sequences.windowing import build_windows, contiguity_segme
 
 print = functools.partial(builtins.print, flush=True)
 
-HEADLINE = ("macro_f1", "balanced_accuracy", "mcc", "accuracy")
+# FPR is in the headline set deliberately (III-I2), not reported as an afterthought.
+HEADLINE = ("macro_f1", "balanced_accuracy", "mcc", "accuracy", "false_positive_rate")
 
 
 def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped-def]
@@ -169,6 +170,21 @@ def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped
     )
 
 
+def binary_fpr(confusion: np.ndarray, benign_index: int = 0) -> float:
+    """False-positive rate FP/(FP+TN) under the Eq. (5) binary projection, Eq. (31).
+
+    Section III-I2 makes FPR a first-class metric rather than a footnote, because in production
+    a high false-alarm rate is what gets a detector switched off. It is a pure function of the
+    confusion matrix (benign row: everything off the diagonal is a false alarm), so it needs no
+    extra inference pass and stays consistent with the matrix reported beside it.
+    """
+    matrix = np.asarray(confusion, dtype=np.float64)
+    true_negative = matrix[benign_index, benign_index]
+    false_positive = matrix[benign_index].sum() - true_negative
+    denominator = false_positive + true_negative
+    return float(false_positive / denominator) if denominator > 0 else float("nan")
+
+
 def federated_scaler(client_rows: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     """Global (mean, std) from client sufficient statistics only (Eqs. 23-24).
 
@@ -184,7 +200,12 @@ def main() -> None:
     parser.add_argument("--rounds", type=int, default=0, help="R; default: config value")
     parser.add_argument("--local-epochs", type=int, default=0, help="E; default: config value")
     parser.add_argument("--alpha", type=float, default=0.0, help="default: config value")
-    parser.add_argument("--central-epochs", type=int, default=10, help="baseline 3 epochs")
+    parser.add_argument(
+        "--central-epochs",
+        type=int,
+        default=0,
+        help="baseline 3 epochs; default 0 = R*E, matching the federated local-pass budget",
+    )
     parser.add_argument("--aggregation", default="", help="weighted|unweighted")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--cache", default="")
@@ -197,6 +218,15 @@ def main() -> None:
     alpha = args.alpha or cfg.federated.dirichlet_alpha
     aggregation = args.aggregation or cfg.federated.aggregation
     n_clients = cfg.federated.n_clients
+
+    # COMPUTE-MATCHED BRACKET. Federation makes R*E local passes over a client's data; the two
+    # bounds must be given the same budget or the bracket measures the budget instead of the
+    # method. Leaving baseline 3 at a fixed 10 epochs while federation ran 20*3 = 60 put the
+    # federated model ABOVE its own upper bound on the first real seed -- which reads as
+    # "federation beats pooling" and is nothing of the sort, just a 6x training advantage.
+    # Baseline 4 was already matched this way; baseline 3 now is too.
+    local_passes = rounds * local_epochs
+    central_epochs = args.central_epochs or local_passes
     started = time.time()
 
     (x_tr, y_tr, src_tr, idx_tr, blk_tr, x_te, y_te, src_te, idx_te, columns, per_class_counts) = (
@@ -206,6 +236,7 @@ def main() -> None:
     # The shared global test set: one population for every baseline (Section III-B3). The
     # segments are seed-invariant; the scaled values are not, so windows are built per seed.
     seg_te = contiguity_segments(src_te, idx_te)
+    seg_tr = contiguity_segments(src_tr, idx_tr)  # for the pooled (centralised) baseline
     pooled = fit_scaler(x_tr)  # reference only -- the III-F4 claim is checked against it
 
     # Blocks carry exactly one label (data/split.make_blocks), so a block's label is its
@@ -254,6 +285,36 @@ def main() -> None:
         scaled_te = ((x_te - mean) / std).astype(np.float32)
         seq_te, lab_te = build_windows(scaled_te, y_te, seg_te, cfg.sequence.window)
 
+        names = list(CLASS_NAMES)
+        common = {"class_names": names, "n_classes": cfg.model.n_classes}
+
+        # ---- Baseline 3: centralised GRU, the upper bound ------------------------------
+        # Windowed over the WHOLE training split, not over the concatenated client windows.
+        # "Upper bound attainable by pooling" means exactly that: a pooled trainer never sees
+        # the partition, so its windows are not fragmented at partition boundaries the way a
+        # client's are. Concatenating client windows would hand the upper bound the federated
+        # setting's handicap and understate the gap the bracket exists to measure. It also
+        # matches how Phase 3 built this same baseline, so the two phases stay comparable.
+        t0 = time.time()
+        pooled_seqs, pooled_labels = build_windows(scaled_tr, y_tr, seg_tr, cfg.sequence.window)
+        central = centralized_gru(
+            pooled_seqs,
+            pooled_labels,
+            seq_te,
+            lab_te,
+            seed=seed,
+            epochs=central_epochs,
+            hidden_size=cfg.model.hidden_size,
+            **common,  # type: ignore[arg-type]
+        )
+        print(
+            f"  central  macro-F1 {central.macro_f1:.4f} ({time.time() - t0:.0f}s)"
+            f" | {len(pooled_seqs):,} pooled sequences"
+        )
+        # Freed before the per-client tensors are built: holding both at once roughly doubles
+        # peak memory for no reason, and the pooled copy is not needed again.
+        del pooled_seqs, pooled_labels
+
         # ---- Per-client windows, built inside each client's own blocks -----------------
         client_seqs, client_labels = [], []
         for client_id, mask in enumerate(row_masks):
@@ -283,22 +344,6 @@ def main() -> None:
             }
         )
 
-        common = {"class_names": list(CLASS_NAMES), "n_classes": cfg.model.n_classes}
-
-        # ---- Baseline 3: centralised GRU, the upper bound ------------------------------
-        t0 = time.time()
-        central = centralized_gru(
-            np.concatenate([s for s in client_seqs if len(s)]),
-            np.concatenate([v for v in client_labels if len(v)]),
-            seq_te,
-            lab_te,
-            seed=seed,
-            epochs=args.central_epochs,
-            hidden_size=cfg.model.hidden_size,
-            **common,  # type: ignore[arg-type]
-        )
-        print(f"  central  macro-F1 {central.macro_f1:.4f} ({time.time() - t0:.0f}s)")
-
         # ---- Baseline 4: local-only GRUs, the lower bound ------------------------------
         t0 = time.time()
         locals_ = local_only_grus(
@@ -307,7 +352,7 @@ def main() -> None:
             seq_te,
             lab_te,
             seed=seed,
-            epochs=local_epochs * rounds,  # matched compute: same local passes as federation
+            epochs=local_passes,  # matched compute: same local passes as federation
             hidden_size=cfg.model.hidden_size,
             device=args.device,
             **common,  # type: ignore[arg-type]
@@ -351,6 +396,8 @@ def main() -> None:
                     "accuracy": m.accuracy,
                     "per_class_f1": m.per_class_f1,
                     "confusion": m.confusion.tolist(),
+                    # Eq. (31), derived from the matrix above -- III-I2 treats it as primary.
+                    "false_positive_rate": binary_fpr(m.confusion, names.index("Benign")),
                 }
             )
         local_results.append(
@@ -390,7 +437,8 @@ def main() -> None:
     print("\n" + "=" * 78)
     print(
         f"PHASE 4 -- baselines 3-5 of III-I1, K={n_clients}, alpha={alpha}, R={rounds}, "
-        f"E={local_epochs}, {len(cfg.evaluation.seeds)} seeds"
+        f"E={local_epochs}, {len(cfg.evaluation.seeds)} seeds, "
+        f"{local_passes} local passes each"
     )
     print("=" * 78)
 
@@ -452,6 +500,11 @@ def main() -> None:
             },
             "rounds": rounds,
             "local_epochs": local_epochs,
+            "epoch_budget": {
+                "federated_local_passes": local_passes,
+                "local_only_epochs": local_passes,
+                "centralized_epochs": central_epochs,
+            },
             "dirichlet_alpha": alpha,
             "aggregation": aggregation,
             "n_clients": n_clients,

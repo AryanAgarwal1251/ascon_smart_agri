@@ -183,6 +183,35 @@ def check(manifest: dict[str, Any]) -> bool:
         else "not recorded",
     )
 
+    # ---- Compute-matched bracket -----------------------------------------------------------
+    # The bracket compares three training regimes, so it only measures the METHOD if all three
+    # get the same number of passes over their data. An under-trained baseline 3 can land below
+    # the federated model and make federation look like it beats pooling; that happened on the
+    # first real seed of this phase (centralised 10 epochs vs federation's 20*3 = 60) and is
+    # what this item exists to catch.
+    budget = results.get("epoch_budget", {})
+    matched = (
+        isinstance(budget, dict)
+        and len(
+            {
+                budget.get("federated_local_passes"),
+                budget.get("local_only_epochs"),
+                budget.get("centralized_epochs"),
+            }
+        )
+        == 1
+        and budget.get("centralized_epochs") is not None
+    )
+    ok &= _check(
+        "baselines 3-5 are compute-matched (equal local passes)",
+        matched,
+        f"centralised {budget.get('centralized_epochs')} epochs, local-only "
+        f"{budget.get('local_only_epochs')} epochs, federated "
+        f"{budget.get('federated_local_passes')} local passes"
+        if isinstance(budget, dict) and budget
+        else "epoch_budget not recorded",
+    )
+
     # ---- Gap G4: the bracket --------------------------------------------------------------
     bracket = results.get("bracket")
     ok &= _check(
