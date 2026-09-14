@@ -130,9 +130,11 @@ ignore_errors = true
 # hundred-megabyte download to the hook environment for a stubs-only benefit. Without it
 # `nn.Module` resolves to Any in that environment and strict mode's disallow_subclassing_any
 # fires on the detector, while the local `mypy src` run (which does see torch) checks these
-# modules properly. Narrowed to the one package that subclasses a torch base class.
+# modules properly. Narrowed to the modules that subclass a torch base class: the detector in
+# model/, and the MLP baseline, which lives in eval/baselines.py because it exists only as the
+# Section III-I1 comparison and is not part of the architecture under test.
 [[tool.mypy.overrides]]
-module = ["ascon_smart_agri.model.*"]
+module = ["ascon_smart_agri.model.*", "ascon_smart_agri.eval.baselines"]
 disallow_subclassing_any = false
 
 # --------------------------------------------------------------------------------------

@@ -48,11 +48,11 @@ def class_weights(label_counts: dict[str, int]) -> dict[str, float]:
     }
 
 
-def train_centralized(
+def train_module(
+    model: nn.Module,
     sequences: Array,
     labels: Array,
     *,
-    hidden_size: int,
     n_classes: int,
     epochs: int,
     seed: int,
@@ -61,7 +61,14 @@ def train_centralized(
     device: str = "cpu",
     verbose: bool = False,
 ) -> nn.Module:
-    """Train the centralised GRU reference model and return the trained model."""
+    """Train ANY ``(B, W, F) -> (B, C)`` module under the Section III-E regime.
+
+    Factored out of :func:`train_centralized` so the Section III-I1 baselines train under an
+    identical regime -- same optimiser, same class-weighted CE, same seeding, same batching,
+    same number of epochs. When only the architecture differs, a difference in the result is
+    attributable to the architecture, which is the entire point of the MLP baseline ("isolates
+    the contribution of recurrence").
+    """
     if sequences.ndim != 3:
         raise ValueError(f"sequences must be (N, W, F), got shape {sequences.shape}")
     if len(sequences) != len(labels):
@@ -75,9 +82,7 @@ def train_centralized(
 
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
-
-    n_features = sequences.shape[2]
-    model = build_detector(n_features, hidden_size, n_classes).to(device)
+    model = model.to(device)
 
     y = np.asarray(labels).astype(np.int64)
     if y.min() < 0 or y.max() >= n_classes:
@@ -118,6 +123,38 @@ def train_centralized(
 
     model.eval()
     return model
+
+
+def train_centralized(
+    sequences: Array,
+    labels: Array,
+    *,
+    hidden_size: int,
+    n_classes: int,
+    epochs: int,
+    seed: int,
+    batch_size: int = 1024,
+    learning_rate: float = 1e-3,
+    device: str = "cpu",
+    verbose: bool = False,
+) -> nn.Module:
+    """Train the centralised GRU reference model and return the trained model."""
+    if sequences.ndim != 3:
+        raise ValueError(f"sequences must be (N, W, F), got shape {sequences.shape}")
+    torch.manual_seed(seed)  # seed before construction so the init is reproducible too
+    model = build_detector(sequences.shape[2], hidden_size, n_classes)
+    return train_module(
+        model,
+        sequences,
+        labels,
+        n_classes=n_classes,
+        epochs=epochs,
+        seed=seed,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        device=device,
+        verbose=verbose,
+    )
 
 
 def predict(

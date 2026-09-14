@@ -12,7 +12,7 @@ kept current.
 | - | --- | --- | --- |
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
-| 3 | Centralised GRU + full evaluation | **Exit criterion met** (**hard gate**): full protocol reported over 3 seeds on the real corpus — macro-F1 0.787 ± 0.020, balanced acc 0.866, MCC 0.853, binary FPR 0.257. Caveat recorded below: 3 epochs is under-trained (loss still falling) and the binary FPR is too high to deploy | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported ✅ |
+| 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
 | 4 | Three-client federated simulation, weighted FedAvg | Not started | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green |
 | 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
 | 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
@@ -158,6 +158,92 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 3 gate CLOSED — baselines 1-3 and the window ablation
+
+Answers the correction below. `eval/baselines.py` implemented (baselines 1-3; 4-5 stay Phase 4
+stubs, with a test asserting they still raise), plus `scripts/run_phase3_complete.py` and
+`scripts/check_phase3_gate.py`. New `tests/test_baselines.py` (10). Run: 3 baselines × W ∈ {1,16}
+× 3 seeds × 10 epochs, 113.8 min, manifest at
+`artifacts/manifest_phase3_complete_default.json` (gitignored).
+
+| macro-F1 | W=1 | W=16 |
+| --- | --- | --- |
+| random forest | 0.6884 ± 0.0016 | 0.6855 ± 0.0006 |
+| MLP (parameter-matched) | 0.6097 ± 0.0033 | 0.6070 ± 0.0020 |
+| **centralised GRU** | 0.5974 ± 0.0045 | **0.8297 ± 0.0013** |
+
+At W=16 the GRU also reports balanced accuracy 0.8805 ± 0.0047, MCC 0.8785 ± 0.0024 and
+accuracy 0.9030 ± 0.0022.
+
+- **Ablation answered (Section III-D).** The paper set the test: "if it matches W = 16,
+  recurrence has not earned its place in the architecture, and we will say so." It does not
+  match — W=16 beats W=1 by **+0.2322 macro-F1, about 51× the seed standard deviation**. The
+  verdict is computed by the runner (gain vs. 2× seed std) and recorded in the manifest, so it
+  could not be rationalised after the fact. **Recurrence earned its place.**
+- **S13's dissent was a real threat and was answered.** The random forest genuinely beats both
+  neural models at W=1 (0.6884 vs GRU 0.5974) — so the baseline was doing work, not
+  rubber-stamping the architecture — but the GRU clears it by **+0.144** once it has a full
+  window. Notably the RF is nearly window-invariant (0.6884 → 0.6855), as it must be, since it
+  only ever sees one record.
+- **The MLP comparison isolates recurrence cleanly.** Parameter-matched to 33,808 against the
+  GRU's 33,800 (0.02% apart) and trained through the *same* `train_module` loop — same
+  optimiser, class-weighted CE, seeding, batching, epochs — so the **+0.2227** gap at W=16 is
+  attributable to recurrence and not to capacity or training setup. Its near-identical scores at
+  W=1 and W=16 (0.6097 / 0.6070) confirm it really is blind to history, as designed.
+- **Recurrence helps most exactly where it is needed most.** Per-class F1 at W=16, GRU vs RF:
+  BruteForce **0.662 vs 0.264**, WebBased **0.601 vs 0.345**, Benign **0.736 vs 0.486**. The
+  rare families and the benign class — the ones that carry the operational cost — are where the
+  window pays off; on the easy flooding classes the two are close (Mirai 0.9985 for both).
+- **Longer training mattered, as flagged.** 10 epochs lifted the W=16 GRU from the earlier
+  3-epoch 0.7866 to 0.8297 (+0.043), confirming that run was under-trained rather than at the
+  architecture's ceiling.
+- **Timing mis-estimated twice, recorded so the method is not repeated.** The first estimate
+  extrapolated a random-forest benchmark run on *random labels*, which is pathological for trees
+  (they grow to full depth memorising noise) and overstated RF cost ~10×. The second
+  "correction" was worse: the MLP's seed-0 fit took 1455s against 62s for every other seed,
+  because the test suite, ruff, mypy and the gate checker were run **on the same machine during
+  that fit**. A timing taken under self-inflicted load was reported as the model's cost. Results
+  were unaffected (contention changes wall-clock, not arithmetic); the estimate was not.
+- **`scripts/check_phase3_gate.py` makes the gate machine-checkable** rather than a judgement
+  call: it reads the manifest and checks seeds, mean ± std for every headline metric, all three
+  baselines, per-class F1 and confusion matrices, the ablation verdict, and manifest provenance,
+  exiting non-zero on any failure. It deliberately does **not** check that the detector is good —
+  a poor result properly measured closes the gate; a good result improperly measured does not.
+  Validating it against the *older* manifest (which it should reject) exposed two bugs in the
+  checker itself — a `TypeError` crash on a flat-summary manifest, and mistaking the
+  `per_class_f1` map for a window key — both fixed before it was trusted.
+
+### Still open after Phase 3
+
+- **Binary FPR remains too high to deploy** (0.257 ± 0.061 at the 3-epoch run; not re-measured
+  here, since the completion run reports the multiclass bundle). Tuning the operating point is
+  outstanding work, not a Phase 3 blocker.
+- **The window sweep is partial.** Section III-I3 specifies W ∈ {1, 8, 16, 32}; only the
+  decision-relevant endpoints W=1 and W=16 were run. W=8 and W=32 remain, as does the F sweep.
+- The detection-latency set (below) is still unresolved.
+
+### Correction (same day): Phase 3's gate was declared clear too early
+
+An earlier version of this entry and of the phase table above recorded Phase 3's exit criterion
+as **met** on the strength of the metric protocol alone. That was wrong, and is corrected here
+rather than quietly edited away. **Section III-I1 requires five baselines "reported for every
+configuration"**, three of which the scaffold itself tags Phase 3 in
+`eval/baselines.py`'s `NotImplementedError` messages:
+
+1. random forest on single records — **still a stub** (and the most pointed omission: S13 found
+   a random forest strongest on tabular flow features, which is precisely why the paper carries
+   this baseline — it is the one that can contradict the GRU choice);
+2. MLP on single records — **still a stub** (it is what isolates the contribution of recurrence);
+3. centralised GRU — done, though produced via `scripts/run_phase3.py` rather than through
+   `eval/baselines.centralized_gru`'s entry point, which remains a stub.
+
+Baselines 4 and 5 (local-only GRUs, federated global GRU) are correctly Phase 4.
+
+Additionally, Section III-D states the W sweep includes **W = 1 as an ablation**: "if it matches
+W = 16, recurrence has not earned its place in the architecture, and we will say so." That
+comparison has not been run, so the architecture's central claim is so far unexamined on this
+data. Phase 3 therefore remains **open**, and Phase 4 stays gated behind it.
 
 ### Open question raised, not resolved (blocks part of Section III-D)
 
