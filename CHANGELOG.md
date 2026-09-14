@@ -13,7 +13,7 @@ kept current.
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | Not started | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green |
+| 4 | Three-client federated simulation, weighted FedAvg | In progress: **both blocking invariants green** (`test_fedavg_weighting.py`, `test_scaler_equivalence.py` — the last two skips in the suite are gone); partition/aggregation/serialization/client/server implemented and Eq. (22)'s cost figures reproduced. **Not** done: baselines 4-5 are still stubs and the federated experiment has not been run | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
 | 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
 | 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
@@ -158,6 +158,55 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 4 opened (user-authorised): federated infrastructure, both invariants green
+
+Implemented `federated/scaler_stats.py`, `serialization.py`, `aggregation.py`, `partition.py`,
+`client.py` and `server.py`. New `tests/test_federated.py` (23) and real bodies for the two
+previously-skipped invariant tests. Pytest now **241 passed / 1 skipped** (up from 197/3) — the
+only remaining skip is Phase 6's path-disjointness. **Phase 4 is not complete**: baselines 4-5
+(local-only GRUs, federated global GRU) are still stubs and the federated experiment has not
+been run.
+
+- **FedAvg weight is the SEQUENCE count (Eq. 21), with a test that would fail on row counts.**
+  `test_fedavg_weighting.py` constructs two clients holding equal rows but unequal run
+  structure, so sequence-weighting gives 1.0 and the row-count bug gives 5.0 — the invariant is
+  checked by the two answers differing, not merely by the right one appearing.
+- **Chan's combination is exact against the pooled fit (Eqs. 23-24).** `test_scaler_equivalence`
+  compares deliberately *unequal* client shares (an equal split would pass even with an
+  unweighted mean-of-means, hiding the n_k weighting), repeats over ten random splits, and
+  carries a negative control proving the weighting does real work. A further test uses features
+  with mean ~1e8 and spread ~1, where the `E[x^2] - E[x]^2` route cancels catastrophically —
+  which is why the transmitted triple is `(count, mean, M2)` rather than the prose's
+  "count, sum, and sum of squares".
+- **Eq. (22)'s communication figures reproduce exactly**, and are checked against the bytes this
+  implementation actually serialises rather than trusted: |θ| = 33,800 → **811,200 B = 0.7736
+  MiB per round** (paper: ~0.77 MiB), **15.47 MiB over 20 rounds** (paper: ~15.5 MiB), against
+  276 MB to pool the records — a factor of **17.0** (paper: "roughly 18").
+- **Per-class Dirichlet draws, not one draw reused (flagged per Golden Rule 1).** Eq. (20) is
+  written per class; drawing once would give every client the same share of every class — a
+  uniform partition wearing a Dirichlet's clothes, and exactly the L2 under-specification
+  Section III-F1 exists to avoid. A test asserts client 0's share differs across classes, and
+  another asserts large α is measurably more uniform than small α, so the sweep knob is known
+  to do something.
+- **Client independence is enforced, not asserted (A1).** Local data is private with no public
+  attribute (a test checks the public surface), the broadcast global state is cloned before use
+  so a client cannot mutate the server's tensors, and a **fresh optimiser is built every round**
+  — carrying or aggregating Adam moments would make the method not FedAvg while still appearing
+  to converge.
+- **Every update crosses the boundary through safetensors even in-process**, so the no-pickle
+  rule is structurally true rather than a claim about code that would transmit differently if
+  wired to a socket. `n_k` travels in the safetensors *header metadata* rather than as a tensor
+  smuggled into the state dict, so a received state loads into a module without first stripping
+  a bookkeeping key; a missing count is an error, never a silent zero, since it is the
+  aggregation weight.
+- **A client holding zero sequences is legitimate, not an error.** Under α = 0.1 a client can
+  receive too few blocks to form a single window at W = 16; it contributes weight 0 and appears
+  in the published histogram. Raising there would make a declared experimental configuration
+  unrunnable.
+- **Scaffold inconsistency reconciled:** `aggregation.StateDict` was a `Mapping` while
+  `serialization.StateDict` was a `dict`, so the two modules could not compose without a cast.
+  Aggregation now accepts the wider `Mapping` and returns a concrete `dict`.
 
 ### Changed: run manifests are now version-controlled
 
