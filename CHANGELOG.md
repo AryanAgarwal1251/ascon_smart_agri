@@ -13,10 +13,10 @@ kept current.
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0) on the real CICIoT2023 corpus. Baselines 3-5 of III-I1 over 3 seeds at alpha=0.5, R=20, E=3, W=16, compute-matched at 60 local passes each: federated global GRU macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040** — federation recovers **82.4 %** of the gap declining to federate leaves on the table | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; gate checker exit 0 ✅ |
-| 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
-| 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
-| 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
+| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0). Two independent runs were merged; the reported figures are the **compute-matched** run (α=0.5, R=20, E=3, W=16, 60 local passes for every baseline): federated global macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040**, recovering **82.4 %** of the gap; client-to-global gap positive for all three clients (+0.10 / +0.16 / +0.07). FPR **0.2975 ± 0.0512** — read it first. The earlier minimal-gate run is kept at `artifacts/manifest_phase4_minimal_gate.json`; its bracket is inverted because its baselines were not compute-matched. **Not done:** the α/E/aggregation ablation sweep of Section III-I3 | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; gate checker exit 0 ✅ |
+| 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
+| 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
+| 7 | End-to-end integration | In progress: streaming window assembly, Ascon latency/expansion measurement, and the client-to-global gap metric implemented (the three concrete gaps found by auditing Section III-I2 against the codebase). **Not done:** no trained model has ever been saved to disk; the runtime pipeline is not yet wired end-to-end with a real classifier | Full pipeline run producing a manifest |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
 parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
@@ -26,6 +26,51 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
 ## 2026-09-15
+
+### Merged two parallel Phase 4 implementations
+
+Two Phase 4 drivers were written independently and collided on merge (7 conflicted paths).
+Resolved by union rather than by picking a side; what each contributed:
+
+- **`federated_global_gru` keeps the 4-tuple contract** `(metrics, macro_f1_per_round,
+  measured_bytes_per_round, model)`. Returning the trained model is not optional —
+  `scripts/train_federated_model.py` and Phase 7's runtime need an actual classifier to drive
+  routing, and the single-metrics form could not supply one. It now delegates to
+  `run_federation`, which additionally carries the Eq. (21) weights and the per-round byte
+  series the Phase 4 manifest records, so both callers are served by one implementation.
+- **A local-only client with zero sequences is reported, not filtered.** The competing revision
+  returned `None` so such a client could be excluded from the mean. That was wrong in the
+  direction the bracket exists to expose: Section III-I1 asks for "three local-only GRUs" as a
+  report, and dropping the client that received nothing makes the lower bound look better than
+  declining to federate actually is. It is now scored against a constant-benign prediction.
+- **An explicit all-empty guard** in `run_federation`, raising "every client holds zero
+  sequences" at the top rather than letting the failure surface from `weighted_fedavg` as
+  "every client reported n_k = 0" — the symptom, not the cause.
+- **FedProx (`fedprox_mu`) and the (run seed, client id, round) training seed coexist** in
+  `FederatedClient`; only their docstrings conflicted, and both paragraphs are kept.
+- **Section III-I2's client-to-global gap** is now computed by `run_phase4.py` and recorded per
+  seed. It had existed only in the other driver's post-hoc summariser; on the merged run it is
+  positive for every client (+0.1023 / +0.1565 / +0.0721), i.e. federation helped all three,
+  which is a stronger statement than the mean alone.
+- **`scripts/summarize_phase4.py` was ported** to the surviving manifest schema, keeping the G4
+  questions it asks verbatim.
+- **Both experiments are kept.** `artifacts/manifest_phase4_default.json` is the compute-matched
+  run (161 min); `artifacts/manifest_phase4_minimal_gate.json` is the earlier 441-min run.
+
+Two things the merge exposed that are worth stating plainly:
+
+- **The minimal-gate run has the inverted bracket this repository has already fixed once.** It
+  reports federated 0.8334 against a centralised *reference* of 0.8297 borrowed from Phase 3 at
+  10 epochs, and a local-only baseline capped at 10 epochs, while federation ran R*E = 60 local
+  passes. "Beating the centralised reference on every seed" is a statement about the training
+  budget, not the method. Its manifest is retained as a record; its conclusion is not.
+- **Git's auto-merge silently dropped test coverage.** `tests/test_federated.py` merged without
+  conflict markers to 23 tests, from sides holding 26 and 25 — every test either side had added
+  was gone, including both FedProx tests and all three training-seed tests. Rebuilt as the
+  union (28). A clean merge is not evidence of a correct one.
+
+Suite after the merge: **344 passed**, all gates green, `check_phase4_gate.py` exit 0.
+
 
 ### Phase 4 gate CLOSED — the federated simulation, run on the real corpus
 
@@ -368,6 +413,246 @@ run, and the system-Python claim is no longer true anywhere.
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 7 opened: three gaps closed that don't require retraining
+
+Audited Section III-I2 against the codebase before writing any Phase 7 code (the Phase 3
+lesson, applied proactively this time rather than after declaring something complete): grepped
+for `client_to_global_gap`, encrypt/decrypt latency measurement, and any persisted model
+weights. Found the first two never implemented and the third genuinely absent -- no training
+run in this project has ever saved a model to disk. Closed the two that don't need retraining
+now; the third (a real classifier driving the runtime pipeline) needs a fresh federated run and
+is scoped separately below.
+
+- **`sequences/streaming.py`, closing the gap `telemetry/provenance.py` explicitly deferred
+  here.** `DeviceWindowBuffer` assembles `(W, F)` windows per device from single feature
+  vectors arriving one call at a time -- the streaming counterpart to
+  `sequences/windowing.py`'s offline, whole-batch construction. Rolling per DEVICE (not a
+  single shared buffer, which would splice unrelated devices' readings together); a window is
+  emitted the instant a device's buffer first reaches `W` and then slides by one on every
+  subsequent push, consistent with `y_i = y_{i+W-1}`; nothing is ever padded to fake a window
+  before real data fills it, the same objection that already rules out synthetic oversampling
+  and fabricated network features. New `tests/test_streaming_windows.py` (12).
+- **`eval/report.py`'s `client_to_global_gap`**, defined as `federated_macro_f1 -
+  local_only_macro_f1` per client, both scored on the SAME shared test set (flagged, Golden
+  Rule 1: the paper names this metric in Section III-I2 but never defines its sign or exact
+  form). Positive means federation helps that client; negative is the G4/R4 finding the paper
+  explicitly permits and asks to be reported honestly. **Retroactively applied to Phase 4's own
+  results** -- `scripts/summarize_phase4.py` now computes it from the ALREADY-SAVED
+  `manifest_phase4_default.json` (no retraining needed) and `artifacts/phase4_results.json` was
+  regenerated: every client gains from federation, +0.063 to +0.100 macro-F1. New tests in
+  `tests/test_training.py` (4).
+- **`eval/crypto_benchmark.py`**, measuring the already-implemented, KAT-verified
+  `AsconAEAD128` facade -- no new cryptography. A real bug in the benchmark itself, not the
+  crypto, surfaced on its first run: `AsconAEAD128.encrypt()` returns only `ciphertext||tag`
+  (payload + 16 bytes); Eq. (29)'s 32-byte wire-expansion figure additionally counts the nonce,
+  which travels as a separate field in this design and isn't part of that return value. Fixed
+  to add `len(nonce)` explicitly; the fix was found because the benchmark's own first run
+  disagreed with the paper's worked 33%/6.3% examples, not assumed correct in advance. New
+  `tests/test_crypto_benchmark.py` (7) checks the expansion exactly against those two worked
+  examples. **Real measurements on this machine** (the vendored pure-Python reference backend,
+  not an optimised implementation -- see the Phase 6 backend-selection entry):
+
+  | Payload | Expansion | Encrypt (median / p95) | Decrypt (median / p95) |
+  | --- | --- | --- | --- |
+  | 96 B | 32 B (33.33%) | 390.8 us / 400.9 us | 391.9 us / 403.3 us |
+  | 512 B | 32 B (6.25%) | 1300.5 us / 1327.8 us | 1302.1 us / 1330.3 us |
+
+  Expansion matches the paper's stated 33%/6.3% exactly, since it is a structural property of
+  the scheme (Eq. 29), not a measurement with noise -- latency is genuinely empirical and
+  machine-dependent, reported as a distribution rather than a single number for that reason.
+
+Pytest now **329 passed / 0 skipped** (up from 306/0).
+
+### Phase 6 complete: alerting path, replay window, G1's behavioural half -- zero skips left
+
+Implements `routing/alert_sink.py`, `routing/cloud_sink.py`, `routing/router.py`, and a new
+`routing/replay_guard.py`, closing out Phase 6 (the crypto core was implemented ahead of its
+gate back in Phase 6's first entry; this completes the routing half). New
+`tests/test_replay_window.py` (9), `tests/test_cloud_sink.py` (8), `tests/test_router.py` (7),
+`tests/test_alert_sink.py` (4); `test_path_disjointness.py`'s remaining skip activated with a
+real behavioural test. **Pytest now 306 passed / 0 skipped** (up from 277/1) -- every test in
+the suite is live for the first time in this project.
+
+- **Replay-window policy confirmed with the user before any code was written**, per
+  `docs/plans/phase6-replay-window.md`'s explicit instruction that this was not yet
+  authorised. Chosen: per-`(edge_id, device_id)` scope, strict-monotonic acceptance
+  (`counter > last_seen`), in-memory state -- the plan doc's own recommended sketch. Implemented
+  as `routing/replay_guard.py`'s `ReplayGuard`, deliberately its own small object rather than
+  folded into the crypto core, matching `AssociatedData`'s docstring which already stated
+  replay state must not live there.
+- **Verification order is fixed and tested as load-bearing**: `MockCloudReceiver.send_encrypted`
+  decrypts/verifies (Eq. 26) FIRST, checks replay SECOND, never the reverse. A message with a
+  tampered tag must never touch replay state, or a forged counter could poison the window for a
+  legitimate later message -- `test_cloud_sink.py`'s
+  `test_a_failed_verification_never_advances_replay_state` sends a corrupted message at
+  counter=5 (rejected), then the genuine message at counter=5 (accepted), proving the counter
+  was never consumed by the failed attempt.
+- **`route()`'s scaffold signature (`edge_id: str` alone) could not build a valid Eq. (27) AD
+  tuple** -- `device_id`, `counter`, `schema_version` were simply absent, so the benign path
+  could not have encrypted correctly. Widened (flagged) to take a full `AssociatedData`, which
+  already carries everything Eq. (27) needs, rather than adding three more scattered
+  parameters. Same class of correction as the baseline-function widenings in Phases 3-4.
+  `VerdictRouter` also gained an owned, cross-call-persistent `NonceRegistry` (injectable for
+  testing) -- the scaffold's constructor had nowhere to draw nonces from at all.
+  `MockCloudReceiver.__init__` gained a `keys: dict[str, bytes]` DEMO key store (explicitly
+  labelled as such; production key management is named out of scope by the paper itself), since
+  the receiver's own docstring already said it must "select the decryption key" and the
+  scaffold gave it no way to.
+- **G1's structural half is unchanged and still gating** (`AlertSink.__init__` takes no
+  transport dependency; introspection confirms no instance attribute is ever a
+  `CloudTransport`). The newly-activated behavioural half routes 5 real malicious-verdict
+  messages through the real `VerdictRouter` and asserts the cloud receiver's
+  `received_count` AND `rejected_count` both stay 0 -- not merely "nothing was accepted" but
+  "nothing was even attempted", since the alert sink cannot reach the cloud transport to try.
+- **Verified end-to-end on real data**, chaining Phase 5's telemetry/provenance layer into
+  Phase 6's crypto/routing layer for the first time: 200 real simulated messages, each paired
+  with a real held-out CICIoT2023 record via `FeatureProvenanceAdapter`, routed through the
+  real `AsconAEAD128`/`VerdictRouter`/`MockCloudReceiver` stack using the record's true label as
+  a stand-in verdict (never fed to a model -- a smoke-test substitute, since Phase 7 is where a
+  real classifier gets wired in). Of 200 messages, 8 were benign and 192 malicious; the cloud
+  received exactly 8, rejected 0, and every accepted payload decrypted to byte-identical
+  original content; the alert sink recorded exactly 192, and the cloud saw zero of them.
+- **Scope note:** replay persistence across a receiver restart, and the full III-G4 overhead
+  measurement (wire expansion at multiple payload sizes) are not implemented -- the former is
+  explicitly out of scope alongside production key management, the latter is a reporting task
+  for Phase 7's end-to-end run rather than a Phase 6 gate item.
+
+### Phase 5 complete: telemetry simulation + feature-provenance adapter (G6)
+
+Implemented `telemetry/simulate.py` (`simulate_stream`) and `telemetry/provenance.py`
+(`FeatureProvenanceAdapter`), plus a new `TelemetryConfig` in `configs/base.py`/`default.yaml`.
+New `tests/test_telemetry_simulate.py` (11) and `tests/test_telemetry_provenance.py` (15) --
+pytest now **277 passed / 1 skipped** (up from 251/1).
+
+- **Two planes, kept structurally apart.** `simulate.py` generates only application-layer JSON
+  payloads (`deviceId`/`temperature`/`soilMoisture`, matching Section III-H's own example) and
+  has no import of or reference to anything network-feature-related; `provenance.py` draws only
+  from held-out CICIoT2023 rows and never reads a payload field. Neither module can accidentally
+  bridge the two planes, because neither has the other's data in scope.
+- **`FeatureProvenanceAdapter.from_held_out_frame`, a convenience constructor that makes the
+  correct construction the easy one.** Point it at the Phase 2 TEST split directly (already
+  proven never-trained-on by the R3 leakage gate) and it derives provenance refs from
+  `data/subsample.py`'s existing `source_file` column and the frame's own pooled-corpus index --
+  no new held-out pool or bookkeeping invented. Features are returned already selected and
+  scaled with the SAME fitted scaler training used, closing off train/serve skew structurally.
+- **G6 verified on real data, not only synthetic fixtures.** Built the adapter from the actual
+  311,573-row Phase 2 test split and paired it with a real simulated stream: sampled 200+
+  distinct provenance refs and checked every one against the 1,237,958-row training index --
+  **zero leaked**. This is the same "prove it on the real corpus, not just a unit test" standard
+  applied earlier to the federated scaler path.
+- **A real pairing bug found integrating the two modules, not caught by either module's own
+  unit tests in isolation.** `TelemetryMessage` originally carried only `counter`, monotonic
+  PER DEVICE (correct for its actual purpose -- Eq. 27's replay-protection AD tuple scopes
+  counters per device). But the adapter's `network_features_for` took a bare int with no
+  documented distinction, so pairing on `counter` gave every device's message 0 the *identical*
+  held-out network record, message 1 the identical next one, and so on -- only surfaced by
+  running a real simulated stream against a real adapter and inspecting the output, not by
+  either module's tests alone. Fixed by adding a second field, `stream_index` (monotonic across
+  the WHOLE stream, never repeating), and renaming the adapter's parameter from the scaffold's
+  `message_counter` to `stream_index` so the correct call is the only obviously-named one. A
+  regression test demonstrates the bug directly (pairing on `counter` collides; pairing on
+  `stream_index` does not) rather than only testing the fix in isolation.
+- **`true_label` added to `ProvenancedFeatures`** (flagged scaffold extension): carries the
+  held-out record's ground-truth label for demo narration and test assertions only -- never
+  read by anything that classifies, and the returned feature vector's shape is unchanged by it.
+- **New `TelemetryConfig`** (`device_ids`, `messages_per_stream`, `schema_version`, sensor
+  ranges, `seed`), following the project's typed-pydantic-config convention rather than
+  scattering these as function defaults.
+
+### Phase 4: two gaps closed after the minimal gate (FedProx wiring, scaler verification)
+
+Audited Phase 4 after the gate closed rather than treating "gate closed" as "nothing left" --
+found two real gaps neither the gate checker nor the experiment run had reason to catch, since
+neither affects the minimal gate's own criterion.
+
+- **FedProx was computed but never wired into training, until now.** `fedprox_proximal_term()`
+  existed, was unit-tested, and was correctly documented as the Section III-F2 R4 fallback --
+  but nothing in `federated/client.py` or `model/train.py` ever called it, so selecting it had
+  no effect. Fixed: `model/train.py`'s `train_module` gained `fedprox_mu`/`fedprox_reference`
+  parameters and adds the penalty to every step's loss, computed from the model's **live**
+  parameters (`model.named_parameters()`, not a `state_dict()` snapshot) so the gradient
+  actually reaches training rather than only being logged. `federated/client.py`'s
+  `FederatedClient` gained a `fedprox_mu` constructor argument (default `None`, matching
+  `configs/base.py`'s existing default -- the fallback stays opt-in, not the default regime),
+  and passes the round's broadcast state as the fixed reference point.
+  - **Verified behaviourally, not just "doesn't crash":** starting two identically-initialised
+    models from the same point, plain training drifted 0.0207 (squared L2) from the start point
+    over 8 epochs; with `fedprox_mu=10.0` it drifted only 0.0032 -- **16% of the unconstrained
+    drift**, a real, substantial constraint, not a rounding-level effect. A second test confirms
+    `fedprox_mu=0.0` is indistinguishable from plain training (the penalty is a true no-op at
+    mu=0), and a third exercises the wiring through `FederatedClient.local_train` itself, not
+    only the lower-level `train_module`. New tests in `test_training.py` (4) and
+    `test_federated.py` (2) -- pytest now 251 passed / 1 skipped.
+  - Not yet exercised against real data: this closes the implementation gap, not the deferred
+    alpha=0.1 sweep that would be the actual test of whether R4 is needed.
+- **The federated scaler-statistics path (`local_sufficient_stats`/`combine_stats`) had only
+  ever been proven on synthetic data.** The real Phase 4 run reused Phase 3's already-pooled
+  scaler rather than deriving it through the actual per-client-statistics mechanism, so the "no
+  raw data crosses the boundary" property for scaling was demonstrated in a unit test but not on
+  production data. Verified now on the real corpus: reconstructing the client partition
+  actually used (alpha=0.5, same seed) over the RAW, unscaled selected features (not the
+  already-standardised cache, which would have made the check vacuous -- mean already ~0), each
+  client's local mean differs meaningfully from the others (e.g. `Tot sum`: 25,184 / 30,640 /
+  20,991 across the three clients) and yet Chan's combination reproduces the pooled fit to
+  **relative difference 2e-12** -- as exact on real, skewed production data as the synthetic
+  tests already proved in principle. This was a verification exercise (manual, ~1 minute), not
+  a code change; no new artifact was produced since nothing about the already-reported Phase 4
+  results changes.
+
+### Phase 4 minimal gate CLOSED: baselines 4-5, real federated experiment run
+
+Runs `scripts/run_phase4.py` for real: 3 clients (Dirichlet α=0.5), R=20 rounds, E=3 local
+epochs, weighted FedAvg, 3 seeds, against `scripts/check_phase4_gate.py`'s criterion (written
+*before* this run, per the Phase 3 lesson). **25/25 checks PASS, exit 0 — `PHASE 4: MINIMAL GATE
+CLOSED`.** Results written to `artifacts/manifest_phase4_default.json` (full provenance) and
+`artifacts/phase4_results.json` (distilled summary, in the same relationship
+`phase2_feature_selection.json` has to its own run). Total wall-clock: 440.5 minutes.
+
+| macro-F1 | seed 0 | seed 1 | seed 2 | mean |
+| --- | --- | --- | --- | --- |
+| Baseline 4, client 0 (local-only) | -- | -- | -- | 0.7702 ± 0.0127 |
+| Baseline 4, client 1 (local-only) | -- | -- | -- | 0.7332 ± 0.0045 |
+| Baseline 4, client 2 (local-only) | -- | -- | -- | 0.7635 ± 0.0066 |
+| Baseline 5 (federated global) | 0.8338 | 0.8364 | 0.8301 | **0.8334 ± 0.0026** |
+| Baseline 3 (Phase 3 centralised, reference) | | | | 0.8297 |
+
+- **G4 answered, computed rather than eyeballed** (`summarize_phase4.py`'s bracket check):
+  federation beats every local-only client on every seed, **and slightly exceeds the
+  centralised reference on all three** (0.8334 vs 0.8297). The paper explicitly allows the
+  opposite finding (R4: federation underperforming local-only under heterogeneity is "a
+  legitimate finding... the quantity an operator most needs to know"); this run did not need
+  that allowance, but it was checked rather than assumed.
+- **Convergence.** All three seeds' round curves climb steeply to ~round 8-10 then plateau in a
+  tight 0.83-0.84 band with minor round-to-round noise (e.g. seed 0 dips to 0.811 at round 12,
+  recovers next round) -- visibly converged well before R=20, a data point for judging R's
+  necessity if the deferred R sweep is picked up later.
+- **Partition sanity-checked against real data, not just synthetic tests.** At α=0.5 the
+  per-client histograms are visibly skewed (client 1 holds 1,359 of class 1 against 12-24 of
+  several others) without any client being starved to zero -- the heterogeneity knob is doing
+  real work on the actual corpus, not only in `test_federated.py`'s synthetic fixtures.
+- **A real logging bug found mid-run, fixed for future runs, left uncorrected in this one.**
+  `federated_global_gru`'s `verbose` flag was never passed as `True` from `run_phase4.py`, so an
+  entire seed's 20 rounds (order of an hour) produced no output. Fixed in `983828f`; the fix
+  could not apply to the already-running process (Python had already loaded the old code), so
+  seed 0's per-round progress went unobserved -- the final metrics are unaffected, only their
+  visibility while running.
+- **A severe, misleading timing anomaly, root-caused rather than left unexplained.** Seed 1 took
+  14,807s (4.1h) against seed 0's 4,714s (1.3h) and seed 2's 4,008s (1.1h) -- a 3.1-3.7x outlier
+  with no code-level explanation, since the process's own memory footprint stayed flat (~430-590
+  MB RSS) throughout. Diagnosed as **system-wide memory pressure**: swap usage measured at 8.9 of
+  10 GB (87%) during the slow stretch, most plausibly from other applications competing for RAM
+  on the host, not from this process or its code. Recorded here so a future run's per-seed
+  timing spread is not mistaken for a regression in the federated code.
+- **Scope decision (flagged per Golden Rule 1, discussed with the user before this run started).**
+  Section III-J4's "work plan" states Phase 4's gate as "three clients with weighted FedAvg" --
+  narrower than Phase 3's, and the six ablations of Section III-I3 (α, E, weighted/unweighted,
+  W, F, R) are evaluation *reporting*, not listed among the seven phase-gate criteria. This is
+  the same summary-vs-source distinction that caused Phase 3 to be declared complete
+  prematurely (see the correction entry below); this time `check_phase4_gate.py` was written
+  first, against the paper text, specifically to not repeat it. The α/E/weighted-vs-unweighted/R
+  sweep is real remaining work, deferred as a separate, much larger task (a single configuration
+  alone cost 7.3 hours) -- not silently dropped.
 
 ### Phase 4 opened (user-authorised): federated infrastructure, both invariants green
 

@@ -46,7 +46,7 @@ from ascon_smart_agri.data.subsample import stratified_capped_subsample
 from ascon_smart_agri.data.taxonomy import CLASS_NAMES, to_class_index
 from ascon_smart_agri.eval.baselines import centralized_gru, local_only_grus, run_federation
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
-from ascon_smart_agri.eval.report import mean_std
+from ascon_smart_agri.eval.report import client_to_global_gap, mean_std
 from ascon_smart_agri.features.selection import FeatureSelector
 from ascon_smart_agri.federated.partition import (
     dirichlet_block_partition,
@@ -357,10 +357,10 @@ def main() -> None:
             device=args.device,
             **common,  # type: ignore[arg-type]
         )
-        scored = [m for m in locals_ if m is not None]
+        empty_clients = [i for i, seqs in enumerate(client_seqs) if len(seqs) == 0]
         for client_id, m in enumerate(locals_):
-            label = f"{m.macro_f1:.4f}" if m is not None else "no data"
-            print(f"  local {client_id}  macro-F1 {label}")
+            tag = "  (no data: constant-benign)" if client_id in empty_clients else ""
+            print(f"  local {client_id}  macro-F1 {m.macro_f1:.4f}{tag}")
         print(f"  local    ({time.time() - t0:.0f}s)")
 
         # ---- Baseline 5: the federated global GRU --------------------------------------
@@ -402,15 +402,14 @@ def main() -> None:
             )
         local_results.append(
             [
-                None
-                if m is None
-                else {
+                {
                     "client": client_id,
                     "macro_f1": m.macro_f1,
                     "balanced_accuracy": m.balanced_accuracy,
                     "mcc": m.mcc,
                     "accuracy": m.accuracy,
                     "per_class_f1": m.per_class_f1,
+                    "had_no_data": client_id in empty_clients,
                 }
                 for client_id, m in enumerate(locals_)
             ]
@@ -427,9 +426,16 @@ def main() -> None:
         results.setdefault("local_only", []).append(
             {
                 "seed": seed,
-                "macro_f1": float(np.mean([m.macro_f1 for m in scored])) if scored else 0.0,
-                "per_client_macro_f1": [None if m is None else m.macro_f1 for m in locals_],
-                "clients_without_data": sum(1 for m in locals_ if m is None),
+                # Every client counts, including one that got nothing: excluding it would
+                # make the lower bound look better than declining to federate actually is.
+                "macro_f1": float(np.mean([m.macro_f1 for m in locals_])),
+                "per_client_macro_f1": [m.macro_f1 for m in locals_],
+                "clients_without_data": len(empty_clients),
+                # Section III-I2's client-to-global gap: positive => federation helped that
+                # client relative to going it alone.
+                "client_to_global_gap": client_to_global_gap(
+                    {str(i): m.macro_f1 for i, m in enumerate(locals_)}, run.metrics.macro_f1
+                ),
             }
         )
 

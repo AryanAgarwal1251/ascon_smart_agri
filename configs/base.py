@@ -105,6 +105,19 @@ class CryptoConfig(BaseModel):
     )
 
 
+class TelemetryConfig(BaseModel):
+    """MQTT/JSON telemetry simulation + feature-provenance adapter (Section III-H, gap G6)."""
+
+    device_ids: list[str] = Field(default_factory=lambda: ["soil01", "soil02", "soil03"])
+    messages_per_stream: int = 100  # total across all devices, round-robin
+    schema_version: str = "v1"
+    # Plausible agricultural sensor ranges for the simulated payload (Section III-H's own
+    # example: {"deviceId": "soil01", "temperature": 24.8, "soilMoisture": 42.5}).
+    temperature_range_c: tuple[float, float] = (15.0, 35.0)
+    soil_moisture_range_pct: tuple[float, float] = (0.0, 100.0)
+    seed: int = 0
+
+
 class EvalConfig(BaseModel):
     """Evaluation protocol (Section III-I)."""
 
@@ -131,6 +144,7 @@ class RunConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     federated: FederatedConfig = Field(default_factory=FederatedConfig)
     crypto: CryptoConfig = Field(default_factory=CryptoConfig)
+    telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     evaluation: EvalConfig = Field(default_factory=EvalConfig)
 
 

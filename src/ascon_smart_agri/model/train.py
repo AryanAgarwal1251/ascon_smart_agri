@@ -28,6 +28,7 @@ import torch
 from torch import nn
 
 from .._types import Array
+from ..federated.aggregation import fedprox_proximal_term
 from .gru import build_detector
 
 
@@ -60,6 +61,8 @@ def train_module(
     learning_rate: float = 1e-3,
     device: str = "cpu",
     verbose: bool = False,
+    fedprox_mu: float | None = None,
+    fedprox_reference: dict[str, torch.Tensor] | None = None,
 ) -> nn.Module:
     """Train ANY ``(B, W, F) -> (B, C)`` module under the Section III-E regime.
 
@@ -68,7 +71,18 @@ def train_module(
     same number of epochs. When only the architecture differs, a difference in the result is
     attributable to the architecture, which is the entire point of the MLP baseline ("isolates
     the contribution of recurrence").
+
+    ``fedprox_mu``/``fedprox_reference`` wire in the Section III-F2 R4 fallback: when both are
+    given, every step's loss gains ``mu/2 * ||theta - theta_global||^2`` against the FIXED
+    ``fedprox_reference`` (the parameters this client started the round from), computed live
+    from the model's current parameters rather than a state-dict snapshot taken each step. Plain
+    FedAvg is ``fedprox_mu=None`` (the default), matching how the scaffold always described
+    FedProx as a fallback, not the default regime.
     """
+    if (fedprox_mu is None) != (fedprox_reference is None):
+        raise ValueError("fedprox_mu and fedprox_reference must be given together, or not at all")
+    if fedprox_mu is not None and fedprox_mu < 0:
+        raise ValueError(f"fedprox_mu must be non-negative, got {fedprox_mu}")
     if sequences.ndim != 3:
         raise ValueError(f"sequences must be (N, W, F), got shape {sequences.shape}")
     if len(sequences) != len(labels):
@@ -113,6 +127,12 @@ def train_module(
 
             optimizer.zero_grad(set_to_none=True)
             loss = criterion(model(x_batch), y_batch)
+            if fedprox_mu is not None and fedprox_reference is not None:
+                # Live parameters, not a state_dict() snapshot: this must stay in the autograd
+                # graph so the proximal term's gradient actually pulls training back toward
+                # fedprox_reference, rather than only being logged.
+                current = dict(model.named_parameters())
+                loss = loss + fedprox_proximal_term(current, fedprox_reference, fedprox_mu)
             loss.backward()
             optimizer.step()
 

@@ -41,11 +41,21 @@ Baselines 4-5 (Phase 4) add three more, flagged the same way:
   Dirichlet draw (Eq. 20), so a client that never saw a rare family would never be asked about
   it. Scoring every model on the shared test set is what makes baselines 3, 4 and 5 a bracket
   rather than three unrelated numbers.
-* **A client with zero sequences yields ``None``, not a zero-filled metric bundle.** Under
-  alpha = 0.1 a client can legitimately receive no blocks at all (see ``federated/partition.py``),
-  and it cannot train a detector. Returning a bundle of zeros would silently drag a reported
-  mean downward as if the client had trained and failed; returning ``None`` forces the caller to
-  say what it did. This is the one place baseline 4's return type widens, and it is deliberate.
+* **A local-only client with zero sequences reports degenerate metrics against a
+  constant-benign prediction, rather than returning ``None`` or raising.** Under a strongly
+  heterogeneous partition a client can legitimately receive no sequences at all; that is data
+  about the heterogeneity, and Section III-I1 asks for "three local-only GRUs" as a report, not
+  a filtered list of the ones that happened to get data. (An earlier revision of this module
+  returned ``None`` for such a client so it could be excluded from the mean; that was wrong in
+  the same direction the bracket is meant to expose -- excluding the client that got nothing
+  makes the local-only lower bound look better than declining to federate actually is.)
+* **``federated_global_gru`` returns ``(metrics, macro_f1_per_round, measured_bytes_per_round,
+  model)``** rather than ``MulticlassMetrics`` alone. The convergence curve Section III-I2 asks
+  for ("federated convergence as macro-F1 against round") and the measured Eq. (22) cost are
+  cheap byproducts of running the rounds, so returning them saves the caller re-running
+  Algorithm 1 just to obtain them; the trained model is returned because Phase 7's runtime
+  pipeline needs an actual classifier to drive routing. :func:`run_federation` is the fuller
+  form, carrying the Eq. (21) weights and per-round byte counts the Phase 4 manifest records.
 * **Local-only clients are seeded from a ``SeedSequence`` spawned off the run seed**, not from
   ``seed + client_id``, so client 0 at seed 1 and client 1 at seed 0 are not the same run.
 """
@@ -239,26 +249,29 @@ def local_only_grus(
     batch_size: int = 1024,
     device: str = "cpu",
     verbose: bool = False,
-) -> list[MulticlassMetrics | None]:
+) -> list[MulticlassMetrics]:
     """Baseline 4: one GRU per client, no federation (lower bound).
 
     This is what an operator gets by declining to federate: each client trains on its own
     partition alone and is scored on the shared global test set. Together with baseline 3 it
     brackets the federated result and answers gap G4.
 
-    Returns one entry per client, in client order. An entry is ``None`` where the client holds
-    zero sequences and therefore has no detector to report -- see the module docstring.
+    Returns one entry per client, in client order -- including any client that received no
+    sequences, which is scored against a constant-benign prediction rather than dropped. See
+    the module docstring for why that client must appear in the report.
     """
     _check_partitions(client_seqs, client_y)
 
     # Independent, collision-free per-client seeds derived from the run seed.
     client_seeds = np.random.SeedSequence(seed).generate_state(len(client_seqs))
 
-    results: list[MulticlassMetrics | None] = []
+    results: list[MulticlassMetrics] = []
     for client_id, (seqs, labels) in enumerate(zip(client_seqs, client_y, strict=True)):
         if len(seqs) == 0:
-            # No data, so no model. Reported as absent rather than as a zero score.
-            results.append(None)
+            # No data, so no model -- but the client still appears in the report, scored on
+            # what it would actually predict: benign, always.
+            degenerate = np.zeros(len(y_test), dtype=np.int64)
+            results.append(multiclass_metrics(y_test, degenerate, class_names))
             continue
         model = train_centralized(
             np.asarray(seqs),
@@ -289,6 +302,7 @@ class FederatedRun:
     sequence_counts: list[int]  # n_k per client -- the Eq. (21) weights
     bytes_per_round: list[int]  # measured, not assumed (Eq. 22)
     per_round_macro_f1: list[float]  # empty unless evaluate_each_round was set
+    model: nn.Module  # the trained global detector -- Phase 7's runtime needs a classifier
 
 
 def _evaluate_state(
@@ -335,6 +349,10 @@ def run_federation(
     _check_partitions(client_seqs, client_y)
     if rounds <= 0:
         raise ValueError(f"rounds must be positive, got {rounds}")
+    if not any(len(seqs) for seqs in client_seqs):
+        # Caught here rather than left to surface from weighted_fedavg, where the message
+        # ("every client reported n_k = 0") describes the symptom and not the cause.
+        raise ValueError("every client holds zero sequences; cannot train a federated model")
 
     n_features = int(np.asarray(x_test).shape[2])
 
@@ -360,6 +378,8 @@ def run_federation(
     ]
     server = FederatedServer(clients, aggregation=aggregation)
 
+    final_model = build_detector(n_features, hidden_size, n_classes)
+
     def evaluate(state: StateDict) -> MulticlassMetrics:
         return _evaluate_state(
             state,
@@ -384,11 +404,14 @@ def run_federation(
             if verbose:
                 print(f"  round {round_index + 1}/{rounds}  macro-F1 {macro_f1:.4f}")
 
+    final_model.load_state_dict({name: t.clone() for name, t in global_state.items()})
+    final_model.eval()
     return FederatedRun(
         metrics=evaluate(global_state),
         sequence_counts=server.sequence_counts(),
         bytes_per_round=bytes_per_round,
         per_round_macro_f1=per_round_macro_f1,
+        model=final_model,
     )
 
 
@@ -408,9 +431,15 @@ def federated_global_gru(
     aggregation: str = "weighted",
     device: str = "cpu",
     verbose: bool = False,
-) -> MulticlassMetrics:
-    """Baseline 5: the federated global GRU (method under test)."""
-    return run_federation(
+) -> tuple[MulticlassMetrics, list[float], int, nn.Module]:
+    """Baseline 5: the federated global GRU (method under test), Algorithm 1 over ``rounds``.
+
+    Returns ``(final_metrics, macro_f1_per_round, measured_bytes_per_round, model)``. Callers
+    wanting the Eq. (21) weights or the per-round byte series use :func:`run_federation`, which
+    this delegates to; this signature exists because ``scripts/train_federated_model.py`` and
+    Phase 7's runtime need the trained classifier, not just its score.
+    """
+    run = run_federation(
         client_seqs,
         client_y,
         x_test,
@@ -424,5 +453,9 @@ def federated_global_gru(
         batch_size=batch_size,
         aggregation=aggregation,
         device=device,
+        evaluate_each_round=True,  # the convergence curve is part of this contract
         verbose=verbose,
-    ).metrics
+    )
+    # bytes_per_round is constant across rounds (same tensors every time); the scalar the
+    # caller expects is the last round's measurement.
+    return run.metrics, run.per_round_macro_f1, run.bytes_per_round[-1], run.model

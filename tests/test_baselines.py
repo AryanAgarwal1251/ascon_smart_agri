@@ -171,28 +171,6 @@ def test_local_only_grus_scores_every_client_on_the_shared_test_set() -> None:
         assert set(metrics.per_class_f1) == set(CLASSES)
 
 
-def test_local_only_gru_reports_none_for_a_client_with_no_data() -> None:
-    """alpha = 0.1 can leave a client with nothing; that is reported, never scored as zero."""
-    seqs, labels, x_test, y_test = _partitions()
-    seqs[1] = seqs[1][:0]  # client 1 receives no blocks at all
-    labels[1] = labels[1][:0]
-
-    results = local_only_grus(
-        seqs,
-        labels,
-        x_test,
-        y_test,
-        seed=0,
-        class_names=CLASSES,
-        n_classes=2,
-        epochs=3,
-        hidden_size=8,
-    )
-
-    assert results[1] is None
-    assert results[0] is not None and results[2] is not None
-
-
 def test_local_only_seeds_do_not_collide_across_clients_and_runs() -> None:
     """client 0 at seed 1 must not be the same run as client 1 at seed 0."""
     seqs, labels, x_test, y_test = _partitions(n_clients=2, n=120)
@@ -215,7 +193,7 @@ def test_local_only_seeds_do_not_collide_across_clients_and_runs() -> None:
 def test_federated_global_gru_learns_the_task() -> None:
     seqs, labels, x_test, y_test = _partitions()
 
-    metrics = federated_global_gru(
+    metrics, curve, measured_bytes, model = federated_global_gru(
         seqs,
         labels,
         x_test,
@@ -230,6 +208,9 @@ def test_federated_global_gru_learns_the_task() -> None:
 
     assert metrics.macro_f1 > 0.9
     assert metrics.confusion.sum() == len(y_test)
+    # The 4-tuple contract Phase 7 and the checkpointing script depend on.
+    assert len(curve) == 4 and measured_bytes > 0
+    assert model is not None
 
 
 def test_run_federation_publishes_eq21_weights_and_measured_cost() -> None:
@@ -289,4 +270,123 @@ def test_federated_baselines_reject_malformed_partitions() -> None:
     with pytest.raises(ValueError, match="rounds must be positive"):
         federated_global_gru(
             [x], [y], x, y, seed=0, class_names=CLASSES, n_classes=2, rounds=0, local_epochs=1
+        )
+
+
+# --- Baselines 4-5, second suite: merged from the parallel Phase 4 driver -----------
+# Kept alongside the tests above rather than deduplicated: they cover the same functions
+# through a different fixture and a different set of questions (weighted-vs-unweighted
+# runnability, the all-empty guard, the convergence-curve contract).
+
+
+def _client_tasks(n_clients: int = 3, n: int = 120, window: int = 3, n_features: int = 4):
+    """n_clients separable tasks, all evaluated against ONE shared test set (Section III-B3)."""
+    seqs, labels = [], []
+    for client_id in range(n_clients):
+        x, y = _task(n=n, window=window, n_features=n_features, seed=client_id)
+        seqs.append(x)
+        labels.append(y)
+    x_test, y_test = _task(n=40, window=window, n_features=n_features, seed=99)
+    return seqs, labels, x_test, y_test
+
+
+def test_local_only_grus_returns_one_result_per_client() -> None:
+    seqs, labels, x_test, y_test = _client_tasks()
+
+    results = local_only_grus(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        epochs=40,
+        hidden_size=16,
+    )
+
+    assert len(results) == 3
+    assert all(r.macro_f1 > 0.9 for r in results)  # each client's task is individually learnable
+
+
+def test_local_only_client_with_zero_sequences_is_reported_not_raised() -> None:
+    """Legitimate under strong heterogeneity: a report, not a filtered list."""
+    seqs, labels, x_test, y_test = _client_tasks(n_clients=2)
+    seqs[1] = np.empty((0, 3, 4), dtype=np.float32)
+    labels[1] = np.empty((0,), dtype=np.int64)
+
+    results = local_only_grus(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        epochs=15,
+        hidden_size=16,
+    )
+
+    assert len(results) == 2
+    assert results[1].confusion.sum() == len(y_test)  # still a full, well-formed metric bundle
+
+
+def test_federated_global_gru_learns_and_returns_convergence() -> None:
+    seqs, labels, x_test, y_test = _client_tasks()
+
+    metrics, convergence, measured_bytes, _model = federated_global_gru(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        rounds=8,
+        local_epochs=5,
+        hidden_size=16,
+    )
+
+    assert metrics.macro_f1 > 0.9
+    assert len(convergence) == 8  # one macro-F1 per round
+    assert measured_bytes > 0
+
+
+def test_federated_global_gru_weighted_vs_unweighted_are_both_runnable() -> None:
+    seqs, labels, x_test, y_test = _client_tasks()
+
+    for aggregation in ("weighted", "unweighted"):
+        metrics, convergence, _, _model = federated_global_gru(
+            seqs,
+            labels,
+            x_test,
+            y_test,
+            seed=0,
+            class_names=CLASSES,
+            n_classes=2,
+            rounds=2,
+            local_epochs=1,
+            hidden_size=16,
+            aggregation=aggregation,
+        )
+        assert 0.0 <= metrics.macro_f1 <= 1.0
+        assert len(convergence) == 2
+
+
+def test_federated_global_gru_raises_if_every_client_is_empty() -> None:
+    seqs = [np.empty((0, 3, 4), dtype=np.float32)] * 3
+    labels = [np.empty((0,), dtype=np.int64)] * 3
+    _, _, x_test, y_test = _client_tasks()
+
+    with pytest.raises(ValueError, match="every client holds zero sequences"):
+        federated_global_gru(
+            seqs,
+            labels,
+            x_test,
+            y_test,
+            seed=0,
+            class_names=CLASSES,
+            n_classes=2,
+            rounds=1,
+            local_epochs=1,
         )

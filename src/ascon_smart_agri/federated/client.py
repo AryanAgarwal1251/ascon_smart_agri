@@ -25,6 +25,13 @@ How independence is enforced rather than asserted:
   and the Dirichlet draw, and reports a tighter std than the method actually has. Mixing all
   three through a ``SeedSequence`` keeps the run fully reproducible from the manifest while
   letting the variance that III-I4 reports be real.
+
+``fedprox_mu`` (default ``None``, matching ``configs/base.py``'s ``FederatedConfig.fedprox_mu``)
+selects the Section III-F2 R4 fallback: when set, local training penalises drift away from the
+round's starting parameters, ``mu/2 * ||theta_k - theta_global||^2``, added to the loss every
+step via ``model/train.py``'s ``train_module``. ``None`` is plain FedAvg -- the fallback is
+opt-in, since the paper frames it as what to reach for *if* plain FedAvg diverges under strong
+heterogeneity, not as the default regime.
 """
 
 from __future__ import annotations
@@ -54,6 +61,7 @@ class FederatedClient:
         batch_size: int = 1024,
         learning_rate: float = 1e-3,
         device: str = "cpu",
+        fedprox_mu: float | None = None,
     ) -> None:
         self.client_id = client_id
         self.seed = seed
@@ -69,6 +77,7 @@ class FederatedClient:
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.device = device
+        self.fedprox_mu = fedprox_mu
 
     def training_seed(self, round_index: int) -> int:
         """Local training seed for ``round_index``, mixing (run seed, client id, round).
@@ -100,8 +109,11 @@ class FederatedClient:
 
         n_features = self._sequences.shape[2]
         model = build_detector(n_features, self.hidden_size, self.n_classes)
-        # Copy before loading: never hold a reference to the server's tensors.
-        model.load_state_dict({name: tensor.clone() for name, tensor in global_state.items()})
+        # Copy before loading: never hold a reference to the server's tensors. This same copy
+        # doubles as the FedProx reference point -- the parameters this ROUND started from,
+        # fixed for the whole local training duration, never mutated by training.
+        broadcast = {name: tensor.clone() for name, tensor in global_state.items()}
+        model.load_state_dict(broadcast)
 
         # train_module builds a FRESH optimiser on every call -- Section III-F2 requires it.
         trained: nn.Module = train_module(
@@ -114,6 +126,8 @@ class FederatedClient:
             batch_size=self.batch_size,
             learning_rate=self.learning_rate,
             device=self.device,
+            fedprox_mu=self.fedprox_mu,
+            fedprox_reference=broadcast if self.fedprox_mu is not None else None,
         )
         state = {name: tensor.detach().clone() for name, tensor in trained.state_dict().items()}
         return state, self.n_sequences
