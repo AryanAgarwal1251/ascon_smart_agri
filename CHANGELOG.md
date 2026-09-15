@@ -6,6 +6,12 @@ III-J4) rather than semantic-versioned releases, so entries are grouped by date 
 the phase they belong to. See [CLAUDE.md](CLAUDE.md) for the rule requiring this file to be
 kept current.
 
+## Results folder
+
+[`results/`](results/) holds a paper-claim-vs-achieved writeup for each of the seven phases,
+each figure traceable to the manifest in `artifacts/` it was pulled from rather than typed from
+memory. Start at [`results/README.md`](results/README.md).
+
 ## Phase status
 
 | # | Phase | Status | Exit criterion |

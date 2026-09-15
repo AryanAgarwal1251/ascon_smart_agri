@@ -97,7 +97,7 @@ def characterize_dataset(dataset_root: Path, chunk_size: int) -> Characterizatio
     for part in parts:
         for chunk in pd.read_csv(part, chunksize=chunk_size):
             if columns is None:
-                columns = {name: str(dtype) for name, dtype in chunk.dtypes.items()}
+                columns = {str(name): str(dtype) for name, dtype in chunk.dtypes.items()}
                 numeric_cols = [c for c in chunk.columns if pd.api.types.is_numeric_dtype(chunk[c])]
                 sum_vec = np.zeros(len(numeric_cols), dtype=np.float64)
                 sumsq_vec = np.zeros(len(numeric_cols), dtype=np.float64)
