@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import torch
 
 from ascon_smart_agri.eval.report import format_seed_summary, mean_std, near_ceiling_note
-from ascon_smart_agri.model.train import class_weights, predict, train_centralized
+from ascon_smart_agri.model.gru import build_detector
+from ascon_smart_agri.model.train import class_weights, predict, train_centralized, train_module
 
 
 def test_class_weights_match_equation_18() -> None:
@@ -135,3 +137,108 @@ def test_format_seed_summary_reports_mean_std_and_n() -> None:
     assert "macro_f1" in summary
     assert "0.6000" in summary
     assert "n=3" in summary
+
+
+def test_fedprox_pulls_training_back_toward_the_reference() -> None:
+    """A real behavioural check: high mu must keep parameters closer to the round's start
+    than plain FedAvg (mu=None) training on the same data does."""
+    x, y = _separable_task(n=200, seed=1)
+    reference = {
+        name: tensor.clone()
+        for name, tensor in build_detector(x.shape[2], 8, 2).state_dict().items()
+    }
+
+    # Load the SAME starting point into both, so only mu differs.
+    plain = build_detector(x.shape[2], 8, 2)
+    plain.load_state_dict(reference)
+    plain = train_module(plain, x, y, n_classes=2, epochs=8, seed=0)
+
+    constrained = build_detector(x.shape[2], 8, 2)
+    constrained.load_state_dict(reference)
+    constrained = train_module(
+        constrained,
+        x,
+        y,
+        n_classes=2,
+        epochs=8,
+        seed=0,
+        fedprox_mu=10.0,
+        fedprox_reference=reference,
+    )
+
+    def drift(trained: object) -> float:
+        return float(
+            sum(
+                (trained.state_dict()[name] - reference[name]).pow(2).sum()  # type: ignore[attr-defined]
+                for name in reference
+            )
+        )
+
+    assert drift(constrained) < drift(plain)
+
+
+def test_fedprox_with_mu_zero_barely_differs_from_plain_training() -> None:
+    """mu=0 should behave like plain FedAvg -- the penalty term is a no-op at mu=0."""
+    x, y = _separable_task(n=120, seed=2)
+    reference = {
+        name: tensor.clone()
+        for name, tensor in build_detector(x.shape[2], 8, 2).state_dict().items()
+    }
+
+    plain = build_detector(x.shape[2], 8, 2)
+    plain.load_state_dict(reference)
+    plain = train_module(plain, x, y, n_classes=2, epochs=5, seed=3)
+
+    zero_mu = build_detector(x.shape[2], 8, 2)
+    zero_mu.load_state_dict(reference)
+    zero_mu = train_module(
+        zero_mu, x, y, n_classes=2, epochs=5, seed=3, fedprox_mu=0.0, fedprox_reference=reference
+    )
+
+    for name in reference:
+        torch.testing.assert_close(
+            plain.state_dict()[name], zero_mu.state_dict()[name], atol=1e-5, rtol=1e-4
+        )
+
+
+def test_fedprox_requires_mu_and_reference_together() -> None:
+    x, y = _separable_task(n=40)
+    reference = {
+        name: tensor.clone()
+        for name, tensor in build_detector(x.shape[2], 8, 2).state_dict().items()
+    }
+
+    with pytest.raises(ValueError, match="must be given together"):
+        train_module(
+            build_detector(x.shape[2], 8, 2), x, y, n_classes=2, epochs=1, seed=0, fedprox_mu=1.0
+        )
+    with pytest.raises(ValueError, match="must be given together"):
+        train_module(
+            build_detector(x.shape[2], 8, 2),
+            x,
+            y,
+            n_classes=2,
+            epochs=1,
+            seed=0,
+            fedprox_reference=reference,
+        )
+
+
+def test_fedprox_rejects_negative_mu() -> None:
+    x, y = _separable_task(n=40)
+    reference = {
+        name: tensor.clone()
+        for name, tensor in build_detector(x.shape[2], 8, 2).state_dict().items()
+    }
+
+    with pytest.raises(ValueError, match="fedprox_mu must be non-negative"):
+        train_module(
+            build_detector(x.shape[2], 8, 2),
+            x,
+            y,
+            n_classes=2,
+            epochs=1,
+            seed=0,
+            fedprox_mu=-1.0,
+            fedprox_reference=reference,
+        )

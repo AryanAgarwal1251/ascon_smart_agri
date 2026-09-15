@@ -159,6 +159,46 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
 
+### Phase 4: two gaps closed after the minimal gate (FedProx wiring, scaler verification)
+
+Audited Phase 4 after the gate closed rather than treating "gate closed" as "nothing left" --
+found two real gaps neither the gate checker nor the experiment run had reason to catch, since
+neither affects the minimal gate's own criterion.
+
+- **FedProx was computed but never wired into training, until now.** `fedprox_proximal_term()`
+  existed, was unit-tested, and was correctly documented as the Section III-F2 R4 fallback --
+  but nothing in `federated/client.py` or `model/train.py` ever called it, so selecting it had
+  no effect. Fixed: `model/train.py`'s `train_module` gained `fedprox_mu`/`fedprox_reference`
+  parameters and adds the penalty to every step's loss, computed from the model's **live**
+  parameters (`model.named_parameters()`, not a `state_dict()` snapshot) so the gradient
+  actually reaches training rather than only being logged. `federated/client.py`'s
+  `FederatedClient` gained a `fedprox_mu` constructor argument (default `None`, matching
+  `configs/base.py`'s existing default -- the fallback stays opt-in, not the default regime),
+  and passes the round's broadcast state as the fixed reference point.
+  - **Verified behaviourally, not just "doesn't crash":** starting two identically-initialised
+    models from the same point, plain training drifted 0.0207 (squared L2) from the start point
+    over 8 epochs; with `fedprox_mu=10.0` it drifted only 0.0032 -- **16% of the unconstrained
+    drift**, a real, substantial constraint, not a rounding-level effect. A second test confirms
+    `fedprox_mu=0.0` is indistinguishable from plain training (the penalty is a true no-op at
+    mu=0), and a third exercises the wiring through `FederatedClient.local_train` itself, not
+    only the lower-level `train_module`. New tests in `test_training.py` (4) and
+    `test_federated.py` (2) -- pytest now 251 passed / 1 skipped.
+  - Not yet exercised against real data: this closes the implementation gap, not the deferred
+    alpha=0.1 sweep that would be the actual test of whether R4 is needed.
+- **The federated scaler-statistics path (`local_sufficient_stats`/`combine_stats`) had only
+  ever been proven on synthetic data.** The real Phase 4 run reused Phase 3's already-pooled
+  scaler rather than deriving it through the actual per-client-statistics mechanism, so the "no
+  raw data crosses the boundary" property for scaling was demonstrated in a unit test but not on
+  production data. Verified now on the real corpus: reconstructing the client partition
+  actually used (alpha=0.5, same seed) over the RAW, unscaled selected features (not the
+  already-standardised cache, which would have made the check vacuous -- mean already ~0), each
+  client's local mean differs meaningfully from the others (e.g. `Tot sum`: 25,184 / 30,640 /
+  20,991 across the three clients) and yet Chan's combination reproduces the pooled fit to
+  **relative difference 2e-12** -- as exact on real, skewed production data as the synthetic
+  tests already proved in principle. This was a verification exercise (manual, ~1 minute), not
+  a code change; no new artifact was produced since nothing about the already-reported Phase 4
+  results changes.
+
 ### Phase 4 minimal gate CLOSED: baselines 4-5, real federated experiment run
 
 Runs `scripts/run_phase4.py` for real: 3 clients (Dirichlet α=0.5), R=20 rounds, E=3 local

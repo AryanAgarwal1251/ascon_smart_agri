@@ -260,3 +260,27 @@ def test_measured_round_cost_is_close_to_the_theoretical_figure() -> None:
 def test_theoretical_cost_rejects_bad_arguments() -> None:
     with pytest.raises(ValueError, match="must be positive"):
         theoretical_bytes_per_round(0, 33_800)
+
+
+def test_client_wires_fedprox_through_to_training() -> None:
+    """The R4 fallback selected on the client actually reaches train_module, not just stored."""
+    seqs, y = _client(0, 80)._sequences, _client(0, 80)._labels  # reuse the task generator
+    reference_model = build_detector(4, 8, 2)
+    reference = {k: v.clone() for k, v in reference_model.state_dict().items()}
+
+    plain_client = FederatedClient(0, seqs, y, hidden_size=8, n_classes=2)
+    plain_state, _ = plain_client.local_train(reference, local_epochs=4)
+
+    prox_client = FederatedClient(0, seqs, y, hidden_size=8, n_classes=2, fedprox_mu=20.0)
+    prox_state, _ = prox_client.local_train(reference, local_epochs=4)
+
+    def drift(state: dict) -> float:
+        return sum(((state[k] - reference[k]) ** 2).sum().item() for k in reference)
+
+    assert drift(prox_state) < drift(plain_state)
+
+
+def test_client_default_fedprox_mu_is_none_plain_fedavg() -> None:
+    client = _client(0, 20)
+
+    assert client.fedprox_mu is None
