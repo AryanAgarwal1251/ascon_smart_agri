@@ -6,8 +6,9 @@ Phase 4 configuration and data path (same partition, same alpha=0.5, R=20, E=3, 
 FedAvg) but trains ONE seed only, then saves the resulting model.
 
 Scope decision (flagged, Golden Rule 1): Phase 4 already trained 3 seeds under this exact
-config to establish the STATISTICAL claim (macro-F1 0.8334 +/- 0.0026, reported in
-artifacts/phase4_results.json). Training a further 3 seeds here to pick one would be a second,
+config to establish the STATISTICAL claim (mean +/- std in artifacts/manifest_phase4_default.json,
+copied into this run's manifest as ``phase4_reference_*`` rather than typed in). Training a
+further 3 seeds here to pick one would be a second,
 redundant statistical exercise; Phase 7 needs *a* real, honestly-trained deployment artifact of
 the architecture the paper specifies, not a fresh validation. Seed 0 is used -- the first of
 Phase 4's own seed list, no other reason for that particular choice. Phase 4's reported mean+/-
@@ -16,6 +17,11 @@ accuracy is reported too (it will differ slightly from the 3-seed mean, by desig
 new finding.
 
     PYTHONPATH=. ./.venv/bin/python -u scripts/train_federated_model.py [--cache path.npz]
+
+The data path is run_phase4.py's own (``build_pipeline``): the same block ids, the same
+seed-0 Dirichlet draw, and the same federated scaler from client statistics (Eqs. 23-24),
+so the checkpoint is trained exactly as Phase 4's seed-0 model was. ``--cache`` takes the
+Phase 4 cache (``run_phase4.py --save-cache``), which stores UNSCALED features.
 """
 
 from __future__ import annotations
@@ -24,27 +30,25 @@ import argparse
 import builtins
 import functools
 import json
+import sys
 import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from configs.base import load_run_config
 
-from ascon_smart_agri.data.dedup import deduplicate
-from ascon_smart_agri.data.scaling import apply_scaler, fit_scaler
-from ascon_smart_agri.data.split import make_blocks, stratified_block_split
-from ascon_smart_agri.data.subsample import stratified_capped_subsample
-from ascon_smart_agri.data.taxonomy import CLASS_NAMES, to_class_index
+from ascon_smart_agri.data.taxonomy import CLASS_NAMES
 from ascon_smart_agri.eval.baselines import federated_global_gru
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
-from ascon_smart_agri.features.selection import FeatureSelector
 from ascon_smart_agri.federated.partition import (
     dirichlet_block_partition,
     per_client_class_histograms,
 )
 from ascon_smart_agri.model.checkpoint import save_model
 from ascon_smart_agri.sequences.windowing import build_windows, contiguity_segments
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run_phase4 import block_strata, build_pipeline, federated_scaler
 
 print = functools.partial(builtins.print, flush=True)
 
@@ -56,93 +60,52 @@ def main() -> None:
     parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--cache", default="", help="optional .npz of prepared train/test arrays")
     parser.add_argument("--out", default="artifacts/federated_global_model.safetensors")
+    parser.add_argument(
+        "--phase4-manifest",
+        default="artifacts/manifest_phase4_default.json",
+        help="Phase 4 run whose 3-seed federated mean +/- std this checkpoint is reported against",
+    )
     args = parser.parse_args()
 
     cfg = load_run_config(args.config)
     started = time.time()
 
-    if args.cache and Path(args.cache).exists():
-        blob = np.load(args.cache, allow_pickle=False)
-        x_tr, y_tr, src_tr, idx_tr = blob["Xtr"], blob["ytr"], blob["str_"], blob["itr"]
-        x_te, y_te, src_te, idx_te = blob["Xte"], blob["yte"], blob["ste"], blob["ite"]
-        per_class_counts: dict[str, int] = {}
-        print(f"[data] loaded cached arrays: train {x_tr.shape}, test {x_te.shape}")
-    else:
-        frame, per_class_counts = stratified_capped_subsample(
-            cfg.data.dataset_root,
-            target=cfg.data.subsample_target,
-            per_class_cap=cfg.data.per_class_cap,
-            chunk_size=cfg.data.chunk_size,
-            seed=cfg.data.seed,
-        )
-        deduped = deduplicate(frame)
-        block_ids = make_blocks(deduped, block_size=cfg.data.block_size)
-        split = stratified_block_split(
-            deduped, block_ids, test_fraction=cfg.data.test_fraction, seed=cfg.data.seed
-        )
-        train_frame = deduped.loc[block_ids.isin(split.train_blocks)]
-        test_frame = deduped.loc[block_ids.isin(split.test_blocks)]
+    # Same Phases 1-2 pipeline as run_phase4.py: UNSCALED features plus per-row block ids.
+    (x_tr, y_tr, src_tr, idx_tr, blk_tr, x_te, y_te, src_te, idx_te, _columns, per_class_counts) = (
+        build_pipeline(cfg, args.cache, "")
+    )
+    print(f"[data] train {x_tr.shape} | test {x_te.shape}")
 
-        selector = FeatureSelector()
-        selection = selector.fit(
-            train_frame.drop(columns=["label"]),
-            train_frame["label"],
-            tau=cfg.features.correlation_tau,
-            f=cfg.features.selected_f,
-            f_sweep=cfg.features.f_sweep,
-            rf_n_estimators=cfg.features.rf_n_estimators,
-            rrf_k=cfg.features.rrf_k,
-            sample_size=cfg.features.selection_sample_size,
-            seed=cfg.data.seed,
-        )
-        columns = selection.selected_columns
-
-        def prepare(part, scaler=None):  # type: ignore[no-untyped-def]
-            values = part[columns].to_numpy(dtype=np.float64)
-            finite = np.isfinite(values).all(axis=1)
-            kept = part.loc[finite]
-            values = values[finite]
-            scaler = scaler or fit_scaler(values)
-            scaled = apply_scaler(values, scaler).astype(np.float32)
-            return (
-                scaled,
-                to_class_index(kept["label"]).to_numpy(),
-                kept["source_file"].to_numpy().astype(str),
-                kept.index.to_numpy(),
-                scaler,
-            )
-
-        x_tr, y_tr, src_tr, idx_tr, fitted = prepare(train_frame)
-        x_te, y_te, src_te, idx_te, _ = prepare(test_frame, fitted)
-        print(f"[data] train {x_tr.shape} | test {x_te.shape}")
-
-    seg_tr = contiguity_segments(src_tr, idx_tr)
     seg_te = contiguity_segments(src_te, idx_te)
 
-    # ---- IDENTICAL partition to run_phase4.py: same seed, same alpha -> same 3-way split ---
-    block_ids_tr = make_blocks(
-        pd.DataFrame({"label": y_tr.astype(str)}), block_size=cfg.data.block_size
-    )
-    block_labels = pd.Series(y_tr.astype(str)).groupby(block_ids_tr).first().to_numpy()
-    client_blocks = dirichlet_block_partition(
+    # ---- IDENTICAL partition to run_phase4.py's seed-0 run: same block ids, same draw ------
+    train_blocks, block_labels = block_strata(blk_tr, y_tr)
+    assignment = dirichlet_block_partition(
         block_labels,
         n_clients=cfg.federated.n_clients,
         alpha=cfg.federated.dirichlet_alpha,
-        seed=cfg.data.seed,
+        seed=CHECKPOINT_SEED,
     )
-    histograms = per_client_class_histograms(client_blocks, block_labels)
+    histograms = per_client_class_histograms(assignment, block_labels)
+    client_blocks = [train_blocks[np.asarray(ids, dtype=int)] for ids in assignment]
+    row_masks = [np.isin(blk_tr, blocks) for blocks in client_blocks]
     sizes = [len(c) for c in client_blocks]
     print(f"[partition] alpha={cfg.federated.dirichlet_alpha}, sizes={sizes}")
 
+    # ---- Global scaler from client sufficient statistics only (Eqs. 23-24), as in Phase 4 --
+    mean, std = federated_scaler([x_tr[mask] for mask in row_masks])
+    scaled_tr = ((x_tr - mean) / std).astype(np.float32)
+    scaled_te = ((x_te - mean) / std).astype(np.float32)
+
     client_seqs, client_y = [], []
-    for blocks in client_blocks:
-        idx = np.flatnonzero(block_ids_tr.isin(blocks).to_numpy())
-        seqs, labs = build_windows(x_tr[idx], y_tr[idx], seg_tr[idx], cfg.sequence.window)
+    for mask in row_masks:
+        seg = contiguity_segments(src_tr[mask], idx_tr[mask])
+        seqs, labs = build_windows(scaled_tr[mask], y_tr[mask], seg, cfg.sequence.window)
         client_seqs.append(seqs)
         client_y.append(labs)
         print(f"  -> client sequences: {len(seqs):,}")
 
-    seq_te, lab_te = build_windows(x_te, y_te, seg_te, cfg.sequence.window)
+    seq_te, lab_te = build_windows(scaled_te, y_te, seg_te, cfg.sequence.window)
     print(f"[sequences] test: {len(seq_te):,}")
 
     # ---- Train ONE seed, for real, and keep the model this time -----------------------------
@@ -186,6 +149,17 @@ def main() -> None:
     )
     print(f"[checkpoint] saved -> {out_path}")
 
+    # The 3-seed claim this checkpoint is compared against comes from the Phase 4 manifest,
+    # never from a literal in this file (a literal here once outlived the run it described).
+    reference: dict[str, float] = {}
+    if Path(args.phase4_manifest).exists():
+        summary = json.loads(Path(args.phase4_manifest).read_text())["results"]["summary"]
+        reference = summary.get("federated", {})
+    print(
+        f"[reference] Phase 4 federated macro-F1 {reference.get('macro_f1_mean')} "
+        f"+/- {reference.get('macro_f1_std')} ({args.phase4_manifest})"
+    )
+
     versions, hardware = collect_environment()
     manifest = RunManifest(
         run_name=f"phase7_train_{cfg.run_name}",
@@ -206,8 +180,9 @@ def main() -> None:
             "convergence": convergence,
             "measured_bytes_per_round": bytes_per_round,
             "per_client_class_histograms": histograms,
-            "phase4_reference_macro_f1_mean": 0.8334,
-            "phase4_reference_macro_f1_std": 0.0026,
+            "phase4_reference_manifest": args.phase4_manifest,
+            "phase4_reference_macro_f1_mean": reference.get("macro_f1_mean"),
+            "phase4_reference_macro_f1_std": reference.get("macro_f1_std"),
             "scope_note": (
                 "ONE seed trained and saved for deployment, not a fresh statistical claim -- "
                 "see this script's module docstring. Phase 4's 3-seed mean +/- std remains the "

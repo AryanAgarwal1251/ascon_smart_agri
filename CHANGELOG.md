@@ -33,6 +33,35 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-09-15
 
+### End-to-end verification of all seven phases; four reproducibility breaks fixed
+
+Every phase was executed in order on this machine from the raw corpus (Phase 1 report
+re-derived and byte-identical; Phases 2-4 from raw at a reduced budget, both gates closed;
+Phase 6 benchmark at 96 B and 512 B; a checkpoint trained and run through Phase 7). The
+committed full-budget manifests still close both gates. What broke on the way, and the fix:
+
+- **`scripts/train_federated_model.py` did not train on Phase 4's partition or scaling**,
+  despite its "IDENTICAL partition" comment. It re-cut blocks from the train labels (4,842
+  blocks against the cache's 4,854, a different Dirichlet draw: client sizes 1164/1849/1829
+  against Phase 4's 1166/1855/1833) and, when given the Phase 4 cache, fed the GRU **unscaled**
+  features (the cache stores raw values; the script assumed pre-scaled ones -- a smoke run at
+  R=2/E=1 scored 0.50 before the fix and 0.71 after, same seed, same data). It now calls
+  `run_phase4.py`'s own `build_pipeline`, the new shared `block_strata`, and the federated
+  scaler (Eqs. 23-24), and reproduces Phase 4's seed-0 sequence counts exactly
+  (284,500 / 458,447 / 452,390). The deployed checkpoint and both Phase 7 manifests are
+  regenerated from the fixed script in the entry that follows.
+- **The same script hard-coded the superseded 0.8334 +/- 0.0026** from the inverted
+  minimal-gate run as the Phase 4 reference and wrote it into every Phase 7 training manifest.
+  It now reads the 3-seed mean +/- std from `--phase4-manifest`
+  (default `artifacts/manifest_phase4_default.json`) and records which file it read.
+- **`scripts/summarize_phase7.py` crashed** (`KeyError: 'federated_per_seed'`) against the
+  current Phase 4 manifest: it still read the minimal-gate schema. Ported to `per_seed.federated`.
+- **The `asa` CLI raised `NotImplementedError` for every phase** while its docstring promised
+  one-binary reproducibility. It now dispatches to the driver under `scripts/` with arguments
+  passed through (`asa federate --rounds 2`), and says plainly that Phases 2, 5 and 6 have no
+  standalone driver (exit 2). `scripts/run_phase1.py` added so Phase 1's committed report has
+  a script that produces it. `tests/test_cli.py` (3 tests) covers the dispatch.
+
 ### Merged two parallel Phase 4 implementations
 
 Two Phase 4 drivers were written independently and collided on merge (7 conflicted paths).

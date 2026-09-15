@@ -32,8 +32,9 @@ def summarize(
     # construction rather than by hoping a copied-in digit string stays in sync.
     phase4_seed0 = None
     if phase4_manifest is not None:
-        for entry in phase4_manifest["results"]["federated_per_seed"]:
-            if entry["seed"] == train["checkpoint_seed"]:
+        runs = phase4_manifest["results"]["per_seed"]["federated"]
+        for seed, entry in zip(phase4_manifest["seeds"], runs, strict=True):
+            if seed == train["checkpoint_seed"]:
                 phase4_seed0 = entry["macro_f1"]
                 break
 

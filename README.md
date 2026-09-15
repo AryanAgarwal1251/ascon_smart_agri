@@ -152,6 +152,30 @@ vulture
 pytest
 ```
 
+### Running a phase
+
+`asa` (installed by `pip install -e .`) runs a phase's driver under `scripts/` and passes any
+further arguments straight through, so `asa federate --rounds 2` is
+`scripts/run_phase4.py --rounds 2`; `asa <phase> -h` prints that driver's help.
+
+```bash
+# macOS / Linux
+./.venv/bin/asa characterize                                   # Phase 1 -> artifacts/phase1_*.json
+./.venv/bin/asa train-centralized --cache artifacts/phase4_cache.npz   # Phase 3
+./.venv/bin/asa federate --cache artifacts/phase4_cache.npz            # Phase 4 (--save-cache builds it)
+./.venv/bin/asa run-e2e                                        # Phase 7 (needs the trained checkpoint)
+```
+
+```powershell
+# Windows (PowerShell)
+.\.venv\Scripts\asa.exe federate --cache artifacts\phase4_cache.npz
+```
+
+Phases 2, 5 and 6 have no driver of their own: Phase 2 runs inside every training driver, and
+Phases 5-6 are library modules exercised by `run-e2e` and the tests. `asa preprocess`,
+`asa telemetry` and `asa secure` say so and exit 2. The Phase 7 checkpoint comes from
+`scripts/train_federated_model.py --cache artifacts/phase4_cache.npz`.
+
 ### Tooling decisions
 
 - **Build backend: hatchling** — PEP 621-native and installer-agnostic (works with `pip`

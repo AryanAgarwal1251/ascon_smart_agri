@@ -194,6 +194,22 @@ def federated_scaler(client_rows: list[np.ndarray]) -> tuple[np.ndarray, np.ndar
     return combine_stats(parts)
 
 
+def block_strata(blk_tr: np.ndarray, y_tr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``(train_blocks, block_labels)``: each train block id and its single label.
+
+    Shared with ``train_federated_model.py`` so Phase 7's checkpoint is partitioned from the
+    SAME block ids as Phase 4's run, not from blocks re-derived over the train rows (which
+    re-cuts them and changes the Dirichlet draw).
+    """
+    train_blocks = np.unique(blk_tr)
+    first_row_of_block = (
+        np.searchsorted(blk_tr, train_blocks)
+        if np.all(np.diff(blk_tr) >= 0)
+        else np.array([np.flatnonzero(blk_tr == b)[0] for b in train_blocks])
+    )
+    return train_blocks, y_tr[first_row_of_block]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/default.yaml")
@@ -241,13 +257,7 @@ def main() -> None:
 
     # Blocks carry exactly one label (data/split.make_blocks), so a block's label is its
     # stratum for the Dirichlet draw of Eq. (20).
-    train_blocks = np.unique(blk_tr)
-    first_row_of_block = (
-        np.searchsorted(blk_tr, train_blocks)
-        if np.all(np.diff(blk_tr) >= 0)
-        else np.array([np.flatnonzero(blk_tr == b)[0] for b in train_blocks])
-    )
-    block_labels = y_tr[first_row_of_block]
+    train_blocks, block_labels = block_strata(blk_tr, y_tr)
 
     print(
         f"\n[setup] K={n_clients} clients | alpha={alpha} | R={rounds} rounds | E={local_epochs}"
