@@ -16,7 +16,7 @@ kept current.
 | 4 | Three-client federated simulation, weighted FedAvg | **Minimal gate CLOSED**, verified by `scripts/check_phase4_gate.py` (25/25 PASS, exit 0): baselines 4-5 reported over 3 seeds at the paper's default config (α=0.5, R=20, E=3, weighted). Federated global macro-F1 **0.8334 ± 0.0026**, beating both local-only (0.73-0.77) and the Phase 3 centralised reference (0.8297) on every one of 3 seeds. **Not done:** the α/E/weighted-vs-unweighted/R ablation sweep of Section III-I3, deferred as separate scope (see entry below) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; minimal gate closed ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
 | 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
-| 7 | End-to-end integration | In progress: streaming window assembly, Ascon latency/expansion measurement, and the client-to-global gap metric implemented (the three concrete gaps found by auditing Section III-I2 against the codebase). **Not done:** no trained model has ever been saved to disk; the runtime pipeline is not yet wired end-to-end with a real classifier | Full pipeline run producing a manifest |
+| 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → Ascon/alert. G1 held throughout (0 malicious-verdict messages reached the cloud) | Full pipeline run producing a manifest ✅ |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
 parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
@@ -158,6 +158,64 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 7 complete: real model trained, saved, and run through the real pipeline
+
+Closes the last item from the gap audit: `scripts/train_federated_model.py` trains and saves
+(via `model/checkpoint.py`, new this entry) one federated global model checkpoint under the
+IDENTICAL Phase 4 configuration and data partition -- same seed, same α=0.5, R=20, E=3,
+weighted FedAvg. Scope decision (flagged): seed 0 only, not a fresh 3-seed run, since Phase 4
+already established the statistical claim and Phase 7 needs a real deployment artifact, not a
+second validation. 54.8 minutes (faster than Phase 4's contended 78.6-minute seed-0 run; no
+contention this time). **Result: macro-F1 0.8338 -- bit-for-bit identical to Phase 4's seed-0
+run** (verified against Phase 4's own manifest, not a hand-typed constant -- see the bug note
+below), confirming the training path is genuinely deterministic end to end.
+
+`scripts/run_phase7.py` is the first script in this project to execute the paper's own
+sentence for real: *"telemetry arrives, is classified using the current global model, and is
+routed according to Equation (5)."* One message at a time, in order:
+`simulate_stream` → `FeatureProvenanceAdapter` (G6, held-out only) → `DeviceWindowBuffer` (new
+this entry, `sequences/streaming.py`) → the real saved model → Eq. (5)'s `y > 0` projection →
+`VerdictRouter` → real `AsconAEAD128`/`MockCloudReceiver` or `AlertSink`. Validated with a real
+smoke run (a tiny 2-round checkpoint on sliced data, 80 messages) before the expensive training
+finished, then run for real against the trained checkpoint.
+
+**Real end-to-end results** (100 simulated messages, 3 devices, W=16): 45 still buffering
+(correct -- no device had accumulated a full window yet, no padding was fabricated), 55
+classified (0 benign, 55 malicious). Cloud received exactly 0, matching 0 benign verdicts
+exactly; alert count exactly 55, matching every malicious verdict; **zero malicious-verdict
+messages reached the cloud** -- G1 holds through the fully assembled runtime loop, not merely
+in the isolated unit tests. Per-stage latency (median): provenance 3.6us, window 10.5us,
+inference 273.7us, routing 4.1us -- inference dominates, as expected for a GRU forward pass
+versus dict lookups and byte serialisation.
+
+- **A real, verified finding, not a bug: this run's sample drew 0 true-benign records among
+  its 55 classified windows' final records that the model called benign** (53/55 = 96.4%
+  informal agreement with true_label -- NOT a formal evaluation, see the module's own
+  disclaimer). Checked rather than assumed: the held-out pool's true benign rate is 4.52%, and
+  the seeded draw for stream positions 45-99 (the ones that got classified, given 45 messages
+  went to filling buffers first) landed exactly 2 true-benign records -- almost exactly the
+  4.52% x 55 ≈ 2.5 expected by chance. Both of those 2 were (informally) misclassified as
+  malicious, a small-sample (n=2) echo of the already-documented binary FPR limitation
+  (0.257, measured formally in Phase 3) -- not new evidence, and far too small a sample to be
+  one. Phase 6's own integration test already proved benign routing works correctly with real
+  crypto (8 of 200 messages there were genuinely benign and all 8 round-tripped correctly); this
+  run simply didn't draw one in its classified range.
+- **A real bug in the verification script itself, caught and fixed before it shipped a wrong
+  answer.** `scripts/summarize_phase7.py` first compared the checkpoint's macro-F1 against a
+  hand-typed `0.8338` (the value as printed, truncated to 4 decimals) with a `1e-6` tolerance,
+  and reported **"reproduces Phase 4 seed 0 exactly: False"** for a run that was in fact
+  bit-for-bit identical -- the true value is `0.8338014523294024`, which differs from the
+  truncated constant by `1.45e-6`, just over the tolerance. Fixed to read Phase 4's actual
+  recorded seed-0 value from its own manifest and compare for exact equality, rather than
+  trusting a copied-in digit string to stay in sync with the real number. Found by checking the
+  comparison's own inputs rather than accepting "False" at face value.
+- New `scripts/summarize_phase7.py` (distilling both `manifest_phase7_train_default.json` and
+  `manifest_phase7_e2e_default.json` into `artifacts/phase7_results.json`, same relationship as
+  Phase 4's summarizer). The model checkpoint itself
+  (`artifacts/federated_global_model.safetensors`, 136 KB) stays gitignored as bulk output,
+  consistent with the existing `*.safetensors` policy; the manifests and results file, being
+  JSON provenance, are tracked.
 
 ### Phase 7 opened: three gaps closed that don't require retraining
 

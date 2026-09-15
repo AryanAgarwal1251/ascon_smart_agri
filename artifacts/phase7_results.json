@@ -1,0 +1,58 @@
+{
+  "checkpoint": {
+    "path": "artifacts/federated_global_model.safetensors",
+    "seed": 0,
+    "macro_f1": 0.8338,
+    "balanced_accuracy": 0.8549,
+    "mcc": 0.891,
+    "phase4_reference_macro_f1_mean": 0.8334,
+    "phase4_reference_macro_f1_std": 0.0026,
+    "phase4_seed0_macro_f1_exact": 0.8338014523294024,
+    "reproduces_phase4_seed0_exactly": true,
+    "training_seconds": 3289.8,
+    "scope_note": "ONE seed trained and saved for deployment, not a fresh statistical claim -- see this script's module docstring. Phase 4's 3-seed mean +/- std remains the reported performance finding."
+  },
+  "end_to_end_run": {
+    "n_messages": 100,
+    "n_buffering": 45,
+    "n_classified": 55,
+    "n_benign": 0,
+    "n_malicious": 55,
+    "cloud_received": 0,
+    "cloud_rejected": 0,
+    "alert_count": 55,
+    "g1_malicious_reaching_cloud": 0,
+    "g1_holds": true,
+    "informal_true_label_agreement": 0.9636363636363636,
+    "per_stage_latency_us": {
+      "provenance": {
+        "median_us": 3.6249984987080097,
+        "mean_us": 4.026661335956305,
+        "std_us": 2.5760045830740825
+      },
+      "window": {
+        "median_us": 10.459014447405934,
+        "mean_us": 8.18589236587286,
+        "std_us": 10.114159346725236
+      },
+      "inference": {
+        "median_us": 273.66599533706903,
+        "mean_us": 336.5408327557485,
+        "std_us": 431.5354993483012
+      },
+      "routing": {
+        "median_us": 4.083005478605628,
+        "mean_us": 6.307544588873332,
+        "std_us": 11.917653810694492
+      }
+    },
+    "limitation_note": "Demonstrates architectural correctness only: the pipeline composes, planes stay separate, routing is correct, crypto verifies. Does NOT demonstrate detection against a live deployment -- see telemetry/provenance.py.",
+    "elapsed_seconds": 67.3
+  },
+  "training_git_commit": "1cdfa1a65203fcc56f9e2433f3943638a3190361",
+  "e2e_git_commit": "1cdfa1a65203fcc56f9e2433f3943638a3190361",
+  "source_manifests": [
+    "manifest_phase7_train_default.json",
+    "manifest_phase7_e2e_default.json"
+  ]
+}
