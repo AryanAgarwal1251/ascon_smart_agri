@@ -6,7 +6,12 @@ import numpy as np
 import pytest
 import torch
 
-from ascon_smart_agri.eval.report import format_seed_summary, mean_std, near_ceiling_note
+from ascon_smart_agri.eval.report import (
+    client_to_global_gap,
+    format_seed_summary,
+    mean_std,
+    near_ceiling_note,
+)
 from ascon_smart_agri.model.gru import build_detector
 from ascon_smart_agri.model.train import class_weights, predict, train_centralized, train_module
 
@@ -242,3 +247,28 @@ def test_fedprox_rejects_negative_mu() -> None:
             fedprox_mu=-1.0,
             fedprox_reference=reference,
         )
+
+
+def test_client_to_global_gap_is_federated_minus_local() -> None:
+    gap = client_to_global_gap({"0": 0.70, "1": 0.75}, federated_macro_f1=0.83)
+
+    assert gap == pytest.approx({"0": 0.13, "1": 0.08})
+
+
+def test_client_to_global_gap_positive_means_federation_helps() -> None:
+    """If the global model beats every client's own local-only model, every gap is positive."""
+    gap = client_to_global_gap({"0": 0.77, "1": 0.73}, federated_macro_f1=0.83)
+
+    assert all(v > 0 for v in gap.values())
+
+
+def test_client_to_global_gap_negative_means_local_only_wins_for_that_client() -> None:
+    """The G4 finding the paper explicitly allows for (R4): federation can lose for a client."""
+    gap = client_to_global_gap({"0": 0.90}, federated_macro_f1=0.83)
+
+    assert gap["0"] < 0
+
+
+def test_client_to_global_gap_rejects_an_empty_map() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        client_to_global_gap({}, federated_macro_f1=0.8)

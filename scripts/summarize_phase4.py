@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ascon_smart_agri.eval.report import client_to_global_gap
+
 
 def summarize(manifest: dict[str, Any]) -> dict[str, Any]:
     results = manifest["results"]
@@ -26,6 +28,13 @@ def summarize(manifest: dict[str, Any]) -> dict[str, Any]:
 
     # G4: does federation sit between local-only (lower bound) and centralised (upper bound)?
     local_only_f1 = [v["macro_f1_mean"] for v in local_only.values()]
+    # Section III-I2: "the client-to-global gap" -- computed retroactively (flagged in
+    # CHANGELOG.md): not produced by the original run_phase4.py, added while scoping Phase 7
+    # after grepping the codebase and finding this metric had never been computed anywhere.
+    gap = client_to_global_gap(
+        {client: v["macro_f1_mean"] for client, v in local_only.items()},
+        federated["macro_f1_mean"],
+    )
     g4_bracket = {
         "local_only_range": [round(min(local_only_f1), 4), round(max(local_only_f1), 4)],
         "federated_macro_f1": round(federated["macro_f1_mean"], 4),
@@ -53,6 +62,7 @@ def summarize(manifest: dict[str, Any]) -> dict[str, Any]:
         "baseline_4_local_only": local_only,
         "baseline_5_federated_global": federated,
         "g4_bracket": g4_bracket,
+        "client_to_global_gap": {k: round(v, 4) for k, v in gap.items()},
         "communication_cost": {
             "measured_bytes_per_round": results["measured_bytes_per_round"],
             "theoretical_bytes_per_round": results["theoretical_bytes_per_round"],
@@ -84,6 +94,7 @@ def main() -> int:
     federated_f1 = summary["baseline_5_federated_global"]["macro_f1_mean"]
     print(f"  baseline 5 (federated)     : {federated_f1:.4f}")
     print(f"  G4 bracket                 : {summary['g4_bracket']}")
+    print(f"  client-to-global gap       : {summary['client_to_global_gap']}")
     return 0
 
 

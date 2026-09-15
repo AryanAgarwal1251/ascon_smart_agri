@@ -16,7 +16,7 @@ kept current.
 | 4 | Three-client federated simulation, weighted FedAvg | **Minimal gate CLOSED**, verified by `scripts/check_phase4_gate.py` (25/25 PASS, exit 0): baselines 4-5 reported over 3 seeds at the paper's default config (α=0.5, R=20, E=3, weighted). Federated global macro-F1 **0.8334 ± 0.0026**, beating both local-only (0.73-0.77) and the Phase 3 centralised reference (0.8297) on every one of 3 seeds. **Not done:** the α/E/weighted-vs-unweighted/R ablation sweep of Section III-I3, deferred as separate scope (see entry below) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; minimal gate closed ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
 | 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
-| 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
+| 7 | End-to-end integration | In progress: streaming window assembly, Ascon latency/expansion measurement, and the client-to-global gap metric implemented (the three concrete gaps found by auditing Section III-I2 against the codebase). **Not done:** no trained model has ever been saved to disk; the runtime pipeline is not yet wired end-to-end with a real classifier | Full pipeline run producing a manifest |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
 parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
@@ -158,6 +158,56 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 7 opened: three gaps closed that don't require retraining
+
+Audited Section III-I2 against the codebase before writing any Phase 7 code (the Phase 3
+lesson, applied proactively this time rather than after declaring something complete): grepped
+for `client_to_global_gap`, encrypt/decrypt latency measurement, and any persisted model
+weights. Found the first two never implemented and the third genuinely absent -- no training
+run in this project has ever saved a model to disk. Closed the two that don't need retraining
+now; the third (a real classifier driving the runtime pipeline) needs a fresh federated run and
+is scoped separately below.
+
+- **`sequences/streaming.py`, closing the gap `telemetry/provenance.py` explicitly deferred
+  here.** `DeviceWindowBuffer` assembles `(W, F)` windows per device from single feature
+  vectors arriving one call at a time -- the streaming counterpart to
+  `sequences/windowing.py`'s offline, whole-batch construction. Rolling per DEVICE (not a
+  single shared buffer, which would splice unrelated devices' readings together); a window is
+  emitted the instant a device's buffer first reaches `W` and then slides by one on every
+  subsequent push, consistent with `y_i = y_{i+W-1}`; nothing is ever padded to fake a window
+  before real data fills it, the same objection that already rules out synthetic oversampling
+  and fabricated network features. New `tests/test_streaming_windows.py` (12).
+- **`eval/report.py`'s `client_to_global_gap`**, defined as `federated_macro_f1 -
+  local_only_macro_f1` per client, both scored on the SAME shared test set (flagged, Golden
+  Rule 1: the paper names this metric in Section III-I2 but never defines its sign or exact
+  form). Positive means federation helps that client; negative is the G4/R4 finding the paper
+  explicitly permits and asks to be reported honestly. **Retroactively applied to Phase 4's own
+  results** -- `scripts/summarize_phase4.py` now computes it from the ALREADY-SAVED
+  `manifest_phase4_default.json` (no retraining needed) and `artifacts/phase4_results.json` was
+  regenerated: every client gains from federation, +0.063 to +0.100 macro-F1. New tests in
+  `tests/test_training.py` (4).
+- **`eval/crypto_benchmark.py`**, measuring the already-implemented, KAT-verified
+  `AsconAEAD128` facade -- no new cryptography. A real bug in the benchmark itself, not the
+  crypto, surfaced on its first run: `AsconAEAD128.encrypt()` returns only `ciphertext||tag`
+  (payload + 16 bytes); Eq. (29)'s 32-byte wire-expansion figure additionally counts the nonce,
+  which travels as a separate field in this design and isn't part of that return value. Fixed
+  to add `len(nonce)` explicitly; the fix was found because the benchmark's own first run
+  disagreed with the paper's worked 33%/6.3% examples, not assumed correct in advance. New
+  `tests/test_crypto_benchmark.py` (7) checks the expansion exactly against those two worked
+  examples. **Real measurements on this machine** (the vendored pure-Python reference backend,
+  not an optimised implementation -- see the Phase 6 backend-selection entry):
+
+  | Payload | Expansion | Encrypt (median / p95) | Decrypt (median / p95) |
+  | --- | --- | --- | --- |
+  | 96 B | 32 B (33.33%) | 390.8 us / 400.9 us | 391.9 us / 403.3 us |
+  | 512 B | 32 B (6.25%) | 1300.5 us / 1327.8 us | 1302.1 us / 1330.3 us |
+
+  Expansion matches the paper's stated 33%/6.3% exactly, since it is a structural property of
+  the scheme (Eq. 29), not a measurement with noise -- latency is genuinely empirical and
+  machine-dependent, reported as a distribution rather than a single number for that reason.
+
+Pytest now **329 passed / 0 skipped** (up from 306/0).
 
 ### Phase 6 complete: alerting path, replay window, G1's behavioural half -- zero skips left
 

@@ -69,6 +69,11 @@
     "federation_beats_worst_local_only": true,
     "federation_reaches_centralized": true
   },
+  "client_to_global_gap": {
+    "0": 0.0632,
+    "1": 0.1002,
+    "2": 0.0699
+  },
   "communication_cost": {
     "measured_bytes_per_round": 815136,
     "theoretical_bytes_per_round": 811200

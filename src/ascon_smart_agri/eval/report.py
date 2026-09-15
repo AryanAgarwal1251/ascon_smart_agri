@@ -51,3 +51,25 @@ def format_seed_summary(name: str, values: Sequence[float]) -> str:
     """Format one metric across seeds as ``name: mean +/- std (n seeds)``."""
     mean, std = mean_std(values)
     return f"{name}: {mean:.4f} +/- {std:.4f} (n={len(values)})"
+
+
+def client_to_global_gap(
+    local_only_macro_f1: dict[str, float], federated_macro_f1: float
+) -> dict[str, float]:
+    """Per-client gap between the federated global model and that client's local-only model.
+
+    Section III-I2 lists "the client-to-global gap" alongside "federated convergence as
+    macro-F1 against round" as part of what is reported for federated runs; the paper names it
+    but does not define the sign or exact quantity (flagged, Golden Rule 1). Defined here as
+    ``federated_macro_f1 - local_only_macro_f1``, both evaluated on the SAME shared test set (so
+    the only thing that differs is which model produced the predictions, not the data they were
+    scored against): **positive means federation helps that client** relative to going it
+    alone; **negative means the client would do better with its own local-only model** -- the
+    G4 finding Section III (R4) explicitly allows for and asks to be reported honestly rather
+    than tuned away.
+    """
+    if not local_only_macro_f1:
+        raise ValueError("local_only_macro_f1 must be non-empty")
+    return {
+        client: federated_macro_f1 - local_f1 for client, local_f1 in local_only_macro_f1.items()
+    }
