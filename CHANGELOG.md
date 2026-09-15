@@ -15,7 +15,7 @@ kept current.
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
 | 4 | Three-client federated simulation, weighted FedAvg | **Minimal gate CLOSED**, verified by `scripts/check_phase4_gate.py` (25/25 PASS, exit 0): baselines 4-5 reported over 3 seeds at the paper's default config (α=0.5, R=20, E=3, weighted). Federated global macro-F1 **0.8334 ± 0.0026**, beating both local-only (0.73-0.77) and the Phase 3 centralised reference (0.8297) on every one of 3 seeds. **Not done:** the α/E/weighted-vs-unweighted/R ablation sweep of Section III-I3, deferred as separate scope (see entry below) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; minimal gate closed ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
-| 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
+| 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
 | 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
@@ -158,6 +158,60 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 6 complete: alerting path, replay window, G1's behavioural half -- zero skips left
+
+Implements `routing/alert_sink.py`, `routing/cloud_sink.py`, `routing/router.py`, and a new
+`routing/replay_guard.py`, closing out Phase 6 (the crypto core was implemented ahead of its
+gate back in Phase 6's first entry; this completes the routing half). New
+`tests/test_replay_window.py` (9), `tests/test_cloud_sink.py` (8), `tests/test_router.py` (7),
+`tests/test_alert_sink.py` (4); `test_path_disjointness.py`'s remaining skip activated with a
+real behavioural test. **Pytest now 306 passed / 0 skipped** (up from 277/1) -- every test in
+the suite is live for the first time in this project.
+
+- **Replay-window policy confirmed with the user before any code was written**, per
+  `docs/plans/phase6-replay-window.md`'s explicit instruction that this was not yet
+  authorised. Chosen: per-`(edge_id, device_id)` scope, strict-monotonic acceptance
+  (`counter > last_seen`), in-memory state -- the plan doc's own recommended sketch. Implemented
+  as `routing/replay_guard.py`'s `ReplayGuard`, deliberately its own small object rather than
+  folded into the crypto core, matching `AssociatedData`'s docstring which already stated
+  replay state must not live there.
+- **Verification order is fixed and tested as load-bearing**: `MockCloudReceiver.send_encrypted`
+  decrypts/verifies (Eq. 26) FIRST, checks replay SECOND, never the reverse. A message with a
+  tampered tag must never touch replay state, or a forged counter could poison the window for a
+  legitimate later message -- `test_cloud_sink.py`'s
+  `test_a_failed_verification_never_advances_replay_state` sends a corrupted message at
+  counter=5 (rejected), then the genuine message at counter=5 (accepted), proving the counter
+  was never consumed by the failed attempt.
+- **`route()`'s scaffold signature (`edge_id: str` alone) could not build a valid Eq. (27) AD
+  tuple** -- `device_id`, `counter`, `schema_version` were simply absent, so the benign path
+  could not have encrypted correctly. Widened (flagged) to take a full `AssociatedData`, which
+  already carries everything Eq. (27) needs, rather than adding three more scattered
+  parameters. Same class of correction as the baseline-function widenings in Phases 3-4.
+  `VerdictRouter` also gained an owned, cross-call-persistent `NonceRegistry` (injectable for
+  testing) -- the scaffold's constructor had nowhere to draw nonces from at all.
+  `MockCloudReceiver.__init__` gained a `keys: dict[str, bytes]` DEMO key store (explicitly
+  labelled as such; production key management is named out of scope by the paper itself), since
+  the receiver's own docstring already said it must "select the decryption key" and the
+  scaffold gave it no way to.
+- **G1's structural half is unchanged and still gating** (`AlertSink.__init__` takes no
+  transport dependency; introspection confirms no instance attribute is ever a
+  `CloudTransport`). The newly-activated behavioural half routes 5 real malicious-verdict
+  messages through the real `VerdictRouter` and asserts the cloud receiver's
+  `received_count` AND `rejected_count` both stay 0 -- not merely "nothing was accepted" but
+  "nothing was even attempted", since the alert sink cannot reach the cloud transport to try.
+- **Verified end-to-end on real data**, chaining Phase 5's telemetry/provenance layer into
+  Phase 6's crypto/routing layer for the first time: 200 real simulated messages, each paired
+  with a real held-out CICIoT2023 record via `FeatureProvenanceAdapter`, routed through the
+  real `AsconAEAD128`/`VerdictRouter`/`MockCloudReceiver` stack using the record's true label as
+  a stand-in verdict (never fed to a model -- a smoke-test substitute, since Phase 7 is where a
+  real classifier gets wired in). Of 200 messages, 8 were benign and 192 malicious; the cloud
+  received exactly 8, rejected 0, and every accepted payload decrypted to byte-identical
+  original content; the alert sink recorded exactly 192, and the cloud saw zero of them.
+- **Scope note:** replay persistence across a receiver restart, and the full III-G4 overhead
+  measurement (wire expansion at multiple payload sizes) are not implemented -- the former is
+  explicitly out of scope alongside production key management, the latter is a reporting task
+  for Phase 7's end-to-end run rather than a Phase 6 gate item.
 
 ### Phase 5 complete: telemetry simulation + feature-provenance adapter (G6)
 
