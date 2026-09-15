@@ -13,7 +13,7 @@ kept current.
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | **Minimal gate CLOSED**, verified by `scripts/check_phase4_gate.py` (25/25 PASS, exit 0): baselines 4-5 reported over 3 seeds at the paper's default config (α=0.5, R=20, E=3, weighted). Federated global macro-F1 **0.8334 ± 0.0026**, beating both local-only (0.73-0.77) and the Phase 3 centralised reference (0.8297) on every one of 3 seeds. **Not done:** the α/E/weighted-vs-unweighted/R ablation sweep of Section III-I3, deferred as separate scope (see entry below) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; minimal gate closed ✅ |
+| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0). Two independent runs were merged; the reported figures are the **compute-matched** run (α=0.5, R=20, E=3, W=16, 60 local passes for every baseline): federated global macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040**, recovering **82.4 %** of the gap; client-to-global gap positive for all three clients (+0.10 / +0.16 / +0.07). FPR **0.2975 ± 0.0512** — read it first. The earlier minimal-gate run is kept at `artifacts/manifest_phase4_minimal_gate.json`; its bracket is inverted because its baselines were not compute-matched. **Not done:** the α/E/aggregation ablation sweep of Section III-I3 | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; gate checker exit 0 ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
 | 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
 | 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → Ascon/alert. G1 held throughout (0 malicious-verdict messages reached the cloud) | Full pipeline run producing a manifest ✅ |
@@ -25,7 +25,262 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
+## 2026-09-15
+
+### Merged two parallel Phase 4 implementations
+
+Two Phase 4 drivers were written independently and collided on merge (7 conflicted paths).
+Resolved by union rather than by picking a side; what each contributed:
+
+- **`federated_global_gru` keeps the 4-tuple contract** `(metrics, macro_f1_per_round,
+  measured_bytes_per_round, model)`. Returning the trained model is not optional —
+  `scripts/train_federated_model.py` and Phase 7's runtime need an actual classifier to drive
+  routing, and the single-metrics form could not supply one. It now delegates to
+  `run_federation`, which additionally carries the Eq. (21) weights and the per-round byte
+  series the Phase 4 manifest records, so both callers are served by one implementation.
+- **A local-only client with zero sequences is reported, not filtered.** The competing revision
+  returned `None` so such a client could be excluded from the mean. That was wrong in the
+  direction the bracket exists to expose: Section III-I1 asks for "three local-only GRUs" as a
+  report, and dropping the client that received nothing makes the lower bound look better than
+  declining to federate actually is. It is now scored against a constant-benign prediction.
+- **An explicit all-empty guard** in `run_federation`, raising "every client holds zero
+  sequences" at the top rather than letting the failure surface from `weighted_fedavg` as
+  "every client reported n_k = 0" — the symptom, not the cause.
+- **FedProx (`fedprox_mu`) and the (run seed, client id, round) training seed coexist** in
+  `FederatedClient`; only their docstrings conflicted, and both paragraphs are kept.
+- **Section III-I2's client-to-global gap** is now computed by `run_phase4.py` and recorded per
+  seed. It had existed only in the other driver's post-hoc summariser; on the merged run it is
+  positive for every client (+0.1023 / +0.1565 / +0.0721), i.e. federation helped all three,
+  which is a stronger statement than the mean alone.
+- **`scripts/summarize_phase4.py` was ported** to the surviving manifest schema, keeping the G4
+  questions it asks verbatim.
+- **Both experiments are kept.** `artifacts/manifest_phase4_default.json` is the compute-matched
+  run (161 min); `artifacts/manifest_phase4_minimal_gate.json` is the earlier 441-min run.
+
+Two things the merge exposed that are worth stating plainly:
+
+- **The minimal-gate run has the inverted bracket this repository has already fixed once.** It
+  reports federated 0.8334 against a centralised *reference* of 0.8297 borrowed from Phase 3 at
+  10 epochs, and a local-only baseline capped at 10 epochs, while federation ran R*E = 60 local
+  passes. "Beating the centralised reference on every seed" is a statement about the training
+  budget, not the method. Its manifest is retained as a record; its conclusion is not.
+- **Git's auto-merge silently dropped test coverage.** `tests/test_federated.py` merged without
+  conflict markers to 23 tests, from sides holding 26 and 25 — every test either side had added
+  was gone, including both FedProx tests and all three training-seed tests. Rebuilt as the
+  union (28). A clean merge is not evidence of a correct one.
+
+Suite after the merge: **344 passed**, all gates green, `check_phase4_gate.py` exit 0.
+
+
+### Phase 4 gate CLOSED — the federated simulation, run on the real corpus
+
+`scripts/run_phase4.py` ran end-to-end on the official UNB CICIoT2023 distribution and
+`scripts/check_phase4_gate.py` exits 0 on the resulting manifest
+(`artifacts/manifest_phase4_default.json`). Every number below is mean ± std over seeds
+{0, 1, 2} (III-I4); nothing here comes from synthetic data.
+
+Corpus as prepared by Phases 1-2: 46,776,700 raw records -> capped subsample -> dedup -> block
+split -> four-stage selection at F=16, giving **1,237,911 train / 311,565 test rows** across
+4,854 train blocks, 1,222,009 pooled training sequences at W=16. Wall clock 160.8 min.
+
+| baseline (III-I1) | macro-F1 | balanced acc. | MCC | accuracy |
+| --- | --- | --- | --- | --- |
+| 4. local-only GRUs (lower bound) | 0.7205 ± 0.0750 | — | — | — |
+| 5. **federated global GRU** | **0.8308 ± 0.0150** | 0.8404 ± 0.0088 | 0.8845 ± 0.0174 | 0.9090 ± 0.0151 |
+| 3. centralised GRU (upper bound) | 0.8543 ± 0.0040 | 0.8612 ± 0.0035 | 0.9021 ± 0.0020 | 0.9235 ± 0.0020 |
+
+**The G4 answer:** the federated model sits inside its bracket and recovers **82.4 %** of the
+macro-F1 that local-only training leaves on the table, for **815,136 measured bytes per round**
+(Eq. 22 predicts 811,200; the 0.5 % excess is safetensors framing). Local-only is also by far the
+least stable baseline (± 0.0750 against the federated ± 0.0150), because its score depends
+entirely on which classes its client happened to be dealt: at seed 1, where two clients were
+missing classes, local-only fell to 0.6145 while the federated model still reached 0.8145.
+
+**Read the FPR before reading anything else.** Under the Eq. (5) binary projection the federated
+model has a false-positive rate of **0.2975 ± 0.0512** (centralised 0.2767 ± 0.0283) at ~98.8 %
+attack recall — roughly **three in ten benign flows raise an alarm**. Section III-I2 makes FPR
+first-class precisely because this is the number that gets a detector switched off in
+production, and no amount of 0.92 accuracy compensates for it. Accuracy (0.9090) sits below the
+0.98 near-ceiling threshold, so the III-I5 note correctly does not fire — this run is not in
+the dataset-artifact regime, and the weak classes are real: BruteForce 0.6339, WebBased 0.6522
+and Benign 0.7148 per-class F1, against Mirai 0.9849 and Spoofing 0.9673.
+  - These FPR figures are **derived from the confusion matrices in the committed manifest**, not
+    separately measured: FPR is a pure function of the benign row. `run_phase4.py` now records
+    `false_positive_rate` per seed and carries it in the headline set, so the next run stores it
+    directly; this manifest predates that and was not re-run for a derived quantity.
+
+**Eqs. (23-24) verified on real data:** the federated scaler, built only from per-client
+count/mean/M2, matched a pooled fit to a maximum relative gap of **5.42e-12** across all three
+seeds -- the III-F4 claim holding on 1.2M real rows, not only in a unit test.
+
+### Fixed: the bracket was measuring the training budget, not the method
+
+The first real seed put the federated model (0.8507) **above** its own centralised upper bound
+(0.8293), which reads as "federation beats pooling" and is nothing of the sort. Federation makes
+R*E = 20*3 = 60 local passes; baseline 4 was already matched to that, but baseline 3 was left at
+the Phase 3 default of 10 epochs — a 6x training advantage handed to the method under test. With
+the budget equalised the centralised baseline rose to 0.8584 on that seed and the ordering came
+right. `--central-epochs` now defaults to `R*E`, the manifest records an `epoch_budget` block,
+and `check_phase4_gate.py` gained an item that **fails** if the three budgets ever diverge again.
+The run was stopped and restarted rather than allowed to finish and publish the inverted result.
+
+### Changed: the centralised baseline is windowed over the whole training split
+
+It previously trained on the concatenated client windows. "Upper bound attainable by pooling"
+means a trainer that never sees the partition, so its windows must not be fragmented at
+partition boundaries the way a client's are; concatenating handed the upper bound the federated
+setting's handicap. It also matches how Phase 3 built this baseline, which is what makes the two
+phases comparable — and that comparability is now evidence: at Phase 3's own 10-epoch budget
+this pipeline reproduced Phase 3's centralised macro-F1 to **0.8293 against 0.8297 ± 0.0013**,
+an independent end-to-end check that Phases 1-3 replay faithfully on this machine. Building the
+pooled tensor before the per-client ones and freeing it also removed a ~1.2 GB duplicate from
+peak memory.
+
 ## 2026-09-14
+
+### Added: Phase 4 gate checker, and a real fix to the local training seed
+
+- **`scripts/check_phase4_gate.py`** -- the machine-checkable answer to "is Phase 4 done?",
+  mirroring `check_phase3_gate.py` so closing the phase is not a judgement call. It reads a
+  Phase 4 manifest and checks: >= 3 seeds; baselines 3-5 reported with mean +/- std; accuracy
+  never reported alone (III-I2); `aggregation == "weighted"` and the applied weights equal the
+  per-client **sequence** counts rather than the row counts (Eq. 21); the global model reached
+  all K clients; per-client class histograms published with a shared vocabulary so an absent
+  class shows as 0 (III-F1 / G3); the federated-vs-pooled scaler gap within floating-point
+  tolerance (Eqs. 23-24); communication cost measured against Eq. (22); the G4 bracket; and a
+  manifest carrying config, versions and a real git commit (III-I4).
+  - Like the Phase 3 checker it deliberately does **not** check that federation performed well.
+    A federated model at the bottom of its bracket, properly measured, closes the gate.
+  - **Verified to fail, not just to pass.** A gate that cannot reject is worse than none, so it
+    was run against eight deliberately broken manifests -- unweighted aggregation, weights
+    swapped to row counts, two seeds, a corrupted scaler gap, dropped histograms, a missing
+    bracket, an absent git commit, and a client the global model never reached. All eight exit
+    non-zero with the relevant item marked FAIL.
+
+- **`FederatedClient` now seeds local training from (run seed, client id, round)** via a
+  `SeedSequence`, replacing the bare `client_id`. The old seeding had two consequences that
+  never surface as a crash, only as distorted numbers: within a run every round re-seeded
+  identically, so a client replayed the *same* batch permutation in round 20 as in round 1 and
+  the shuffle stopped being a shuffle after the first round; and across runs local training was
+  independent of the experiment seed, so the >= 3-seed spread of Section III-I4 sampled only the
+  initial parameters and the Dirichlet draw and reported a tighter std than the method actually
+  has. This was raised twice as an open question before the real run rather than discovered
+  after it. `training_seed()` is exposed so a test can pin the three inputs apart, and three
+  tests in `test_federated.py` assert rounds differ, the run seed matters, clients differ from
+  each other, the derivation stays reproducible, and the round counter actually advances.
+  `run_federation` passes the run seed down to each client. Suite: **250 passed, 1 skipped**.
+
+### Still blocking Phase 4 (the phase is NOT closed)
+
+The federated experiment has still not been run on CICIoT2023, because the corpus is not on this
+machine: `data/ciciot2023_raw/` does not exist, and there is no prepared cache. Everything above
+was verified on synthetic arrays, which establishes that the runner and the gate behave
+correctly and **nothing else** -- no macro-F1, bracket position, or convergence curve from a
+synthetic run is a finding, and the synthetic manifest produced while testing the gate was
+deleted rather than committed. Phase 4 closes when `scripts/run_phase4.py` has been run against
+the real corpus and `scripts/check_phase4_gate.py` exits 0 on the resulting manifest.
+
+### Changed: toolchain pinned to one set of versions; pre-commit hook actually installed
+
+`pre-commit install` had never been run in this checkout, and the config had drifted from the
+`dev` extra badly enough that installing it would have baked a contradiction into every commit.
+
+- **Hook revs realigned with `pyproject.toml`'s `dev` extra:** ruff `v0.6.9` -> `v0.16.7`,
+  vulture `v2.13` -> `v2.16`, mypy `v1.11.2` -> `v2.3.1`. pre-commit builds each hook its own
+  isolated environment at the pinned rev, so a drifted pin means the hook and a local
+  `ruff check .` are *different programs* -- one can pass while the other fails. vulture is the
+  sharpest case: `pyproject.toml` pins it with an exact `==2.16` while the hook asked for 2.13,
+  so the config contradicted itself. A comment at the top of the config now says to keep them
+  in step.
+- **`ruff` hook id -> `ruff-check`**; the bare `ruff` id is a deprecated alias in ruff-pre-commit
+  >= 0.12 and emitted a warning on every run.
+- **Python floor raised to 3.12** (`requires-python`, ruff `target-version`, mypy
+  `python_version`). This is forced by the dependencies rather than chosen: numpy (>= 2.4) and
+  scipy (>= 1.16) both declare `requires-python >= 3.12`, so `>= 3.11` was already a false
+  claim -- the pinned stack cannot install on 3.11. It also un-blocked mypy, which under a 3.11
+  target refuses to parse numpy's bundled stubs (they use PEP 695 `type` statements) and so
+  failed before reaching any of our code.
+- **`features/selection.py` Stage 2 now indexes the Spearman matrix as a float array**
+  (`.to_numpy(dtype=np.float64)` plus a column->position map) instead of `spearman.at[row, col]`.
+  Under the current pandas-stubs, `.at` is declared as a union spanning `str`/`bytes`/`datetime`,
+  which cannot be compared against a float threshold; `float(...)` does not fix it either, since
+  the union includes members `float()` rejects. A correlation is a float, so the array is the
+  honest type. **Behaviour is unchanged** -- all 18 feature-selection tests still pass. This was
+  a pre-existing failure surfaced, not caused, by the pin alignment.
+- **`pre-commit install` run**; `pre-commit run --all-files` is green on every hook.
+
+### Changed: setup docs now cover both platforms, and describe a venv that exists
+
+`CLAUDE.md`'s Commands section documented `./.venv/Scripts/ruff.exe` -- Windows paths -- while
+also claiming the scientific stack was "already installed in the system Python 3.11" and that
+`.venv` was created with `--system-site-packages`. On a POSIX checkout none of those commands
+run, and the system-Python claim is no longer true anywhere.
+
+- `CLAUDE.md` and `README.md` now give **both** macOS/Linux (`.venv/bin/`) and Windows
+  (`.venv\Scripts\*.exe`) invocations for setup and for every gate, state the 3.12 floor and
+  why it exists, and drop the stale `--system-site-packages` / system-Python framing: everything
+  installs into a project-local `.venv`.
+- Documented the two things that actually bite: the pytest hook is `language: system` so the
+  venv must be **activated** (not just addressed by path) when committing, and hook revs must
+  track the `dev` extra.
+- Dropped README's "add `,crypto` once the Ascon backend is chosen" -- there is no `crypto`
+  extra; the backend is vendored.
+
+### Added: Phase 4 baselines 4-5 and the federated experiment runner
+
+- **Baselines 4 and 5 of Section III-I1 implemented** in `eval/baselines.py`, the last two
+  `NotImplementedError` stubs Phase 4 owed. `local_only_grus` trains one GRU per client on that
+  client's partition alone; `federated_global_gru` runs R rounds of Algorithm 1 and scores the
+  resulting global model. Together with baseline 3 they form the bracket that answers gap G4.
+  - **Signatures widened to take an explicit test set**, exactly as baselines 1-3 were: the
+    scaffold's `(client_seqs, client_y, seed)` cannot express a train/test split and so could
+    not return test metrics at all. Flagged here as a scaffold correction, not worked around.
+  - **Every baseline is scored on the shared global test set** (Section III-B3), local-only
+    clients included. Scoring a local model on its own partition's held-out slice would ask it
+    an easier, different question -- its partition is class-skewed by the Eq. (20) draw -- and
+    would make baselines 3, 4 and 5 three unrelated numbers instead of a bracket.
+  - **A client with zero sequences yields `None`, not a zero-filled metric bundle.** Under
+    alpha = 0.1 a client can legitimately receive no blocks (see `federated/partition.py`) and
+    has no detector to report. A bundle of zeros would silently drag a reported mean down as
+    though the client had trained and failed. This widens baseline 4's return type to
+    `list[MulticlassMetrics | None]`, deliberately.
+  - **Per-client seeds come from a `SeedSequence` spawned off the run seed**, so client 0 at
+    seed 1 is not the same run as client 1 at seed 0.
+  - `run_federation` returns a `FederatedRun` carrying the pieces the manifest needs beyond the
+    headline metric: the Eq. (21) weights actually applied, the Eq. (22) bytes actually sent per
+    round, and (optionally) the per-round convergence curve. `federated_global_gru` is a thin
+    wrapper over it so the Section III-I1 baseline contract stays a single metric bundle.
+
+- **`scripts/run_phase4.py`** -- the federated experiment, mirroring `run_phase3_complete.py`.
+  Runs baselines 3-5 over >= 3 seeds at a given alpha, publishes the per-client class histograms
+  (Section III-F1 / gap G3) including zero counts, reports the bracket, and writes a manifest.
+  - **The global scaler is built federatedly and is now actually exercised** (Eqs. 23-24).
+    `build_pipeline` deliberately does **not** standardise: clients emit count/mean/M2 only, the
+    server combines them, and the scaled arrays are derived from that result. An earlier draft
+    scaled with a pooled fit in the pipeline and computed the federated statistics beside it,
+    which made the III-F4 path dead code; that was wrong and is fixed. The run prints the
+    federated-vs-pooled gap as a live check (4e-15 on the synthetic smoke run).
+  - Carries its **own cache format** (`--save-cache`/`--cache`) because Phase 4 needs the
+    per-row block ids that the Phase 3 cache does not store.
+
+- **Tests:** `test_phase4_baselines_remain_gated` -- which asserted the two stubs still raised --
+  is removed, being obsolete the moment they were implemented, and replaced by seven tests
+  covering the shared-test-set property, the empty-client `None`, seed independence, learning,
+  the published Eq. (21)/Eq. (22) figures, and malformed-partition rejection. Suite: **247
+  passed, 1 skipped** (the remaining skip is Phase 6 routing).
+
+### Not done, and not to be reported as done
+
+- **The federated experiment has not been run on CICIoT2023.** The runner was verified end-to-end
+  on synthetic arrays only; every macro-F1 it printed there is noise from generated data. No
+  Phase 4 number is a finding until the run happens on the real corpus, and the synthetic-data
+  manifest that smoke run produced was deleted rather than committed.
+- **Observation for the team, not silently changed:** `FederatedClient.local_train` seeds
+  `train_module` with `self.client_id`, so a client's batch shuffling is identical across
+  experiment seeds. Run-to-run variance therefore comes only from the initial global parameters
+  and the Dirichlet partition, which under-samples the spread that III-I4's mean +/- std is
+  meant to report. Left as-is because it is Phase 4 infrastructure someone else wrote and its
+  tests pass; worth a decision before the real run.
 
 ### Added
 

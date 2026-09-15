@@ -179,14 +179,19 @@ class FeatureSelector:
         mi_values = mutual_info_classif(x_sample, y_sample, random_state=seed)
         mi_by_column = dict(zip(kept, (float(v) for v in mi_values), strict=True))
 
-        spearman = x_sample.corr(method="spearman").abs()
+        spearman_frame = x_sample.corr(method="spearman").abs()
+        # Read the matrix as the float array it is and index it by position. `.at[row, col]`
+        # returns a pandas scalar whose declared type is a union spanning str/bytes/datetime,
+        # which cannot be compared against a float threshold without lying about the type.
+        spearman = spearman_frame.to_numpy(dtype=np.float64)
+        at = {column: position for position, column in enumerate(spearman_frame.columns)}
         # Walk columns in descending univariate relevance so the survivor of every correlated
         # pair is always the more relevant member (Section III-C, Stage 2).
         by_relevance = sorted(kept, key=lambda c: (-mi_by_column[c], c))
         survivors: list[str] = []
         dropped_stage2: list[str] = []
         for column in by_relevance:
-            if any(spearman.at[column, s] >= tau for s in survivors):
+            if any(spearman[at[column], at[s]] >= tau for s in survivors):
                 dropped_stage2.append(column)
             else:
                 survivors.append(column)

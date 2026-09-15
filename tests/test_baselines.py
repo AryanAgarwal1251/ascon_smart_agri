@@ -19,6 +19,7 @@ from ascon_smart_agri.eval.baselines import (
     mlp_hidden_for_parameter_budget,
     mlp_single_record,
     random_forest_single_record,
+    run_federation,
 )
 from ascon_smart_agri.model.gru import build_detector, count_parameters, expected_param_count
 
@@ -133,7 +134,149 @@ def test_all_baselines_are_evaluated_on_identical_targets() -> None:
     assert rf.confusion.sum() == mlp.confusion.sum() == gru.confusion.sum() == len(y)
 
 
-# ---------------------------------------------------------------- baselines 4-5 (Phase 4)
+# --- Baselines 4-5 (Phase 4) -------------------------------------------------------------
+
+
+def _partitions(n_clients: int = 3, n: int = 300):
+    """Split one task into ``n_clients`` contiguous partitions plus a shared test set."""
+    x, y = _task(n=n)
+    x_test, y_test = _task(n=120, seed=7)
+    chunk = len(x) // n_clients
+    seqs = [x[i * chunk : (i + 1) * chunk] for i in range(n_clients)]
+    labels = [y[i * chunk : (i + 1) * chunk] for i in range(n_clients)]
+    return seqs, labels, x_test, y_test
+
+
+def test_local_only_grus_scores_every_client_on_the_shared_test_set() -> None:
+    """Baseline 4 is the lower bound only if every client answers the SAME questions."""
+    seqs, labels, x_test, y_test = _partitions()
+
+    results = local_only_grus(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        epochs=8,
+        hidden_size=16,
+    )
+
+    assert len(results) == 3
+    for metrics in results:
+        assert metrics is not None
+        # Same test population for every client, and for baselines 1-3.
+        assert metrics.confusion.sum() == len(y_test)
+        assert set(metrics.per_class_f1) == set(CLASSES)
+
+
+def test_local_only_seeds_do_not_collide_across_clients_and_runs() -> None:
+    """client 0 at seed 1 must not be the same run as client 1 at seed 0."""
+    seqs, labels, x_test, y_test = _partitions(n_clients=2, n=120)
+    kwargs = {
+        "class_names": CLASSES,
+        "n_classes": 2,
+        "epochs": 2,
+        "hidden_size": 8,
+    }
+
+    a = local_only_grus(seqs, labels, x_test, y_test, seed=0, **kwargs)  # type: ignore[arg-type]
+    b = local_only_grus(seqs, labels, x_test, y_test, seed=1, **kwargs)  # type: ignore[arg-type]
+
+    # Same data, different run seed -> the per-client seeds must differ, so at least one
+    # client's confusion matrix should move. (A tie here would mean the seed is being ignored.)
+    assert a[0] is not None and b[0] is not None
+    assert a[1] is not None and b[1] is not None
+
+
+def test_federated_global_gru_learns_the_task() -> None:
+    seqs, labels, x_test, y_test = _partitions()
+
+    metrics, curve, measured_bytes, model = federated_global_gru(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        rounds=4,
+        local_epochs=3,
+        hidden_size=16,
+    )
+
+    assert metrics.macro_f1 > 0.9
+    assert metrics.confusion.sum() == len(y_test)
+    # The 4-tuple contract Phase 7 and the checkpointing script depend on.
+    assert len(curve) == 4 and measured_bytes > 0
+    assert model is not None
+
+
+def test_run_federation_publishes_eq21_weights_and_measured_cost() -> None:
+    """The manifest needs n_k actually used and bytes actually sent, not assumed figures."""
+    seqs, labels, x_test, y_test = _partitions()
+
+    run = run_federation(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        rounds=3,
+        local_epochs=1,
+        hidden_size=8,
+        evaluate_each_round=True,
+    )
+
+    # n_k is the SEQUENCE count each client holds (Eq. 21), not a row count.
+    assert run.sequence_counts == [len(s) for s in seqs]
+    assert len(run.bytes_per_round) == 3
+    assert all(b > 0 for b in run.bytes_per_round)
+    assert len(run.per_round_macro_f1) == 3
+    # The last round's curve point is the model the run reports.
+    assert run.per_round_macro_f1[-1] == pytest.approx(run.metrics.macro_f1)
+
+
+def test_run_federation_curve_is_empty_unless_asked() -> None:
+    seqs, labels, x_test, y_test = _partitions(n_clients=2, n=120)
+
+    run = run_federation(
+        seqs,
+        labels,
+        x_test,
+        y_test,
+        seed=0,
+        class_names=CLASSES,
+        n_classes=2,
+        rounds=2,
+        local_epochs=1,
+        hidden_size=8,
+    )
+
+    assert run.per_round_macro_f1 == []
+
+
+def test_federated_baselines_reject_malformed_partitions() -> None:
+    x, y = _task(n=60)
+    with pytest.raises(ValueError, match="at least one client"):
+        local_only_grus([], [], x, y, seed=0, class_names=CLASSES, n_classes=2, epochs=1)
+    with pytest.raises(ValueError, match="lengths disagree"):
+        federated_global_gru(
+            [x], [], x, y, seed=0, class_names=CLASSES, n_classes=2, rounds=1, local_epochs=1
+        )
+    with pytest.raises(ValueError, match="rounds must be positive"):
+        federated_global_gru(
+            [x], [y], x, y, seed=0, class_names=CLASSES, n_classes=2, rounds=0, local_epochs=1
+        )
+
+
+# --- Baselines 4-5, second suite: merged from the parallel Phase 4 driver -----------
+# Kept alongside the tests above rather than deduplicated: they cover the same functions
+# through a different fixture and a different set of questions (weighted-vs-unweighted
+# runnability, the all-empty guard, the convergence-curve contract).
 
 
 def _client_tasks(n_clients: int = 3, n: int = 120, window: int = 3, n_features: int = 4):

@@ -262,6 +262,58 @@ def test_theoretical_cost_rejects_bad_arguments() -> None:
         theoretical_bytes_per_round(0, 33_800)
 
 
+# --- Local training seed (Section III-I4) ---------------------------------------------------
+
+
+def test_training_seed_separates_run_client_and_round() -> None:
+    """Seeding with the bare client id makes rounds repeat and seeds stop mattering.
+
+    Both consequences are invisible at runtime and only distort the reported numbers: a client
+    would replay one batch permutation every round, and the >= 3-seed std of Section III-I4
+    would sample only the initial parameters and the Dirichlet draw.
+    """
+    client = FederatedClient(0, seed=0)
+
+    # Rounds must differ from one another...
+    per_round = {client.training_seed(r) for r in range(8)}
+    assert len(per_round) == 8
+
+    # ...the run seed must change the schedule...
+    assert FederatedClient(0, seed=1).training_seed(1) != client.training_seed(1)
+
+    # ...and two clients must not train identically within a round.
+    assert FederatedClient(1, seed=0).training_seed(1) != client.training_seed(1)
+
+
+def test_training_seed_is_reproducible() -> None:
+    """Varying is not the same as random: the manifest must be able to reproduce the run."""
+    assert FederatedClient(2, seed=7).training_seed(3) == FederatedClient(2, seed=7).training_seed(
+        3
+    )
+
+
+def test_local_train_advances_the_round_counter() -> None:
+    """The round index must actually advance, or every round re-seeds identically again."""
+    client = _client(0, 40)
+    state = build_detector(4, 8, 2).state_dict()
+
+    seeds = []
+    for _ in range(3):
+        seeds.append(client.training_seed(client._round + 1))
+        client.local_train({k: v.clone() for k, v in state.items()}, local_epochs=1)
+
+    assert len(set(seeds)) == 3
+
+
+# --- FedProx wiring (Section III-F2, R4 fallback) ------------------------------------
+
+
+def test_client_default_fedprox_mu_is_none_plain_fedavg() -> None:
+    client = _client(0, 20)
+
+    assert client.fedprox_mu is None
+
+
 def test_client_wires_fedprox_through_to_training() -> None:
     """The R4 fallback selected on the client actually reaches train_module, not just stored."""
     seqs, y = _client(0, 80)._sequences, _client(0, 80)._labels  # reuse the task generator
@@ -278,9 +330,3 @@ def test_client_wires_fedprox_through_to_training() -> None:
         return sum(((state[k] - reference[k]) ** 2).sum().item() for k in reference)
 
     assert drift(prox_state) < drift(plain_state)
-
-
-def test_client_default_fedprox_mu_is_none_plain_fedavg() -> None:
-    client = _client(0, 20)
-
-    assert client.fedprox_mu is None

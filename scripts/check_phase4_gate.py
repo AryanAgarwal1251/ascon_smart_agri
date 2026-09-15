@@ -1,26 +1,36 @@
-"""Phase 4 exit-criterion checker, written BEFORE any Phase 4 experiment was run.
+"""Phase 4 exit-criterion checker -- the machine-checkable answer to "is Phase 4 done?".
 
-This is deliberate, after the Phase 3 lesson: Phase 3 was first declared complete by checking
-its phase-table summary ("full evaluation protocol... reported") rather than the paper's actual
-Section III-I1 requirement (all five baselines). The fix there was `check_phase3_gate.py`,
-written *after* the gap was found. This time the criterion is written first, against the
-paper text below, so it cannot be quietly fitted to whatever a run happens to produce.
-
-What Phase 4 actually requires, read from the source rather than a summary:
-
-  * Work plan (Section III-J4): Phase 4's stated gate is "three clients with weighted FedAvg" --
-    narrower than Phase 3's. The six ablations of Section III-I3 (alpha, E, weighted/unweighted,
-    W, F, R) are evaluation REPORTING, not listed among the seven phase gates. This script
-    checks the MINIMAL gate: baselines 4-5 exist and are reported once, at a representative
-    config, over >= 3 seeds -- not the full sweep. See CHANGELOG.md for the scope decision.
-  * Section III-I1: baseline 4 is three local-only GRUs (the lower bound an operator gets by
-    declining to federate); baseline 5 is the federated global GRU. Together with baseline 3
-    (centralised GRU, already reported in Phase 3) they answer gap G4.
-  * Section III-F1 (G3): per-client class histograms published, so the partition is inspectable.
-  * Eq. (22): communication bytes per round measured, not merely asserted.
-  * Section III-I4: manifest with seeds, config, versions, git commit.
+Mirrors ``check_phase3_gate.py``: it reads a Phase 4 run manifest and checks it against the
+criterion item by item, exiting non-zero if any item fails, so closing the phase is not a
+judgement call.
 
     PYTHONPATH=. ./.venv/bin/python scripts/check_phase4_gate.py
+
+Phase 4's criterion (README work plan, Section III-F): *weighted FedAvg with n_k = sequences;
+the global model loads into every client; per-client class histograms published.* Each item
+below, and why it is in the criterion:
+
+  * >= 3 seeds, every headline number as mean +/- std   Section III-I4: a single-run number is
+                                                        not a finding.
+  * baselines 3-5 of Section III-I1                     3 and 4 bracket 5; without the bracket
+                                                        the federated number means nothing (G4).
+  * the full metric suite, never accuracy alone         Section III-I2: at IR ~ 5751 accuracy is
+                                                        not evidence.
+  * aggregation weighted, n_k = SEQUENCE counts         Eq. (21). Weighting by rows instead is
+                                                        the silent bug `test_fedavg_weighting`
+                                                        exists for; the manifest must show the
+                                                        weights actually applied.
+  * per-client class histograms, incl. zero counts      Section III-F1 / gap G3: an absent class
+                                                        is the most informative thing a skewed
+                                                        partition can report.
+  * federated scaler == pooled scaler                   Eqs. (23-24). Checked on the real run,
+                                                        not only in a unit test.
+  * communication cost measured, not assumed            Eq. (22).
+  * a manifest with seeds, config, versions and commit  Section III-I4.
+
+Like the Phase 3 checker, it deliberately does NOT check that federation *worked well*. A
+federated model that lands at the bottom of its bracket, properly measured and honestly
+reported, closes this gate. A better one that is not measured this way does not.
 """
 
 from __future__ import annotations
@@ -31,8 +41,11 @@ from pathlib import Path
 from typing import Any
 
 REQUIRED_METRICS = ("macro_f1", "balanced_accuracy", "mcc", "accuracy")
+BRACKET_BASELINES = ("centralized", "local_only", "federated")
 MIN_SEEDS = 3
-N_CLIENTS = 3
+# Chan's parallel formula is algebraically exact, so the gap is pure floating-point error.
+# Anything above this means the federated path is not computing the pooled statistic.
+MAX_SCALER_GAP = 1e-9
 
 
 def _check(label: str, ok: bool, detail: str = "") -> bool:
@@ -42,81 +55,188 @@ def _check(label: str, ok: bool, detail: str = "") -> bool:
 
 def check(manifest: dict[str, Any]) -> bool:
     results = manifest.get("results", {})
+    summary = results.get("summary", {})
+    per_seed = results.get("per_seed", {})
     ok = True
 
-    print("\nPhase 4 exit criterion (minimal gate: 'three clients with weighted FedAvg')\n")
+    print("\nPhase 4 exit criterion (Section III-F / III-J4)\n")
 
     seeds = manifest.get("seeds", [])
-    ok &= _check(f">= {MIN_SEEDS} seeds (III-I4)", len(seeds) >= MIN_SEEDS, f"found {seeds}")
-
-    # --- Baseline 4: three local-only GRUs -----------------------------------------------
-    local_only = results.get("local_only_summary", {})
     ok &= _check(
-        f"baseline 4: {N_CLIENTS} local-only clients reported (III-I1)",
-        len(local_only) == N_CLIENTS,
-        f"found {len(local_only)} clients: {list(local_only)}",
-    )
-    for client_id, client_summary in local_only.items():
-        for metric in REQUIRED_METRICS:
-            present = f"{metric}_mean" in client_summary and f"{metric}_std" in client_summary
-            ok &= _check(f"  client {client_id}: {metric} as mean +/- std", present)
-
-    # --- Baseline 5: federated global GRU -------------------------------------------------
-    federated = results.get("federated_summary", {})
-    ok &= _check("baseline 5: federated global GRU reported (III-I1)", bool(federated))
-    for metric in REQUIRED_METRICS:
-        present = f"{metric}_mean" in federated and f"{metric}_std" in federated
-        ok &= _check(f"federated global: {metric} as mean +/- std", present)
-
-    federated_runs = results.get("federated_per_seed", [])
-    ok &= _check(
-        f"federated global ran on >= {MIN_SEEDS} seeds",
-        len(federated_runs) >= MIN_SEEDS,
-        f"found {len(federated_runs)}",
+        f">= {MIN_SEEDS} seeds (III-I4)", len(seeds) >= MIN_SEEDS, f"found {len(seeds)}: {seeds}"
     )
 
-    # --- G4: the bracket (Phase 3's centralised GRU sits above, local-only below) --------
-    centralized_ref = results.get("centralized_reference_macro_f1")
+    # ---- Baselines 3-5 and their metrics ------------------------------------------------
+    for baseline in BRACKET_BASELINES:
+        present = isinstance(summary.get(baseline), dict)
+        ok &= _check(f"baseline '{baseline}' reported (III-I1)", present)
+        if not present:
+            continue
+        # local_only is summarised by macro-F1 alone (its per-client detail carries the rest);
+        # the two whole-population models must report the full suite.
+        needed = ("macro_f1",) if baseline == "local_only" else REQUIRED_METRICS
+        for metric in needed:
+            ok &= _check(
+                f"{baseline}.{metric} as mean +/- std",
+                f"{metric}_mean" in summary[baseline] and f"{metric}_std" in summary[baseline],
+            )
+        runs = per_seed.get(baseline, [])
+        ok &= _check(
+            f"{baseline} ran on >= {MIN_SEEDS} seeds", len(runs) >= MIN_SEEDS, f"found {len(runs)}"
+        )
+
+    # Section III-I2: accuracy may appear, never alone.
+    for baseline in ("centralized", "federated"):
+        block = summary.get(baseline, {})
+        if "accuracy_mean" in block:
+            ok &= _check(
+                f"{baseline}: accuracy is not reported alone (III-I2)",
+                "macro_f1_mean" in block and "balanced_accuracy_mean" in block,
+            )
+
+    for baseline in ("centralized", "federated"):
+        runs = per_seed.get(baseline, [])
+        ok &= _check(
+            f"{baseline} reports per-class F1 and a confusion matrix",
+            bool(runs) and "per_class_f1" in runs[0] and "confusion" in runs[0],
+        )
+
+    # ---- Eq. (21): weighted FedAvg on SEQUENCE counts ------------------------------------
+    aggregation = results.get("aggregation")
     ok &= _check(
-        "centralised-GRU reference recorded, to bracket G4",
-        centralized_ref is not None,
-        f"macro-F1 {centralized_ref}" if centralized_ref is not None else "missing",
+        "aggregation is weighted FedAvg (Eq. 21)", aggregation == "weighted", f"got {aggregation!r}"
     )
 
-    # --- G3: per-client histograms ---------------------------------------------------------
-    histograms = results.get("per_client_class_histograms", [])
+    detail = results.get("per_seed", {}).get("federated_detail", [])
+    partitions = results.get("partitions", [])
     ok &= _check(
-        "per-client class histograms published (G3, III-F1)",
-        len(histograms) == N_CLIENTS,
-        f"found {len(histograms)}",
+        f"federated run recorded for >= {MIN_SEEDS} seeds",
+        len(detail) >= MIN_SEEDS,
+        f"found {len(detail)}",
     )
 
-    # --- Eq. (22): measured, not merely asserted -------------------------------------------
-    measured_bytes = results.get("measured_bytes_per_round")
-    theoretical_bytes = results.get("theoretical_bytes_per_round")
+    n_clients = results.get("n_clients")
+    weights_match = bool(detail) and bool(partitions)
+    if weights_match:
+        for run, partition in zip(detail, partitions, strict=False):
+            applied = run.get("sequence_counts")
+            expected = partition.get("sequence_counts")
+            # The weights the server actually used must be the per-client SEQUENCE counts --
+            # not row counts, which the partition records separately.
+            if applied != expected or applied == partition.get("row_counts") != expected:
+                weights_match = False
+                break
     ok &= _check(
-        "communication cost measured (Eq. 22)",
-        measured_bytes is not None and theoretical_bytes is not None,
-        f"measured {measured_bytes} vs theoretical {theoretical_bytes}"
-        if measured_bytes is not None
-        else "missing",
+        "FedAvg weights are the per-client SEQUENCE counts, not row counts (Eq. 21)",
+        weights_match,
+        "manifest lacks the applied weights" if not detail or not partitions else "",
+    )
+    ok &= _check(
+        "the global model reached every client",
+        bool(detail) and all(len(r.get("sequence_counts", [])) == n_clients for r in detail),
+        f"K={n_clients}",
     )
 
-    # --- Manifest provenance (III-I4) -------------------------------------------------------
+    # ---- Section III-F1 / gap G3: published partition ------------------------------------
+    histograms_ok = bool(partitions)
+    zero_counts_kept = False
+    for partition in partitions:
+        histograms = partition.get("block_histograms")
+        if not isinstance(histograms, list) or len(histograms) != n_clients:
+            histograms_ok = False
+            break
+        vocabularies = {frozenset(h) for h in histograms}
+        # Every client must report every class, so an absent class shows as 0 rather than
+        # vanishing from that client's histogram.
+        if len(vocabularies) != 1:
+            histograms_ok = False
+            break
+        if any(0 in h.values() for h in histograms):
+            zero_counts_kept = True
+    ok &= _check("per-client class histograms published (III-F1 / G3)", histograms_ok)
+    # Informational, not gating: a run at high alpha can legitimately give every client every
+    # class, so the absence of zero counts is not a failure.
+    _check(
+        "  (histograms retain zero counts where a client lacks a class)",
+        zero_counts_kept,
+        "" if zero_counts_kept else "no zero counts here -- expected only at high alpha",
+    )
+
+    # ---- Eqs. (23-24): the federated scaler equals the pooled one ------------------------
+    gaps = [p.get("federated_vs_pooled_scaler_gap") for p in partitions]
+    measured_gaps = [g for g in gaps if isinstance(g, int | float)]
+    ok &= _check(
+        "federated scaler == pooled scaler (Eqs. 23-24)",
+        bool(measured_gaps) and max(measured_gaps) <= MAX_SCALER_GAP,
+        f"max gap {max(measured_gaps):.2e}" if measured_gaps else "not recorded",
+    )
+
+    # ---- Eq. (22): measured communication cost -------------------------------------------
+    communication = results.get("communication", {})
+    measured = communication.get("measured_bytes_per_round")
+    theoretical = communication.get("theoretical_bytes_per_round")
+    ok &= _check(
+        "communication cost measured against Eq. (22)",
+        isinstance(measured, int) and isinstance(theoretical, int) and measured > 0,
+        f"measured {measured:,} B/round vs theoretical {theoretical:,} B/round"
+        if isinstance(measured, int) and isinstance(theoretical, int)
+        else "not recorded",
+    )
+
+    # ---- Compute-matched bracket -----------------------------------------------------------
+    # The bracket compares three training regimes, so it only measures the METHOD if all three
+    # get the same number of passes over their data. An under-trained baseline 3 can land below
+    # the federated model and make federation look like it beats pooling; that happened on the
+    # first real seed of this phase (centralised 10 epochs vs federation's 20*3 = 60) and is
+    # what this item exists to catch.
+    budget = results.get("epoch_budget", {})
+    matched = (
+        isinstance(budget, dict)
+        and len(
+            {
+                budget.get("federated_local_passes"),
+                budget.get("local_only_epochs"),
+                budget.get("centralized_epochs"),
+            }
+        )
+        == 1
+        and budget.get("centralized_epochs") is not None
+    )
+    ok &= _check(
+        "baselines 3-5 are compute-matched (equal local passes)",
+        matched,
+        f"centralised {budget.get('centralized_epochs')} epochs, local-only "
+        f"{budget.get('local_only_epochs')} epochs, federated "
+        f"{budget.get('federated_local_passes')} local passes"
+        if isinstance(budget, dict) and budget
+        else "epoch_budget not recorded",
+    )
+
+    # ---- Gap G4: the bracket --------------------------------------------------------------
+    bracket = results.get("bracket")
+    ok &= _check(
+        "local-only / federated / centralised bracket reported (G4)",
+        isinstance(bracket, dict) and "federated_inside_bracket" in bracket,
+        (
+            f"local-only {bracket['local_only_macro_f1']:.4f} <= federated "
+            f"{bracket['federated_macro_f1']:.4f} <= centralised "
+            f"{bracket['centralized_macro_f1']:.4f}: "
+            f"{'inside' if bracket['federated_inside_bracket'] else 'OUTSIDE'}"
+            if isinstance(bracket, dict) and "local_only_macro_f1" in bracket
+            else "missing"
+        ),
+    )
+
+    # ---- Section III-I4: the manifest ------------------------------------------------------
     for field in ("config_snapshot", "library_versions"):
         ok &= _check(f"manifest carries {field} (III-I4)", bool(manifest.get(field)))
+    commit = manifest.get("hardware", {}).get("git_commit", "")
     ok &= _check(
         "manifest carries the git commit (III-I4)",
-        bool(manifest.get("hardware", {}).get("git_commit"))
-        and manifest["hardware"]["git_commit"] != "unavailable",
-        f"commit {manifest.get('hardware', {}).get('git_commit', '?')[:12]}",
+        bool(commit) and commit != "unavailable",
+        f"commit {commit[:12]}, dirty={manifest.get('hardware', {}).get('git_dirty')}",
     )
 
-    print(
-        "\n  (NOT checked here, by scope decision -- see CHANGELOG.md: the alpha/E/"
-        "weighted-vs-unweighted/R ablation sweep of Section III-I3. This script certifies "
-        "the minimal gate only.)"
-    )
     return bool(ok)
 
 
@@ -129,14 +249,14 @@ def main() -> int:
 
     passed = check(json.loads(path.read_text()))
     print("\n" + "=" * 70)
-    print("PHASE 4: MINIMAL GATE CLOSED" if passed else "PHASE 4: GATE OPEN")
+    print("PHASE 4: GATE CLOSED -- Phase 5 may begin" if passed else "PHASE 4: GATE OPEN")
     print("=" * 70)
     if passed:
         print(
-            "\nNote: this certifies the minimal gate (baselines 4-5 reported once, >= 3\n"
-            "seeds) was met, NOT that the full Section III-I3 ablation sweep is done, and\n"
-            "NOT that federation outperforms the alternatives -- G4 explicitly allows for\n"
-            "the opposite finding. Read the reported numbers for that."
+            "\nNote: this certifies the federated protocol was measured and reported as\n"
+            "Section III-F requires, NOT that federation performed well. Read the bracket\n"
+            "for that -- where the federated model sits between the local-only lower bound\n"
+            "and the centralised upper bound is the finding."
         )
     return 0 if passed else 1
 
