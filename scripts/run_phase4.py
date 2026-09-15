@@ -129,7 +129,6 @@ def main() -> None:
         x_te, y_te, src_te, idx_te, _ = prepare(test_frame, fitted)
         print(f"[data] train {x_tr.shape} | test {x_te.shape}")
 
-    x_tr.shape[1]
     seg_tr = contiguity_segments(src_tr, idx_tr)
     seg_te = contiguity_segments(src_te, idx_te)
 
@@ -214,7 +213,7 @@ def main() -> None:
     measured_bytes = 0
     for seed in cfg.evaluation.seeds:
         t0 = time.time()
-        metrics, convergence, bytes_per_round = federated_global_gru(
+        metrics, convergence, bytes_per_round, _model = federated_global_gru(
             client_seqs,
             client_y,
             seq_te,

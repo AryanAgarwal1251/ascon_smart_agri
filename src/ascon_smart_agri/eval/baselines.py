@@ -261,13 +261,15 @@ def federated_global_gru(
     aggregation: str = "weighted",
     batch_size: int = 1024,
     verbose: bool = False,
-) -> tuple[MulticlassMetrics, list[float], int]:
+) -> tuple[MulticlassMetrics, list[float], int, nn.Module]:
     """Baseline 5: the federated global GRU (method under test), Algorithm 1 over ``rounds``.
 
-    Returns ``(final_metrics, macro_f1_per_round, measured_bytes_per_round)`` -- the convergence
-    curve (Section III-I2: "federated convergence as macro-F1 against round") and the measured
-    Eq. (22) communication cost of the LAST round are cheap byproducts of running the rounds and
-    are recorded here rather than discarded.
+    Returns ``(final_metrics, macro_f1_per_round, measured_bytes_per_round, model)`` -- the
+    convergence curve (Section III-I2: "federated convergence as macro-F1 against round") and
+    the measured Eq. (22) communication cost of the LAST round are cheap byproducts of running
+    the rounds; the trained model itself is returned too (widened past the scaffold, flagged,
+    Golden Rule 1) because Phase 7's runtime pipeline needs an actual classifier to drive
+    routing, and no training run before this one ever returned or saved one.
     """
     non_empty = [s for s in client_seqs if len(s)]
     if not non_empty:
@@ -303,4 +305,4 @@ def federated_global_gru(
 
     y_pred, _ = predict(global_model, x_test)
     final = multiclass_metrics(y_test, y_pred, class_names)
-    return final, convergence, server.last_round_bytes
+    return final, convergence, server.last_round_bytes, global_model

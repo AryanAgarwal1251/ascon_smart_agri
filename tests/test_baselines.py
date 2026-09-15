@@ -191,7 +191,7 @@ def test_local_only_client_with_zero_sequences_is_reported_not_raised() -> None:
 def test_federated_global_gru_learns_and_returns_convergence() -> None:
     seqs, labels, x_test, y_test = _client_tasks()
 
-    metrics, convergence, measured_bytes = federated_global_gru(
+    metrics, convergence, measured_bytes, _model = federated_global_gru(
         seqs,
         labels,
         x_test,
@@ -213,7 +213,7 @@ def test_federated_global_gru_weighted_vs_unweighted_are_both_runnable() -> None
     seqs, labels, x_test, y_test = _client_tasks()
 
     for aggregation in ("weighted", "unweighted"):
-        metrics, convergence, _ = federated_global_gru(
+        metrics, convergence, _, _model = federated_global_gru(
             seqs,
             labels,
             x_test,
