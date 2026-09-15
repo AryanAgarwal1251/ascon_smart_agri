@@ -54,6 +54,14 @@ crypto:
   tag_bits: 128
   ad_fields: [edge_id, device_id, counter, schema_version]  # Eq. (27)
 
+telemetry:
+  device_ids: [soil01, soil02, soil03]
+  messages_per_stream: 100
+  schema_version: v1
+  temperature_range_c: [15.0, 35.0]
+  soil_moisture_range_pct: [0.0, 100.0]
+  seed: 0
+
 evaluation:
   seeds: [0, 1, 2]                # >= 3 (III-I4)
   near_ceiling_accuracy: 0.98     # triggers the III-I5 note

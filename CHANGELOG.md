@@ -14,7 +14,7 @@ kept current.
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
 | 4 | Three-client federated simulation, weighted FedAvg | **Minimal gate CLOSED**, verified by `scripts/check_phase4_gate.py` (25/25 PASS, exit 0): baselines 4-5 reported over 3 seeds at the paper's default config (α=0.5, R=20, E=3, weighted). Federated global macro-F1 **0.8334 ± 0.0026**, beating both local-only (0.73-0.77) and the Phase 3 centralised reference (0.8297) on every one of 3 seeds. **Not done:** the α/E/weighted-vs-unweighted/R ablation sweep of Section III-I3, deferred as separate scope (see entry below) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; minimal gate closed ✅ |
-| 5 | Telemetry simulation + feature-provenance adapter | Not started | Provenance adapter enforces G6 boundary |
+| 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
 | 6 | Ascon integration + alerting path | In progress (**gate deliberately overridden**) | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green |
 | 7 | End-to-end integration | Not started | Full pipeline run producing a manifest |
 
@@ -158,6 +158,48 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
     ratio is **44.7**, not the leaf-level IR ≈ 5751 the paper quotes — which is exactly the
     motivation Section III-B3 gives for reporting at family granularity. Benign is 4.5% of
     training rows.
+
+### Phase 5 complete: telemetry simulation + feature-provenance adapter (G6)
+
+Implemented `telemetry/simulate.py` (`simulate_stream`) and `telemetry/provenance.py`
+(`FeatureProvenanceAdapter`), plus a new `TelemetryConfig` in `configs/base.py`/`default.yaml`.
+New `tests/test_telemetry_simulate.py` (11) and `tests/test_telemetry_provenance.py` (15) --
+pytest now **277 passed / 1 skipped** (up from 251/1).
+
+- **Two planes, kept structurally apart.** `simulate.py` generates only application-layer JSON
+  payloads (`deviceId`/`temperature`/`soilMoisture`, matching Section III-H's own example) and
+  has no import of or reference to anything network-feature-related; `provenance.py` draws only
+  from held-out CICIoT2023 rows and never reads a payload field. Neither module can accidentally
+  bridge the two planes, because neither has the other's data in scope.
+- **`FeatureProvenanceAdapter.from_held_out_frame`, a convenience constructor that makes the
+  correct construction the easy one.** Point it at the Phase 2 TEST split directly (already
+  proven never-trained-on by the R3 leakage gate) and it derives provenance refs from
+  `data/subsample.py`'s existing `source_file` column and the frame's own pooled-corpus index --
+  no new held-out pool or bookkeeping invented. Features are returned already selected and
+  scaled with the SAME fitted scaler training used, closing off train/serve skew structurally.
+- **G6 verified on real data, not only synthetic fixtures.** Built the adapter from the actual
+  311,573-row Phase 2 test split and paired it with a real simulated stream: sampled 200+
+  distinct provenance refs and checked every one against the 1,237,958-row training index --
+  **zero leaked**. This is the same "prove it on the real corpus, not just a unit test" standard
+  applied earlier to the federated scaler path.
+- **A real pairing bug found integrating the two modules, not caught by either module's own
+  unit tests in isolation.** `TelemetryMessage` originally carried only `counter`, monotonic
+  PER DEVICE (correct for its actual purpose -- Eq. 27's replay-protection AD tuple scopes
+  counters per device). But the adapter's `network_features_for` took a bare int with no
+  documented distinction, so pairing on `counter` gave every device's message 0 the *identical*
+  held-out network record, message 1 the identical next one, and so on -- only surfaced by
+  running a real simulated stream against a real adapter and inspecting the output, not by
+  either module's tests alone. Fixed by adding a second field, `stream_index` (monotonic across
+  the WHOLE stream, never repeating), and renaming the adapter's parameter from the scaffold's
+  `message_counter` to `stream_index` so the correct call is the only obviously-named one. A
+  regression test demonstrates the bug directly (pairing on `counter` collides; pairing on
+  `stream_index` does not) rather than only testing the fix in isolation.
+- **`true_label` added to `ProvenancedFeatures`** (flagged scaffold extension): carries the
+  held-out record's ground-truth label for demo narration and test assertions only -- never
+  read by anything that classifies, and the returned feature vector's shape is unchanged by it.
+- **New `TelemetryConfig`** (`device_ids`, `messages_per_stream`, `schema_version`, sensor
+  ranges, `seed`), following the project's typed-pydantic-config convention rather than
+  scattering these as function defaults.
 
 ### Phase 4: two gaps closed after the minimal gate (FedProx wiring, scaler verification)
 
