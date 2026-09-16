@@ -2,14 +2,14 @@
   "checkpoint": {
     "path": "artifacts/federated_global_model.safetensors",
     "seed": 0,
-    "macro_f1": 0.8338,
-    "balanced_accuracy": 0.8549,
-    "mcc": 0.891,
-    "phase4_reference_macro_f1_mean": 0.8334,
-    "phase4_reference_macro_f1_std": 0.0026,
-    "phase4_seed0_macro_f1_exact": 0.8338014523294024,
+    "macro_f1": 0.8507,
+    "balanced_accuracy": 0.8528,
+    "mcc": 0.9021,
+    "phase4_reference_macro_f1_mean": 0.8307686121792175,
+    "phase4_reference_macro_f1_std": 0.015020963951814422,
+    "phase4_seed0_macro_f1_exact": 0.8507461612861715,
     "reproduces_phase4_seed0_exactly": true,
-    "training_seconds": 3289.8,
+    "training_seconds": 1117.6,
     "scope_note": "ONE seed trained and saved for deployment, not a fresh statistical claim -- see this script's module docstring. Phase 4's 3-seed mean +/- std remains the reported performance finding."
   },
   "end_to_end_run": {
@@ -26,31 +26,31 @@
     "informal_true_label_agreement": 0.9636363636363636,
     "per_stage_latency_us": {
       "provenance": {
-        "median_us": 3.6249984987080097,
-        "mean_us": 4.026661335956305,
-        "std_us": 2.5760045830740825
+        "median_us": 1.207999957841821,
+        "mean_us": 1.4083799760555848,
+        "std_us": 1.5172177066332848
       },
       "window": {
-        "median_us": 10.459014447405934,
-        "mean_us": 8.18589236587286,
-        "std_us": 10.114159346725236
+        "median_us": 3.9169999581645243,
+        "mean_us": 2.8758999815181596,
+        "std_us": 2.8590401018304554
       },
       "inference": {
-        "median_us": 273.66599533706903,
-        "mean_us": 336.5408327557485,
-        "std_us": 431.5354993483012
+        "median_us": 112.04200018255506,
+        "mean_us": 271.2575999877035,
+        "std_us": 1158.880090663915
       },
       "routing": {
-        "median_us": 4.083005478605628,
-        "mean_us": 6.307544588873332,
-        "std_us": 11.917653810694492
+        "median_us": 2.3749998945277184,
+        "mean_us": 3.1500909410004336,
+        "std_us": 4.890581339832416
       }
     },
     "limitation_note": "Demonstrates architectural correctness only: the pipeline composes, planes stay separate, routing is correct, crypto verifies. Does NOT demonstrate detection against a live deployment -- see telemetry/provenance.py.",
-    "elapsed_seconds": 67.3
+    "elapsed_seconds": 26.6
   },
-  "training_git_commit": "1cdfa1a65203fcc56f9e2433f3943638a3190361",
-  "e2e_git_commit": "1cdfa1a65203fcc56f9e2433f3943638a3190361",
+  "training_git_commit": "65a85ecdc478b39d2335337844e91bde00b93f7c",
+  "e2e_git_commit": "65a85ecdc478b39d2335337844e91bde00b93f7c",
   "source_manifests": [
     "manifest_phase7_train_default.json",
     "manifest_phase7_e2e_default.json"

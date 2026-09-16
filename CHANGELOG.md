@@ -33,6 +33,18 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-09-15
 
+### Phase 7 checkpoint regenerated on the fixed training path
+
+`artifacts/federated_global_model.safetensors` (gitignored) and both Phase 7 manifests were
+re-created with the fixed `train_federated_model.py` (previous entry). **Macro-F1 0.8507,
+bit-for-bit identical to seed 0 of the compute-matched Phase 4 run** (`0.8507461612861715`;
+`summarize_phase7.py` reports `reproduces Phase 4 seed 0: True`), which closes the "checkpoint
+vintage" caveat in `results/phase7_end_to_end_integration.md`: the deployed model is now the
+Phase 4 run's own seed-0 model, trained on its partition and its federated scaler. 18.6 min
+from the Phase 4 cache. The end-to-end run on the new checkpoint gives the same routing counts
+as before (100 messages, 55 classified, 0 benign / 55 malicious, 0 malicious-verdict payloads
+at the cloud, 53/55 informal agreement); per-stage medians 1.2 / 3.9 / 112.0 / 2.4 µs.
+
 ### End-to-end verification of all seven phases; four reproducibility breaks fixed
 
 Every phase was executed in order on this machine from the raw corpus (Phase 1 report
