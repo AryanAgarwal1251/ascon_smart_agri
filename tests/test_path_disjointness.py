@@ -12,8 +12,10 @@ import inspect
 
 import pytest
 
+from ascon_smart_agri.crypto.ascon_aead import AsconAEAD128, AssociatedData
 from ascon_smart_agri.routing.alert_sink import AlertSink
 from ascon_smart_agri.routing.cloud_sink import CloudTransport, MockCloudReceiver
+from ascon_smart_agri.routing.router import VerdictRouter
 
 
 @pytest.mark.gating
@@ -33,10 +35,20 @@ def test_alert_sink_holds_no_cloud_reference() -> None:
 
 
 @pytest.mark.gating
-@pytest.mark.skip(reason="pending Phase 6: routing/crypto not implemented yet")
 def test_malicious_only_run_emits_zero_encrypted_payloads() -> None:
-    # Phase 6 will run a malicious-only stream through VerdictRouter and assert the
-    # MockCloudReceiver.received_count stays 0.
-    cloud = MockCloudReceiver()
+    """The behavioural half: route N malicious-verdict messages through the real VerdictRouter
+    and assert the cloud receiver never accepts a payload -- not because nothing was sent past
+    the router, but because AlertSink structurally cannot reach the cloud transport at all."""
+    edge_id, device_id = "edge01", "sensor01"
+    key = b"\x00" * 16  # fixed test key; never a real/demo secret
+    cloud = MockCloudReceiver({edge_id: key})
+    alert = AlertSink()
+    router = VerdictRouter(cloud, alert, AsconAEAD128(key))
+
+    for counter in range(5):
+        ad = AssociatedData(edge_id, device_id, counter, "v1")
+        router.route(verdict_benign=False, associated_data=ad, payload=b"malicious payload")
+
     assert cloud.received_count == 0
-    raise AssertionError("implement in Phase 6")
+    assert cloud.rejected_count == 0  # nothing was even SENT to the cloud to reject
+    assert alert.alert_count == 5

@@ -10,7 +10,9 @@ cloud transport and that zero encrypted payloads are emitted during a malicious-
 Do NOT add a CloudTransport (or anything that can encrypt/transmit toward the cloud) to this
 class --- doing so would silently break the core guarantee of the architecture.
 
-TODO(Phase 6): implement alert emission (log/queue), still with no cloud reference.
+Alerts are kept in an in-process log (a list of dicts), which is enough for the demo/mock scope
+(A6) this project targets -- a real deployment's alert queue (paging, a SIEM, etc.) is exactly
+the kind of production integration this project does not build.
 """
 
 from __future__ import annotations
@@ -21,8 +23,17 @@ class AlertSink:
 
     def __init__(self) -> None:
         self.alert_count = 0
+        self._alerts: list[dict[str, str]] = []
 
     def raise_alert(self, edge_id: str, reason: str) -> None:
         """Record/emit an alert for a malicious verdict. No cloud transport is reachable here."""
-        del edge_id, reason
-        raise NotImplementedError("Phase 6: alert emission not implemented yet.")
+        if not edge_id:
+            raise ValueError("edge_id must be non-empty")
+        self.alert_count += 1
+        self._alerts.append(
+            {"sequence": str(self.alert_count), "edge_id": edge_id, "reason": reason}
+        )
+
+    def alerts(self) -> list[dict[str, str]]:
+        """The alert log, oldest first -- for demo narration and test inspection."""
+        return list(self._alerts)

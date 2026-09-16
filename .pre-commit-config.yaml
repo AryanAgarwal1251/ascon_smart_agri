@@ -1,23 +1,29 @@
 # Pre-commit hooks: ruff (lint + format), vulture, mypy. Run before every commit.
 # Install once with:  pre-commit install
 # Run on demand with: pre-commit run --all-files
+#
+# KEEP THESE REVS IN STEP WITH THE DEV EXTRA in pyproject.toml. pre-commit builds each hook its
+# own isolated environment at the rev pinned here, so a rev that drifts from the installed dev
+# tool means the hook and a local `ruff check .` are different programs -- one can pass while
+# the other fails, which is worse than either being wrong on its own. vulture is the one pinned
+# to an exact `==` in pyproject, so it must match here exactly.
 minimum_pre_commit_version: "3.7.0"
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.16.7
     hooks:
-      - id: ruff            # lint
+      - id: ruff-check      # lint ('ruff' is a deprecated alias in >= 0.12)
         args: [--fix]
       - id: ruff-format     # format
 
   - repo: https://github.com/jendrikseipp/vulture
-    rev: v2.13
+    rev: v2.16
     hooks:
       - id: vulture
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v2.3.1
     hooks:
       - id: mypy
         files: ^src/

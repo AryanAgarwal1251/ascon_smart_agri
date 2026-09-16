@@ -86,24 +86,95 @@ cloud agronomic analytics, physical hardware. **Dataset is CICIoT2023 only** —
 
 ## Commands
 
-The scientific stack (torch 2.7 CPU, numpy, pandas, scikit-learn, scipy, safetensors, pydantic,
-pyyaml) is already installed in the system Python 3.11. Dev tools live in `.venv`
-(created with `--system-site-packages`). `uv` is not installed; the build backend is hatchling.
+**Python 3.12 or newer is required.** This is a floor set by the dependencies, not a
+preference: numpy (>= 2.4) and scipy (>= 1.16) both declare `requires-python >= 3.12`, so the
+pinned stack cannot install on 3.11 at all. `uv` is not installed; the build backend is
+hatchling. Everything — the scientific stack and the dev tools — lives in a project-local
+`.venv`; there is no reliance on packages preinstalled in a system Python.
+
+### Setup (once per machine)
+
+The venv layout differs by platform: POSIX puts executables in `.venv/bin/`, Windows puts them
+in `.venv\Scripts\` with an `.exe` suffix. Both are shown throughout; run the pair for your
+platform.
 
 ```bash
-# Run the gates (what pre-commit runs):
-./.venv/Scripts/ruff.exe check .          # lint
-./.venv/Scripts/ruff.exe format --check .  # format
-./.venv/Scripts/mypy.exe src               # types (strict-ish; strict on crypto/federated)
-./.venv/Scripts/vulture.exe                # dead code
-./.venv/Scripts/python.exe -m pytest       # tests (+ coverage)
-
-# Pre-commit (installed at .git/hooks/pre-commit):
-./.venv/Scripts/pre-commit.exe run --all-files
+# macOS / Linux
+python3.12 -m venv .venv
+./.venv/bin/python -m pip install -e ".[dev]"
+./.venv/bin/pre-commit install
 ```
 
-The pytest pre-commit hook is `language: system`, so commit with `.venv` active (or however
-`pytest` is on PATH). All gates must be green before a commit.
+```powershell
+# Windows (PowerShell)
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\pre-commit.exe install
+```
+
+### Running the gates
+
+```bash
+# macOS / Linux
+./.venv/bin/ruff check .             # lint
+./.venv/bin/ruff format --check .    # format
+./.venv/bin/mypy src                 # types (strict-ish; strict on crypto/federated)
+./.venv/bin/vulture                  # dead code
+./.venv/bin/python -m pytest         # tests (+ coverage)
+
+./.venv/bin/pre-commit run --all-files   # everything above, as the hook runs it
+```
+
+```powershell
+# Windows (PowerShell)
+.\.venv\Scripts\ruff.exe check .
+.\.venv\Scripts\ruff.exe format --check .
+.\.venv\Scripts\mypy.exe src
+.\.venv\Scripts\vulture.exe
+.\.venv\Scripts\python.exe -m pytest
+
+.\.venv\Scripts\pre-commit.exe run --all-files
+```
+
+All gates must be green before a commit.
+
+### Running a phase
+
+`asa` (installed by `pip install -e .`) runs a phase's driver under `scripts/` and passes any
+further arguments straight through, so `asa federate --rounds 2` is
+`scripts/run_phase4.py --rounds 2`; `asa <phase> -h` prints that driver's help.
+
+```bash
+# macOS / Linux
+./.venv/bin/asa characterize                                   # Phase 1 -> artifacts/phase1_*.json
+./.venv/bin/asa train-centralized --cache artifacts/phase4_cache.npz   # Phase 3
+./.venv/bin/asa federate --cache artifacts/phase4_cache.npz            # Phase 4 (--save-cache builds it)
+./.venv/bin/asa run-e2e                                        # Phase 7 (needs the trained checkpoint)
+```
+
+```powershell
+# Windows (PowerShell)
+.\.venv\Scripts\asa.exe federate --cache artifacts\phase4_cache.npz
+```
+
+Phases 2, 5 and 6 have no driver of their own: Phase 2 runs inside every training driver, and
+Phases 5-6 are library modules exercised by `run-e2e` and the tests. `asa preprocess`,
+`asa telemetry` and `asa secure` say so and exit 2. The Phase 7 checkpoint comes from
+`scripts/train_federated_model.py --cache artifacts/phase4_cache.npz`.
+
+### Two things that will bite you
+
+- **The pytest hook is `language: system`**, so it uses whatever `pytest` is on `PATH` rather
+  than an isolated hook environment (it needs torch and the scientific stack, which pre-commit
+  would not install for it). Commit with the venv activated — `source .venv/bin/activate` on
+  POSIX, `.\.venv\Scripts\Activate.ps1` on Windows — or the hook either fails or silently
+  tests against the wrong interpreter. Running `pre-commit run` by the full path above is not
+  enough on its own; prefix `PATH` or activate first.
+- **Hook revs in `.pre-commit-config.yaml` must track the `dev` extra in `pyproject.toml`.**
+  pre-commit builds each hook its own isolated environment at the pinned rev, so a drifted pin
+  means the hook and your local `ruff check .` are different programs — one can pass while the
+  other fails. `vulture` is pinned with an exact `==` in `pyproject.toml` and must match the
+  hook rev exactly.
 
 ## Conventions in this codebase
 

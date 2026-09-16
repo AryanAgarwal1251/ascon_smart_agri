@@ -18,12 +18,27 @@ venv/
 env/
 
 # --- Data (CICIoT2023 is large and must not be committed) ---
+/data/
 *.csv
 *.parquet
 !tests/**/*.csv          # small fixture CSVs used by tests may be committed
 
-# --- Run artifacts (models, reports, manifests, figures) ---
-artifacts/
+# --- Run artifacts (models, figures) ---
+# Bulk output stays out of git, but the JSON manifests and phase reports are PROVENANCE, not
+# output: Section III-I4 requires that no headline number is reported without a manifest, and
+# a manifest that exists only on the machine that produced it cannot substantiate the figures
+# quoted in CHANGELOG.md. Each manifest records the git commit it belongs to, so the repo is
+# exactly where it is useful. All of them together are ~200 KB.
+# NB: the pattern is "artifacts/*", not "artifacts/" -- git never descends into an excluded
+# DIRECTORY, so a "!" re-include under one is silently ignored.
+# A single blanket re-include for JSON directly under artifacts/, not one pattern per naming
+# convention: an earlier version of this file enumerated "manifest_*.json", "phase*_report*.json"
+# etc. individually, and artifacts/phase4_results.json silently fell through all three and
+# stayed gitignored until caught by hand. Every provenance file here is JSON; every bulk output
+# (checkpoints, figures) has a different extension, so this one line covers the whole class
+# without needing a new pattern for phase5_*, phase6_*, and so on.
+artifacts/*
+!artifacts/*.json
 *.safetensors
 *.pt
 *.ckpt

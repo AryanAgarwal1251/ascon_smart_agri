@@ -118,17 +118,32 @@ control** (see [`.gitignore`](.gitignore)); demonstration keys must be labelled 
 
 ## Development
 
-Runtime deps (torch CPU, numpy, pandas, scikit-learn, scipy, safetensors, pydantic, pyyaml)
-are already present in the target environment. Install the dev tooling and hooks:
+**Python 3.12+ is required** — numpy and scipy both declare `requires-python >= 3.12`, so the
+pinned stack will not install on 3.11. Everything (runtime deps and dev tools) installs into a
+project-local `.venv`; nothing is assumed preinstalled in a system Python. There is no `crypto`
+extra — the Ascon backend is vendored (see the Ascon variant note above).
 
 ```bash
-python -m pip install -e ".[dev]"      # add ,crypto once the Ascon backend is chosen
-pre-commit install
+# macOS / Linux
+python3.12 -m venv .venv
+./.venv/bin/python -m pip install -e ".[dev]"
+./.venv/bin/pre-commit install
+```
+
+```powershell
+# Windows (PowerShell)
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\pre-commit.exe install
 ```
 
 Quality gates run **locally as pre-commit hooks before each commit** (no remote CI): ruff
 (lint + format), vulture (dead code), mypy (`src`), and pytest — each as its own hook. Run them
 on demand:
+
+Activate the venv first (`source .venv/bin/activate`, or `.\.venv\Scripts\Activate.ps1` on
+Windows) so these resolve to the project's tools — the pytest hook in particular is
+`language: system` and uses whatever `pytest` is on `PATH`.
 
 ```bash
 ruff check . && ruff format --check .
@@ -136,6 +151,30 @@ mypy src
 vulture
 pytest
 ```
+
+### Running a phase
+
+`asa` (installed by `pip install -e .`) runs a phase's driver under `scripts/` and passes any
+further arguments straight through, so `asa federate --rounds 2` is
+`scripts/run_phase4.py --rounds 2`; `asa <phase> -h` prints that driver's help.
+
+```bash
+# macOS / Linux
+./.venv/bin/asa characterize                                   # Phase 1 -> artifacts/phase1_*.json
+./.venv/bin/asa train-centralized --cache artifacts/phase4_cache.npz   # Phase 3
+./.venv/bin/asa federate --cache artifacts/phase4_cache.npz            # Phase 4 (--save-cache builds it)
+./.venv/bin/asa run-e2e                                        # Phase 7 (needs the trained checkpoint)
+```
+
+```powershell
+# Windows (PowerShell)
+.\.venv\Scripts\asa.exe federate --cache artifacts\phase4_cache.npz
+```
+
+Phases 2, 5 and 6 have no driver of their own: Phase 2 runs inside every training driver, and
+Phases 5-6 are library modules exercised by `run-e2e` and the tests. `asa preprocess`,
+`asa telemetry` and `asa secure` say so and exit 2. The Phase 7 checkpoint comes from
+`scripts/train_federated_model.py --cache artifacts/phase4_cache.npz`.
 
 ### Tooling decisions
 

@@ -23,7 +23,18 @@ def test_formula_components() -> None:
     assert gru + layer_norm + head == expected_param_count(f, h, c)
 
 
-@pytest.mark.skip(reason="pending Phase 3: build_detector() not implemented yet")
 def test_built_model_matches_formula() -> None:
     model = build_detector(16, 96, 8)
     assert count_parameters(model) == expected_param_count(16, 96, 8)
+
+
+def test_default_sizing_is_exactly_33800_parameters() -> None:
+    # The invariant CLAUDE.md names: the DEFAULT config must reproduce Eq. (19) exactly.
+    assert count_parameters(build_detector(16, 96, 8)) == 33_800
+
+
+@pytest.mark.parametrize(("f", "h", "c"), [(8, 32, 8), (24, 64, 8), (16, 96, 2), (4, 8, 3)])
+def test_built_model_matches_formula_at_other_sizings(f: int, h: int, c: int) -> None:
+    # The equality of Eq. (19) and PyTorch's actual parameterisation is not a coincidence of
+    # one sizing, so check it holds generically rather than only at the reference point.
+    assert count_parameters(build_detector(f, h, c)) == expected_param_count(f, h, c)
