@@ -55,7 +55,19 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class CharacterizationReport:
-    """Structured result of characterisation; serialised into the run manifest."""
+    """Structured result of characterisation; serialised into the run manifest.
+
+    Field mappings:
+        n_records              -- total row count
+        columns                -- column name -> dtype string
+        null_counts            -- column name -> null count
+        infinite_counts        -- numeric column name -> +/-inf count
+        zero_variance_columns  -- list of column names with same data
+        exact_duplicate_count  -- count of duplicate rows
+        label_counts           -- label string -> occurrence count
+        imbalance_ratio        -- max(label_counts) / min(label_counts)
+        correlation_matrix     -- column name -> {column name -> Pearson r}
+    """
 
     n_records: int
     columns: dict[str, str]  # column name -> dtype string

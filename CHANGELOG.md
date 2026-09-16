@@ -31,6 +31,25 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
+## 2026-09-16
+
+### Phase 4 local-only baseline now reports balanced accuracy and MCC, not macro-F1 alone
+
+`scripts/run_phase4.py` computed `balanced_accuracy` and `mcc` per local-only client all along
+(`local_only_per_client` in the manifest already had them), but the per-seed `local_only` entry
+and its seed-level summary tracked only `macro_f1` -- so `baseline_4_local_only.mean` in
+`phase4_results.json` reported macro-F1 alone for the lower bound of the G4 bracket while
+`baseline_3_centralized` and `baseline_5_federated_global` reported macro-F1, balanced accuracy,
+MCC, and accuracy. Added the mean-over-clients `balanced_accuracy` and `mcc` to the per-seed
+`results["local_only"]` dict and a new `LOCAL_ONLY_HEADLINE` tuple so the seed-level
+mean +/- std summary picks them up the same way the other two baselines' `HEADLINE` does;
+`scripts/summarize_phase4.py` needed no change since it copies `summary["local_only"]` wholesale
+into `baseline_4_local_only.mean`. Re-running `run_phase4.py` (and `summarize_phase4.py`) will
+regenerate the manifest and results file with the new fields; the committed artifacts have not
+been regenerated in this change. `false_positive_rate` for local-only is a separate, not yet
+implemented gap (the confusion matrix is not currently retained per client) -- flagged, not
+fixed here.
+
 ## 2026-09-15
 
 ### Phase 7 checkpoint regenerated on the fixed training path

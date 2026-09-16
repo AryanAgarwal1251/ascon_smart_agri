@@ -61,6 +61,9 @@ print = functools.partial(builtins.print, flush=True)
 
 # FPR is in the headline set deliberately (III-I2), not reported as an afterthought.
 HEADLINE = ("macro_f1", "balanced_accuracy", "mcc", "accuracy", "false_positive_rate")
+# local_only's per-seed dict only carries the mean-over-clients fields computed for it below;
+# accuracy and false_positive_rate are not (yet) among them.
+LOCAL_ONLY_HEADLINE = ("macro_f1", "balanced_accuracy", "mcc")
 
 
 def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped-def]
@@ -439,6 +442,8 @@ def main() -> None:
                 # Every client counts, including one that got nothing: excluding it would
                 # make the lower bound look better than declining to federate actually is.
                 "macro_f1": float(np.mean([m.macro_f1 for m in locals_])),
+                "balanced_accuracy": float(np.mean([m.balanced_accuracy for m in locals_])),
+                "mcc": float(np.mean([m.mcc for m in locals_])),
                 "per_client_macro_f1": [m.macro_f1 for m in locals_],
                 "clients_without_data": len(empty_clients),
                 # Section III-I2's client-to-global gap: positive => federation helped that
@@ -462,7 +467,7 @@ def main() -> None:
     for name in ("centralized", "local_only", "federated"):
         summary[name] = {}
         line = []
-        for metric in HEADLINE if name != "local_only" else ("macro_f1",):
+        for metric in HEADLINE if name != "local_only" else LOCAL_ONLY_HEADLINE:
             values = [float(r[metric]) for r in results[name]]  # type: ignore[arg-type]
             mean_value, std_value = mean_std(values)
             summary[name][f"{metric}_mean"] = mean_value

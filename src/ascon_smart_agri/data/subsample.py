@@ -73,12 +73,17 @@ def _label_from_filename(path: Path) -> str:
 
 
 def _part_number(path: Path) -> int:
-    """Natural sort key: the trailing digit run in the filename, or 0 if there is none."""
+    """Natural sort key: the trailing digit run in the filename, or 0 if there is none.
+    eg: BenignTraffic.csv -> 0
+        BenignTraffic001.csv -> 1
+        BenignTraffic123.csv -> 123
+    """
     match = re.search(r"(\d+)(?:\.pcap)?\.csv$", path.name, re.IGNORECASE)
     return int(match.group(1)) if match else 0
 
 
 def _discover_parts_by_label(dataset_root: Path) -> dict[str, list[Path]]:
+    """Return, per attack type, the paths of every CSV part that belongs to it."""
     groups: dict[str, list[Path]] = {}
     for path in dataset_root.rglob("*.csv"):
         groups.setdefault(_label_from_filename(path), []).append(path)
@@ -102,6 +107,8 @@ def stratified_capped_subsample(
     Returns:
         A ``(frame, per_class_counts)`` pair; ``per_class_counts`` goes into the manifest.
     """
+
+    # Validation
     if per_class_cap <= 0:
         raise ValueError(f"per_class_cap must be positive, got {per_class_cap}")
     if chunk_size <= 0:
