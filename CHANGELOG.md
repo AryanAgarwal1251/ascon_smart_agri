@@ -31,6 +31,53 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
+## 2026-09-16
+
+### Added a client-count (K) scalability analysis -- flagged as outside the paper's scope
+
+`scripts/analyze_k_threshold.py` and `scripts/run_k_sweep.py` ask how many edge gateways can
+join one federation before the detector degrades. **This is not one of the paper's ablations**,
+and is recorded as such per Golden Rule 1: K is fixed at 3 by assumption A1 ("Three edge nodes
+are simulated") and objective O3, and `configs/base.py` defines `alpha_sweep`, `e_sweep`,
+`w_sweep` and `f_sweep` but no `k_sweep`. It was added at the user's request, after the
+discrepancy was surfaced rather than resolved silently. The phase-status table above is
+deliberately unchanged: this advances no phase and satisfies no paper exit criterion.
+
+The analytical half trains nothing. Reading the per-class block counts back out of
+`artifacts/manifest_phase4_default.json` (4,854 train blocks; rarest class **BruteForce at 42**),
+it establishes three results:
+
+- **Pigeonhole, exact at any α.** Blocks are indivisible, so a class with `B_c` blocks reaches at
+  most `min(K, B_c)` clients. Past K = 42, some gateway necessarily holds zero BruteForce traffic.
+- **Dilution, exact as α → ∞.** `ω_c(K) = min(1, B_c/K)`, where ω_c is the share of the Eq. (21)
+  aggregate contributed by clients that have actually seen class c — a quantity defined here, not
+  in the paper. Checked against the Monte-Carlo by `--verify`.
+- **Bandwidth, exact.** Eq. (22) gives 270,400·K bytes/round, reproducing the manifest's measured
+  811,200 B at K = 3; over R = 20 rounds that equals the paper's own 276 MB pooling figure at
+  **K = 51**.
+
+At the project's α = 0.5 the Monte-Carlo puts ω(BruteForce) through the 0.5 floor at **K ≈ 48**,
+so two independent constraints place the ceiling near 50 — and the binding quantity is a property
+of the *data* (`B_min`), not of GRUs or of FedAvg.
+
+A closed form for finite α was attempted and **rejected rather than shipped**: the Beta-marginal
+approximation `1 − I_{1/B_c}(α+1, α(K−1))` overestimates ω by up to 0.80, because
+`dirichlet_block_partition` hands each client a contiguous slice of the shuffled block list
+(`cuts = cumsum(p) * len(blocks)`) and so couples consecutive clients instead of leaving their
+shares independent. Finite-α figures are therefore measured by running the real partition
+function 240 times per point, not derived. The rejected form is documented in the module
+docstring so it is not re-attempted.
+
+`run_k_sweep.py` runs the matching empirical sweep over K ∈ {3, 5, 10, 20, 30, 50} × 3 seeds,
+**baseline 5 only**: the centralised upper bound is K-independent by construction and is quoted
+from Phase 4 rather than retrained, and local-only would mean 150 GRUs at K = 50 for a bound the
+sweep is not asking about. Everything else matches Phase 4 exactly so its K = 3 point reproduces
+the published figure. It records ω from the true Eq. (21) sequence weights rather than the
+block-count proxy, so the prediction is checked against the quantity it was predicting.
+
+Outputs: `artifacts/k_threshold_analysis.json` (written), plus
+`artifacts/k_sweep_results.json` and `artifacts/manifest_ksweep_default.json` from the sweep.
+
 ## 2026-09-15
 
 ### Phase 7 checkpoint regenerated on the fixed training path

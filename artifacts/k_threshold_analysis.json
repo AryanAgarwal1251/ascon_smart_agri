@@ -1,0 +1,998 @@
+{
+  "note": "Not a paper ablation; K is fixed at 3 by assumption A1 / objective O3.",
+  "source_manifest": "artifacts/manifest_phase4_default.json",
+  "blocks_per_class": {
+    "Benign": 218,
+    "DDoS": 1840,
+    "DoS": 729,
+    "Mirai": 654,
+    "Reconnaissance": 873,
+    "Spoofing": 418,
+    "BruteForce": 42,
+    "WebBased": 80
+  },
+  "total_blocks": 4854,
+  "rarest_class": "BruteForce",
+  "pigeonhole_ceiling": 42,
+  "omega_floor": 0.5,
+  "k_star": {
+    "0.1": 5.893935283859718,
+    "0.5": 47.98482776169724,
+    "100.0": 85.71732112267755
+  },
+  "k_star_closed_form_near_iid": 84.0,
+  "bytes_per_round_per_client_pair": 270400,
+  "communication_break_even_K": 51.03550295857988,
+  "monte_carlo_trials": 240,
+  "sweep": [
+    {
+      "K": 2,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 6.820833333333334,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.849023142425491,
+        "DDoS": 0.9205466282104108,
+        "DoS": 0.8825959689603077,
+        "Mirai": 0.8651584603763218,
+        "Reconnaissance": 0.8917113033923911,
+        "Spoofing": 0.8801684177997527,
+        "BruteForce": 0.8125927070457355,
+        "WebBased": 0.8545735475896168
+      },
+      "omega_macro": 0.8695462719750034
+    },
+    {
+      "K": 3,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 5.945833333333334,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.7320680538387585,
+        "DDoS": 0.8587033031177036,
+        "DoS": 0.7897859153962368,
+        "Mirai": 0.8165061461337728,
+        "Reconnaissance": 0.8153249896992172,
+        "Spoofing": 0.7651953715149017,
+        "BruteForce": 0.6431053426727099,
+        "WebBased": 0.7096132056036258
+      },
+      "omega_macro": 0.7662877909971157
+    },
+    {
+      "K": 4,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 5.415625,
+      "empty_clients_mean": 0.004166666666666667,
+      "omega_mean": {
+        "Benign": 0.6559332509270706,
+        "DDoS": 0.8165473492652108,
+        "DoS": 0.7512712882845762,
+        "Mirai": 0.7522996497733828,
+        "Reconnaissance": 0.7679036190083779,
+        "Spoofing": 0.7151000892734516,
+        "BruteForce": 0.6433070663370416,
+        "WebBased": 0.6481879206153001
+      },
+      "omega_macro": 0.7188187791855515
+    },
+    {
+      "K": 5,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 5.035,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.5993210067298448,
+        "DDoS": 0.8111789245982695,
+        "DoS": 0.7231535846724351,
+        "Mirai": 0.720744918280456,
+        "Reconnaissance": 0.7204642219475347,
+        "Spoofing": 0.6738840818568879,
+        "BruteForce": 0.5396030765004807,
+        "WebBased": 0.5881128965801401
+      },
+      "omega_macro": 0.672057838895756
+    },
+    {
+      "K": 6,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 4.841666666666667,
+      "empty_clients_mean": 0.004166666666666667,
+      "omega_mean": {
+        "Benign": 0.5711063040791101,
+        "DDoS": 0.7777683353934898,
+        "DoS": 0.7002944307100674,
+        "Mirai": 0.7123386210685345,
+        "Reconnaissance": 0.7284026919379206,
+        "Spoofing": 0.6554602733141052,
+        "BruteForce": 0.495301126218926,
+        "WebBased": 0.5554207869798105
+      },
+      "omega_macro": 0.6495115712127455
+    },
+    {
+      "K": 8,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 4.4796875,
+      "empty_clients_mean": 0.041666666666666664,
+      "omega_mean": {
+        "Benign": 0.5379523760472462,
+        "DDoS": 0.7676280730668864,
+        "DoS": 0.6745029872270292,
+        "Mirai": 0.6644073616261503,
+        "Reconnaissance": 0.692535366021151,
+        "Spoofing": 0.6017451242961133,
+        "BruteForce": 0.48752231836286225,
+        "WebBased": 0.47646528636176355
+      },
+      "omega_macro": 0.6128448616261504
+    },
+    {
+      "K": 10,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 4.247083333333333,
+      "empty_clients_mean": 0.025,
+      "omega_mean": {
+        "Benign": 0.5157112690564483,
+        "DDoS": 0.7664091470951793,
+        "DoS": 0.6322414503502266,
+        "Mirai": 0.6454582131575334,
+        "Reconnaissance": 0.6555323787941217,
+        "Spoofing": 0.5810972050542508,
+        "BruteForce": 0.4313882021700316,
+        "WebBased": 0.45185757450899605
+      },
+      "omega_macro": 0.5849619300233485
+    },
+    {
+      "K": 12,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 4.101388888888889,
+      "empty_clients_mean": 0.05,
+      "omega_mean": {
+        "Benign": 0.5050748523554457,
+        "DDoS": 0.7547289177310809,
+        "DoS": 0.6171585290482076,
+        "Mirai": 0.6086569495948358,
+        "Reconnaissance": 0.6480213912924048,
+        "Spoofing": 0.5633815753330585,
+        "BruteForce": 0.3970608432907568,
+        "WebBased": 0.4556405370141465
+      },
+      "omega_macro": 0.5687154494574922
+    },
+    {
+      "K": 15,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 3.8694444444444445,
+      "empty_clients_mean": 0.09166666666666666,
+      "omega_mean": {
+        "Benign": 0.47951517648674635,
+        "DDoS": 0.7224857505837111,
+        "DoS": 0.5875214599642907,
+        "Mirai": 0.5998128691113858,
+        "Reconnaissance": 0.6256566749072928,
+        "Spoofing": 0.5250635214943002,
+        "BruteForce": 0.3563693174014559,
+        "WebBased": 0.4341299272078011
+      },
+      "omega_macro": 0.541319337144623
+    },
+    {
+      "K": 20,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 3.685625,
+      "empty_clients_mean": 0.19583333333333333,
+      "omega_mean": {
+        "Benign": 0.4452135695646202,
+        "DDoS": 0.7233286979810465,
+        "DoS": 0.558139335256146,
+        "Mirai": 0.5816465801400906,
+        "Reconnaissance": 0.597076294465046,
+        "Spoofing": 0.527404374399121,
+        "BruteForce": 0.3419121686581513,
+        "WebBased": 0.388074268644417
+      },
+      "omega_macro": 0.5203494111385799
+    },
+    {
+      "K": 25,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 3.5143333333333335,
+      "empty_clients_mean": 0.31666666666666665,
+      "omega_mean": {
+        "Benign": 0.4400700453234446,
+        "DDoS": 0.7051941697569016,
+        "DoS": 0.5582612278533169,
+        "Mirai": 0.5603153756352149,
+        "Reconnaissance": 0.5897086595247906,
+        "Spoofing": 0.5037477681637138,
+        "BruteForce": 0.3265923293503639,
+        "WebBased": 0.3821916632330724
+      },
+      "omega_macro": 0.5082601548551023
+    },
+    {
+      "K": 30,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 3.3969444444444443,
+      "empty_clients_mean": 0.39166666666666666,
+      "omega_mean": {
+        "Benign": 0.4239501785469029,
+        "DDoS": 0.705643970608433,
+        "DoS": 0.5453363205603626,
+        "Mirai": 0.5389335256146133,
+        "Reconnaissance": 0.5686117978299684,
+        "Spoofing": 0.4926117634940256,
+        "BruteForce": 0.29315598818843563,
+        "WebBased": 0.33687766103557204
+      },
+      "omega_macro": 0.4881401507347892
+    },
+    {
+      "K": 40,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 3.2175,
+      "empty_clients_mean": 0.7375,
+      "omega_mean": {
+        "Benign": 0.39235166872682326,
+        "DDoS": 0.6897078011262189,
+        "DoS": 0.5271537220162066,
+        "Mirai": 0.5206427688504326,
+        "Reconnaissance": 0.5475106441422881,
+        "Spoofing": 0.4886751476445543,
+        "BruteForce": 0.27646185276747703,
+        "WebBased": 0.32037409009751416
+      },
+      "omega_macro": 0.4703597119214393
+    },
+    {
+      "K": 50,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 3.0865833333333335,
+      "empty_clients_mean": 1.1583333333333334,
+      "omega_mean": {
+        "Benign": 0.36836629583848374,
+        "DDoS": 0.6874390537014146,
+        "DoS": 0.528438744677929,
+        "Mirai": 0.5038310328251614,
+        "Reconnaissance": 0.5486111111111112,
+        "Spoofing": 0.44661190083779706,
+        "BruteForce": 0.2523872064276885,
+        "WebBased": 0.3063993613514627
+      },
+      "omega_macro": 0.455260588346381
+    },
+    {
+      "K": 60,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 2.9747222222222223,
+      "empty_clients_mean": 1.5958333333333334,
+      "omega_mean": {
+        "Benign": 0.36445886554044776,
+        "DDoS": 0.669452170031589,
+        "DoS": 0.519998969921714,
+        "Mirai": 0.4936830449114133,
+        "Reconnaissance": 0.5333848372476309,
+        "Spoofing": 0.4369841024584535,
+        "BruteForce": 0.24043314791924184,
+        "WebBased": 0.2999236025271254
+      },
+      "omega_macro": 0.44478984256970194
+    },
+    {
+      "K": 80,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 2.822135416666667,
+      "empty_clients_mean": 2.4375,
+      "omega_mean": {
+        "Benign": 0.3549134734239802,
+        "DDoS": 0.652532275786293,
+        "DoS": 0.4875669550885868,
+        "Mirai": 0.4748927001785469,
+        "Reconnaissance": 0.5250334775442934,
+        "Spoofing": 0.43064997939843425,
+        "BruteForce": 0.21789245982694685,
+        "WebBased": 0.267178272215355
+      },
+      "omega_macro": 0.42633244918280455
+    },
+    {
+      "K": 100,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 2.6886666666666668,
+      "empty_clients_mean": 3.908333333333333,
+      "omega_mean": {
+        "Benign": 0.3386356613102596,
+        "DDoS": 0.6500695302843017,
+        "DoS": 0.4839917250377696,
+        "Mirai": 0.4549924460925697,
+        "Reconnaissance": 0.4993725106441423,
+        "Spoofing": 0.4052336560911963,
+        "BruteForce": 0.19853385523966485,
+        "WebBased": 0.2518996360390056
+      },
+      "omega_macro": 0.4103411275923637
+    },
+    {
+      "K": 150,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 2.4520555555555554,
+      "empty_clients_mean": 7.925,
+      "omega_mean": {
+        "Benign": 0.31304851668726824,
+        "DDoS": 0.6343007485235543,
+        "DoS": 0.45529202719406675,
+        "Mirai": 0.44485561736025275,
+        "Reconnaissance": 0.4785039829693724,
+        "Spoofing": 0.38602269605823375,
+        "BruteForce": 0.15872905507485235,
+        "WebBased": 0.2185044980085153
+      },
+      "omega_macro": 0.3861571427345145
+    },
+    {
+      "K": 200,
+      "alpha": 0.1,
+      "classes_present_per_client_mean": 2.2897083333333335,
+      "empty_clients_mean": 13.1625,
+      "omega_mean": {
+        "Benign": 0.28883223458316165,
+        "DDoS": 0.6272095179233621,
+        "DoS": 0.4404657670649636,
+        "Mirai": 0.4181096346655679,
+        "Reconnaissance": 0.4699148468616948,
+        "Spoofing": 0.3565315547314929,
+        "BruteForce": 0.14057650048070322,
+        "WebBased": 0.19715955912649358
+      },
+      "omega_macro": 0.36734995192968
+    },
+    {
+      "K": 2,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.81875,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9660494780936684,
+        "DDoS": 0.9968659868149979,
+        "DoS": 0.9900717621205878,
+        "Mirai": 0.9899936478505699,
+        "Reconnaissance": 0.9900580277434419,
+        "Spoofing": 0.9867308748798241,
+        "BruteForce": 0.9586844183491279,
+        "WebBased": 0.9586114544705399
+      },
+      "omega_macro": 0.9796332062903447
+    },
+    {
+      "K": 3,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.720833333333333,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9702624982832028,
+        "DDoS": 0.9956530696332921,
+        "DoS": 0.9902468754291992,
+        "Mirai": 0.9826182873231699,
+        "Reconnaissance": 0.9888863136931739,
+        "Spoofing": 0.9749690976514215,
+        "BruteForce": 0.905220780112622,
+        "WebBased": 0.9302654168383463
+      },
+      "omega_macro": 0.9672652923705535
+    },
+    {
+      "K": 4,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.592708333333333,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9448109806345283,
+        "DDoS": 0.9895610149704711,
+        "DoS": 0.9790670924323581,
+        "Mirai": 0.9839797074577668,
+        "Reconnaissance": 0.9763150666117291,
+        "Spoofing": 0.9638090578217278,
+        "BruteForce": 0.8713827084191732,
+        "WebBased": 0.9178220711440737
+      },
+      "omega_macro": 0.9533434624364785
+    },
+    {
+      "K": 5,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.543333333333333,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9254188985029529,
+        "DDoS": 0.9861583230325505,
+        "DoS": 0.9756334981458591,
+        "Mirai": 0.9731716110424392,
+        "Reconnaissance": 0.9772721810190909,
+        "Spoofing": 0.9580543537975553,
+        "BruteForce": 0.8598758755665431,
+        "WebBased": 0.9072560431259442
+      },
+      "omega_macro": 0.9453550980291169
+    },
+    {
+      "K": 6,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.455555555555556,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9255502334844115,
+        "DDoS": 0.9839685482763356,
+        "DoS": 0.9768275305589892,
+        "Mirai": 0.9713638236505974,
+        "Reconnaissance": 0.9751871308886142,
+        "Spoofing": 0.9606312663095729,
+        "BruteForce": 0.8158503296250514,
+        "WebBased": 0.8869008377970059
+      },
+      "omega_macro": 0.9370349625738223
+    },
+    {
+      "K": 8,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.311979166666666,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9112742068397198,
+        "DDoS": 0.9808104999313281,
+        "DoS": 0.963847685757451,
+        "Mirai": 0.9591994574921028,
+        "Reconnaissance": 0.9647035091333608,
+        "Spoofing": 0.94023142425491,
+        "BruteForce": 0.7860681911825298,
+        "WebBased": 0.8562740351600056
+      },
+      "omega_macro": 0.9203011262189259
+    },
+    {
+      "K": 10,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.21625,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.8991012566955088,
+        "DDoS": 0.9764249416288971,
+        "DoS": 0.956714393627249,
+        "Mirai": 0.9511193517373987,
+        "Reconnaissance": 0.9590947328663646,
+        "Spoofing": 0.9298327839582474,
+        "BruteForce": 0.7644734583161654,
+        "WebBased": 0.8256953028430161
+      },
+      "omega_macro": 0.9078070277091058
+    },
+    {
+      "K": 12,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.118055555555555,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.8791400563109463,
+        "DDoS": 0.9712522318362863,
+        "DoS": 0.9428538318912237,
+        "Mirai": 0.9396348372476309,
+        "Reconnaissance": 0.9525382845762943,
+        "Spoofing": 0.926018060705947,
+        "BruteForce": 0.7397301194890812,
+        "WebBased": 0.8151069564620244
+      },
+      "omega_macro": 0.8957842973149293
+    },
+    {
+      "K": 15,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 7.036111111111111,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.8713183285263013,
+        "DDoS": 0.970029013871721,
+        "DoS": 0.9408391704436203,
+        "Mirai": 0.9334088724076363,
+        "Reconnaissance": 0.948242858123884,
+        "Spoofing": 0.9200478986402967,
+        "BruteForce": 0.724057478368356,
+        "WebBased": 0.7978514283752233
+      },
+      "omega_macro": 0.8882243810946299
+    },
+    {
+      "K": 20,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 6.854791666666666,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.8590114682049169,
+        "DDoS": 0.9675980291168796,
+        "DoS": 0.9280447397335531,
+        "Mirai": 0.9219844458178822,
+        "Reconnaissance": 0.9368939706084328,
+        "Spoofing": 0.8964419379206153,
+        "BruteForce": 0.6608638923224832,
+        "WebBased": 0.7569487364373025
+      },
+      "omega_macro": 0.8659734025202581
+    },
+    {
+      "K": 25,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 6.711833333333334,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.837015004807032,
+        "DDoS": 0.9633704161516274,
+        "DoS": 0.915434864716385,
+        "Mirai": 0.9139644279631919,
+        "Reconnaissance": 0.9313950693586046,
+        "Spoofing": 0.8866184246669414,
+        "BruteForce": 0.6343891635764317,
+        "WebBased": 0.7297632536739458
+      },
+      "omega_macro": 0.85149382811427
+    },
+    {
+      "K": 30,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 6.595,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.8241407430298036,
+        "DDoS": 0.9583436341161928,
+        "DoS": 0.9148142425491004,
+        "Mirai": 0.9060448427413818,
+        "Reconnaissance": 0.9227278189809093,
+        "Spoofing": 0.8745836766927619,
+        "BruteForce": 0.5927988943826397,
+        "WebBased": 0.708327324543332
+      },
+      "omega_macro": 0.8377226471295153
+    },
+    {
+      "K": 40,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 6.367604166666666,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.7908280112621893,
+        "DDoS": 0.9505004463672573,
+        "DoS": 0.8939096621343222,
+        "Mirai": 0.896113171267683,
+        "Reconnaissance": 0.9048310671611043,
+        "Spoofing": 0.8588801332234584,
+        "BruteForce": 0.543097617085565,
+        "WebBased": 0.6520249622304628
+      },
+      "omega_macro": 0.8112731338415052
+    },
+    {
+      "K": 50,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 6.171166666666666,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.7659988325779425,
+        "DDoS": 0.946193002334844,
+        "DoS": 0.8895867669276197,
+        "Mirai": 0.8671980153825024,
+        "Reconnaissance": 0.8897292610905095,
+        "Spoofing": 0.838215904408735,
+        "BruteForce": 0.4891232316989424,
+        "WebBased": 0.6143215217689878
+      },
+      "omega_macro": 0.7875458170237605
+    },
+    {
+      "K": 60,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 6.025069444444444,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.74405644829007,
+        "DDoS": 0.9449302980359842,
+        "DoS": 0.8738420203268781,
+        "Mirai": 0.859548825710754,
+        "Reconnaissance": 0.8887309435517099,
+        "Spoofing": 0.8195517442658975,
+        "BruteForce": 0.4543804079110013,
+        "WebBased": 0.5843402348578493
+      },
+      "omega_macro": 0.771172615368768
+    },
+    {
+      "K": 80,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 5.755625,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.7041426315066611,
+        "DDoS": 0.9342003158906743,
+        "DoS": 0.8555581307512704,
+        "Mirai": 0.8467938813349815,
+        "Reconnaissance": 0.873002506523829,
+        "Spoofing": 0.7943620381815684,
+        "BruteForce": 0.3909310190907842,
+        "WebBased": 0.529172675456668
+      },
+      "omega_macro": 0.7410203998420547
+    },
+    {
+      "K": 100,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 5.525541666666666,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.6726514215080347,
+        "DDoS": 0.9283580552121962,
+        "DoS": 0.8325118459002884,
+        "Mirai": 0.8236935173739871,
+        "Reconnaissance": 0.8550714187611592,
+        "Spoofing": 0.7700298722702925,
+        "BruteForce": 0.34194650460101633,
+        "WebBased": 0.48432220848784513
+      },
+      "omega_macro": 0.7135731055143525
+    },
+    {
+      "K": 150,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 5.076222222222222,
+      "empty_clients_mean": 0.016666666666666666,
+      "omega_mean": {
+        "Benign": 0.6109608913610768,
+        "DDoS": 0.9074963947259991,
+        "DoS": 0.7952976926246395,
+        "Mirai": 0.7834809778876528,
+        "Reconnaissance": 0.8239639129240489,
+        "Spoofing": 0.7208925628347753,
+        "BruteForce": 0.2599222290894108,
+        "WebBased": 0.40053306551297896
+      },
+      "omega_macro": 0.6628184658700728
+    },
+    {
+      "K": 200,
+      "alpha": 0.5,
+      "classes_present_per_client_mean": 4.732583333333333,
+      "empty_clients_mean": 0.058333333333333334,
+      "omega_mean": {
+        "Benign": 0.5535194341436614,
+        "DDoS": 0.8940658906743579,
+        "DoS": 0.7696547520944925,
+        "Mirai": 0.7556293778327152,
+        "Reconnaissance": 0.7964359291306138,
+        "Spoofing": 0.6791323307238016,
+        "BruteForce": 0.2069384356544431,
+        "WebBased": 0.3364424529597583
+      },
+      "omega_macro": 0.6239773254017306
+    },
+    {
+      "K": 2,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 3,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 4,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 5,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 6,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 8,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 10,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 12,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 15,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 20,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 25,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 30,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 8.0,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 1.0,
+        "WebBased": 1.0
+      },
+      "omega_macro": 1.0
+    },
+    {
+      "K": 40,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 7.9671875,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 0.9676460994368906,
+        "WebBased": 1.0
+      },
+      "omega_macro": 0.9959557624296113
+    },
+    {
+      "K": 50,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 7.837583333333333,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 0.8397944993819532,
+        "WebBased": 1.0
+      },
+      "omega_macro": 0.979974312422744
+    },
+    {
+      "K": 60,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 7.699791666666667,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 0.7029820766378243,
+        "WebBased": 0.9997991347342398
+      },
+      "omega_macro": 0.962847651421508
+    },
+    {
+      "K": 80,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 7.47078125,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9999999999999999,
+        "DDoS": 0.9999999999999999,
+        "DoS": 0.9999999999999999,
+        "Mirai": 0.9999999999999999,
+        "Reconnaissance": 0.9999999999999999,
+        "Spoofing": 0.9999999999999999,
+        "BruteForce": 0.5297958728196676,
+        "WebBased": 0.9470840200521903
+      },
+      "omega_macro": 0.9346099866089822
+    },
+    {
+      "K": 100,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 7.219541666666666,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0000000000000002,
+        "DDoS": 1.0000000000000002,
+        "DoS": 1.0000000000000002,
+        "Mirai": 1.0000000000000002,
+        "Reconnaissance": 1.0000000000000002,
+        "Spoofing": 1.0000000000000002,
+        "BruteForce": 0.42556568465870076,
+        "WebBased": 0.8038636519708835
+      },
+      "omega_macro": 0.9036786670786982
+    },
+    {
+      "K": 150,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 6.8133333333333335,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 1.0,
+        "DDoS": 1.0,
+        "DoS": 1.0,
+        "Mirai": 1.0,
+        "Reconnaissance": 1.0,
+        "Spoofing": 1.0,
+        "BruteForce": 0.2869712264798791,
+        "WebBased": 0.541489836560912
+      },
+      "omega_macro": 0.8535576328800989
+    },
+    {
+      "K": 200,
+      "alpha": 100.0,
+      "classes_present_per_client_mean": 6.597854166666667,
+      "empty_clients_mean": 0.0,
+      "omega_mean": {
+        "Benign": 0.9885652726273874,
+        "DDoS": 1.000000000000001,
+        "DoS": 1.000000000000001,
+        "Mirai": 1.000000000000001,
+        "Reconnaissance": 1.000000000000001,
+        "Spoofing": 1.000000000000001,
+        "BruteForce": 0.21770275374261766,
+        "WebBased": 0.41046130339239134
+      },
+      "omega_macro": 0.8270911662203003
+    }
+  ]
+}
