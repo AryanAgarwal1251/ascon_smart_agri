@@ -10,16 +10,22 @@ is executed for real, in order, on one message at a time -- not simulated piecew
         -> DeviceWindowBuffer (Phase 7: streaming window assembly)
         -> the REAL trained federated model (Phase 7: train_federated_model.py's checkpoint)
         -> Eq. (5) binary projection (y > 0, Benign is class index 0)
-        -> VerdictRouter (Phase 6): benign -> AsconAEAD128 -> MockCloudReceiver
+        -> VerdictRouter (Phase 6): benign -> MockCloudReceiver (plaintext)
                                      malicious -> AlertSink (no cloud reference, ever)
 
+    IMPLEMENTATION DEVIATION FROM THE DESIGN PAPER (flagged per CLAUDE.md golden rule 1; see
+    ``docs/design_paper.md``'s "Implementation deviation" section): the cloud leg here no longer
+    encrypts -- cloud-payload protection is assumed handled outside this codebase. Ascon-AEAD128
+    now protects Channel 3 (the federated weight transport, ``federated/crypto.py``) instead,
+    which is exercised during training (``train_federated_model.py``), not in this runtime demo.
+
 Per-stage latency (Section III-I2's "per-stage runtime latency") is measured for each message:
-provenance lookup, window buffering, model inference, and routing (encrypt+send or alert).
+provenance lookup, window buffering, model inference, and routing (send or alert).
 
 DECLARED LIMITATION, same as telemetry/provenance.py's own: this demonstrates architectural
-correctness -- the pipeline composes, the planes stay separate, routing is correct, crypto
-verifies. It does NOT demonstrate that this model would detect attacks against a live
-agricultural deployment; the held-out records are historical CICIoT2023 rows, not live capture.
+correctness -- the pipeline composes, the planes stay separate, and routing is correct. It does
+NOT demonstrate that this model would detect attacks against a live agricultural deployment; the
+held-out records are historical CICIoT2023 rows, not live capture.
 
     PYTHONPATH=. ./.venv/bin/python -u scripts/run_phase7.py \
         --checkpoint artifacts/federated_global_model.safetensors [--cache path.npz]
@@ -31,7 +37,6 @@ import argparse
 import builtins
 import functools
 import json
-import secrets
 import time
 from pathlib import Path
 
@@ -39,7 +44,7 @@ import numpy as np
 import torch
 from configs.base import load_run_config
 
-from ascon_smart_agri.crypto.ascon_aead import AsconAEAD128, AssociatedData
+from ascon_smart_agri.crypto.ascon_aead import AssociatedData
 from ascon_smart_agri.data.dedup import deduplicate
 from ascon_smart_agri.data.scaling import fit_scaler
 from ascon_smart_agri.data.split import make_blocks, stratified_block_split
@@ -126,10 +131,9 @@ def main() -> None:
     )
     buffer = DeviceWindowBuffer(window=cfg.sequence.window)
 
-    demo_key = secrets.token_bytes(16)  # DEMO key only (III-J3); never committed
-    cloud = MockCloudReceiver({EDGE_ID: demo_key})
+    cloud = MockCloudReceiver()
     alert = AlertSink()
-    router = VerdictRouter(cloud, alert, AsconAEAD128(demo_key))
+    router = VerdictRouter(cloud, alert)
 
     messages = list(
         simulate_stream(
@@ -235,6 +239,9 @@ def main() -> None:
         hardware=hardware,
         config_snapshot=json.loads(cfg.model_dump_json()),
         subsample_per_class_counts={},
+        # Genuinely empty: this runtime demo's cloud path no longer uses Ascon (implementation
+        # deviation, see the module docstring). Ascon now protects the federated weight
+        # transport, exercised by train_federated_model.py, not by this script.
         ascon_backend={},
         results={
             "checkpoint_metadata": checkpoint_meta,
@@ -253,8 +260,10 @@ def main() -> None:
             "per_stage_latency_us": stage_summary,
             "limitation_note": (
                 "Demonstrates architectural correctness only: the pipeline composes, planes "
-                "stay separate, routing is correct, crypto verifies. Does NOT demonstrate "
-                "detection against a live deployment -- see telemetry/provenance.py."
+                "stay separate, routing is correct. Does NOT demonstrate detection against a "
+                "live deployment -- see telemetry/provenance.py. The cloud leg is plaintext "
+                "(implementation deviation, see docs/design_paper.md); Ascon protects the "
+                "federated weight transport instead (federated/crypto.py)."
             ),
             "elapsed_seconds": round(time.time() - started, 1),
         },

@@ -6,8 +6,13 @@ A model trained on CICIoT2023 flow-derived features cannot consume an applicatio
 telemetry payload: they are different objects with different origins. This adapter keeps the
 two planes apart and records the provenance of every feature value the model consumes:
 
-    * Application plane: the JSON payload (e.g. deviceId/temperature/soilMoisture). This is
-      what Ascon protects. It is NEVER parsed into network features.
+    * Application plane: the JSON payload (e.g. deviceId/temperature/soilMoisture). It is
+      NEVER parsed into network features. IMPLEMENTATION DEVIATION FROM THE DESIGN PAPER
+      (flagged per CLAUDE.md golden rule 1; see ``docs/design_paper.md``'s "Implementation
+      deviation" section): this plane is no longer Ascon-protected on its way to the cloud --
+      that confidentiality/integrity is now assumed to be handled by mechanisms outside this
+      codebase. Ascon-AEAD128 protects Channel 3 (the federated weight transport,
+      ``federated/crypto.py``) instead.
     * Network plane: a flow-feature vector drawn from HELD-OUT CICIoT2023 records never seen
       during training, standing in for the network conditions of that message. This is what
       the GRU classifies.
@@ -18,11 +23,11 @@ be verified; evaluates the detector against its own generator's artefacts) and i
 a live MQTT broker (recovers only part of the feature set without the original extractor).
 
 What a runtime demonstration built on this adapter DOES show: architectural correctness ---
-the pipeline separates the two planes, routes on the verdict, encrypts/verifies correctly,
-and never places a malicious-verdict payload on the cloud path. What it does NOT show: that a
-CICIoT2023-trained model would detect attacks against a live agricultural MQTT deployment.
-That claim would require capture and feature re-extraction on the target network, and is not
-made. This limitation is also stated in the README.
+the pipeline separates the two planes, routes on the verdict, and never places a
+malicious-verdict payload on the cloud path. What it does NOT show: that a CICIoT2023-trained
+model would detect attacks against a live agricultural MQTT deployment. That claim would
+require capture and feature re-extraction on the target network, and is not made. This
+limitation is also stated in the README.
 
 Implementation notes:
 

@@ -14,7 +14,11 @@ every module under `src/` is a typed stub tagged with the phase in which its log
 1. **The design paper is authoritative.** Where any summary, request, or this file conflicts
    with [docs/design_paper.md](docs/design_paper.md), the paper wins. **Flag the discrepancy
    to the user — do not silently resolve it.** This matters most for the leakage control, the
-   Ascon variant, and the path-disjointness guarantee.
+   Ascon variant, and the path-disjointness guarantee. **One deviation is already in force and
+   user-approved (2026-09-20):** Ascon was moved off the gateway→cloud telemetry channel
+   (Channel 2, now plaintext) and onto the client↔aggregator model-weight channel (Channel 3).
+   See the **"Implementation Deviation From This Design"** section appended to the design paper;
+   it governs where the paper and code disagree on the Ascon channel.
 2. **Respect the seven-phase gating discipline (III-J4).** Do not skip ahead. Each phase
    begins only after the previous one's exit criterion is met. **Phase 3 (centralised GRU
    proven) is a hard gate before any federation work.** Stop and ask the user before starting
@@ -51,13 +55,23 @@ every module under `src/` is a typed stub tagged with the phase in which its log
   `tests/test_leakage.py`.
 - **Path disjointness (G1):** the malicious-path handler (`routing/alert_sink.py`) holds **no
   reference** to the cloud transport — structurally, not by convention. Never give `AlertSink`
-  a `CloudTransport`. Zero encrypted payloads may be emitted on a malicious-only run.
-  `tests/test_path_disjointness.py`.
+  a `CloudTransport`. Zero payloads may reach the cloud transport on a malicious-only run.
+  `tests/test_path_disjointness.py`. (Retained across the 2026-09-20 deviation; the cloud path
+  is now plaintext, so the invariant is "zero payloads", not "zero *encrypted* payloads".)
 - **Ascon KAT conformance (R5)** gates all crypto integration. `tests/test_ascon_kat.py`.
   Decryption returns `⊥`/`None` on any modified ciphertext or associated data
-  (`tests/test_ascon_tamper.py`). AD layout = `⟨edge_id, device_id, counter, schema_version⟩`
-  (Eq. 27). Fresh CSPRNG nonce per message; zero nonce reuse per key
-  (`tests/test_nonce_collision.py`).
+  (`tests/test_ascon_tamper.py`; and for the weight channel, `unprotect_state` raises
+  `WeightIntegrityError`, `tests/test_federated_weight_crypto.py`). Fresh CSPRNG nonce per
+  message; zero nonce reuse per key (`tests/test_nonce_collision.py`).
+- **Ascon now protects Channel 3 (model weights), not Channel 2 (telemetry)** — the 2026-09-20
+  user-approved deviation (see the design paper's addendum). Every weight blob is Ascon-encrypted
+  on both legs of every round in `federated/server.py` via `federated/crypto.py`
+  (`protect_state`/`unprotect_state`). Weight AD layout =
+  `⟨client_id, round_index, direction, schema_version⟩`; the telemetry AD tuple
+  `⟨edge_id, device_id, counter, schema_version⟩` (Eq. 27) survives only as **plaintext** routing
+  metadata on the cloud path. `tests/test_federated_weight_crypto.py`. Never re-add encryption to
+  `routing/router.py`'s benign branch, and never hand `FederatedServer` anything but per-client
+  16-byte keys it keeps out of manifests.
 - **FedAvg weight `n_k` = number of training SEQUENCES, not raw rows** (Eq. 21). Common bug.
   `tests/test_fedavg_weighting.py`.
 - **Federated scaler == pooled scaler** via Chan's parallel formula (Eqs. 23–24), without

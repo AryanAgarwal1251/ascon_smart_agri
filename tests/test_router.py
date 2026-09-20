@@ -1,31 +1,32 @@
 """Unit tests for the verdict router (Eq. 5, Section III-A, gap G1).
 
 The structural disjointness guarantee has its own gating file, test_path_disjointness.py. This
-covers the behavioural correctness of routing itself: benign encrypts and reaches the cloud
-intact; malicious never does; nonces are never reused across calls.
+covers the behavioural correctness of routing itself: benign reaches the cloud intact; malicious
+never does.
+
+IMPLEMENTATION DEVIATION FROM THE DESIGN PAPER (flagged per CLAUDE.md golden rule 1): the router
+no longer encrypts the benign-verdict payload -- see ``routing/router.py``'s module docstring.
+Ascon-AEAD128 now protects Channel 3 instead (``federated/crypto.py``, tested in
+``test_federated_weight_crypto.py``); nonce-reuse-freedom for that channel is exercised there.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from ascon_smart_agri.crypto.ascon_aead import AsconAEAD128, AssociatedData, NonceRegistry
+from ascon_smart_agri.crypto.ascon_aead import AssociatedData
 from ascon_smart_agri.routing.alert_sink import AlertSink
 from ascon_smart_agri.routing.cloud_sink import MockCloudReceiver
 from ascon_smart_agri.routing.router import VerdictRouter
 
-KEY = b"\x33" * 16
 
-
-def _router(
-    cloud: MockCloudReceiver | None = None,
-) -> tuple[VerdictRouter, MockCloudReceiver, AlertSink]:
-    cloud = cloud if cloud is not None else MockCloudReceiver({"edge01": KEY})
+def _router() -> tuple[VerdictRouter, MockCloudReceiver, AlertSink]:
+    cloud = MockCloudReceiver()
     alert = AlertSink()
-    return VerdictRouter(cloud, alert, AsconAEAD128(KEY)), cloud, alert
+    return VerdictRouter(cloud, alert), cloud, alert
 
 
-def test_benign_verdict_reaches_the_cloud_and_decrypts_to_the_original_payload() -> None:
+def test_benign_verdict_reaches_the_cloud_with_the_original_payload() -> None:
     router, cloud, alert = _router()
     ad = AssociatedData("edge01", "dev01", 0, "v1")
 
@@ -59,30 +60,14 @@ def test_alert_reason_carries_device_and_counter_context() -> None:
     assert "42" in reason
 
 
-def test_successive_benign_messages_never_reuse_a_nonce() -> None:
+def test_successive_benign_messages_all_reach_the_cloud() -> None:
     router, cloud, _ = _router()
-    registry = router._nonces  # inspecting internal state deliberately, for this one assertion
 
     for counter in range(10):
         ad = AssociatedData("edge01", "dev01", counter, "v1")
         router.route(verdict_benign=True, associated_data=ad, payload=b"x")
 
     assert cloud.received_count == 10
-    # NonceRegistry itself raises on reuse (tested in test_nonce_collision.py); the absence
-    # of an exception across 10 real routed messages is the behavioural proof here.
-    assert isinstance(registry, NonceRegistry)
-
-
-def test_router_accepts_an_injected_nonce_registry() -> None:
-    registry = NonceRegistry()
-    cloud = MockCloudReceiver({"edge01": KEY})
-    alert = AlertSink()
-    router = VerdictRouter(cloud, alert, AsconAEAD128(KEY), nonce_registry=registry)
-    ad = AssociatedData("edge01", "dev01", 0, "v1")
-
-    router.route(verdict_benign=True, associated_data=ad, payload=b"x")
-
-    assert cloud.received_count == 1
 
 
 def test_different_verdicts_for_the_same_device_route_independently() -> None:

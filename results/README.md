@@ -9,17 +9,26 @@ stated rather than smoothed over.
 
 **Status: all seven phases complete**, verified by the gate scripts committed alongside the
 code (`scripts/check_phase3_gate.py`, `scripts/check_phase4_gate.py`), not by narrative alone.
-Current test suite: **344 passed, 0 skipped**, all lint/type/dead-code gates green.
+Current test suite: **357 passed, 0 skipped**, all lint/type/dead-code gates green.
+
+> **Implementation deviation from the design paper (user-approved, 2026-09-20).** Ascon-AEAD128
+> was moved off the gateway→cloud telemetry channel (now plaintext) and onto the
+> client↔aggregator model-weight channel (now encrypted on both legs of every round). This
+> affects Phases 4, 6 and 7 below. See the design paper's
+> [Implementation Deviation section](../docs/design_paper.md) for the rationale; each affected
+> phase file carries a callout. Detection-quality numbers are unchanged (the encryption is
+> lossless); the artifacts in `artifacts/` still reflect the pre-deviation runs and will refresh
+> on the next real run (the raw corpus is needed and is not committed).
 
 | # | Phase | Status | Headline result |
 | - | --- | --- | --- |
 | 1 | [Characterisation](phase1_characterisation.md) | ✅ Done | 46,776,700 records (raw), matches paper's ~46.7M |
 | 2 | [Leakage control + feature selection](phase2_leakage_and_feature_selection.md) | ✅ Done | R3 gate passes on real data; F0=31 → F=16 |
 | 3 | [Centralised GRU](phase3_centralised_gru.md) | ✅ Done — hard gate closed | macro-F1 0.8297 ± 0.0013 at W=16; recurrence earns its place |
-| 4 | [Federated learning](phase4_federated_learning.md) | ✅ Done — gate closed | Federated 0.8308 recovers 82.4% of the local-only→centralised gap |
+| 4 | [Federated learning](phase4_federated_learning.md) | ✅ Done — gate closed | Federated 0.8308 recovers 82.4% of the gap; weight transport now Ascon-encrypted (+192 B/round) |
 | 5 | [Telemetry + provenance](phase5_telemetry_and_provenance.md) | ✅ Done | G6 verified: 0 leaked into training index across 200+ checks |
-| 6 | [Ascon + alerting](phase6_ascon_and_alerting.md) | ✅ Done — zero skips | G1 holds: 0 malicious-verdict payloads ever reached the cloud |
-| 7 | [End-to-end integration](phase7_end_to_end_integration.md) | ✅ Done | Real model, real pipeline, real routing — G1 holds in the assembled loop |
+| 6 | [Ascon + alerting](phase6_ascon_and_alerting.md) | ✅ Done — zero skips | Ascon now guards the weight channel (⊥ on tamper); G1 routing split retained on the plaintext cloud path |
+| 7 | [End-to-end integration](phase7_end_to_end_integration.md) | ✅ Done | Real model, real pipeline, real routing — G1 holds; cloud leg now plaintext |
 
 ## How to read each phase file
 
@@ -62,3 +71,17 @@ PYTHONPATH=. ./.venv/bin/python scripts/check_phase4_gate.py
 Reproducing the underlying experiments from raw data requires the CICIoT2023 raw distribution
 at `data/ciciot2023_raw/` (not committed — see `.gitignore`) and the run scripts in `scripts/`,
 each named `run_phaseN*.py` or `train_*.py`.
+
+To regenerate the Phase 4 and Phase 7 artifacts with the 2026-09-20 weight-encryption deviation
+wired in (their committed versions predate it):
+
+```bash
+# Phase 4: federated run, now with Ascon-encrypted weight transport
+PYTHONPATH=. ./.venv/bin/python scripts/run_phase4.py --save-cache artifacts/phase4_cache.npz
+# Phase 7: retrain the deployment checkpoint (encrypted transport), then run the runtime loop
+PYTHONPATH=. ./.venv/bin/python scripts/train_federated_model.py --cache artifacts/phase4_cache.npz
+PYTHONPATH=. ./.venv/bin/python scripts/run_phase7.py
+```
+
+The detection metrics will match (lossless encryption); the manifests' `ascon_backend` field will
+become populated and Phase 4's `measured_bytes_per_round` will rise by exactly 192 B (K=3).

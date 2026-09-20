@@ -5,6 +5,13 @@
 [`artifacts/manifest_phase4_default.json`](../artifacts/manifest_phase4_default.json). Code:
 [`federated/`](../src/ascon_smart_agri/federated/), [`eval/baselines.py`](../src/ascon_smart_agri/eval/baselines.py).
 
+> **Implementation deviation from the design paper (user-approved, 2026-09-20).** The federated
+> weight transport is now Ascon-AEAD128 encrypted on both legs of every round (see
+> [`federated/crypto.py`](../src/ascon_smart_agri/federated/crypto.py) and the design paper's
+> [Implementation Deviation section](../docs/design_paper.md)). The encryption is **lossless**, so
+> every detection-quality figure in this report is unchanged; only the communication cost gains a
+> constant per-round overhead, detailed below.
+
 ## What the paper says
 
 > Clients are formed by a **Dirichlet partition** applied at block level, α treated as an
@@ -42,9 +49,23 @@ the bracket-inverted result this project reported at first.
 **Client-to-global gap, positive for every client** (federation helps all three relative to
 going it alone): client 0 **+0.1023**, client 1 **+0.1565**, client 2 **+0.0721**.
 
-**Communication cost matches Eq. (22) almost exactly**: measured 815,136 bytes/round against a
-theoretical 811,200 (the small excess is the safetensors container's own header) — **0.78
-MiB/round**, matching the paper's stated 0.77.
+**Communication cost matches Eq. (22) almost exactly**: the parameter traffic is 815,136
+bytes/round against a theoretical 811,200 (the small excess is the safetensors container's own
+header) — **0.78 MiB/round**, matching the paper's stated 0.77. The 815,136 figure is the
+parameter-only cost from the pre-deviation run (`manifest_phase4_default.json`), unchanged by the
+encryption because the tensor bytes are identical.
+
+**Weight-encryption overhead (implementation deviation).** Each round now carries a 16-byte nonce
+plus a 16-byte tag on each of the two legs per client — `2K·32 = 192` bytes for K=3
+(`aead_overhead_bytes_per_round(3)`, deterministic, not measured). Total: **815,328 bytes/round**,
+a **0.024%** increase — negligible against the ~0.77 MiB the parameters themselves cost, exactly
+as expected for a fixed AEAD overhead on a ~132 KiB payload (see
+[Phase 6](phase6_ascon_and_alerting.md)'s expansion table). *The end-to-end re-run that would
+regenerate `manifest_phase4_default.json` with the crypto path wired in has not been executed in
+this environment (the raw CICIoT2023 corpus is not present here); the +192 B delta is exact and
+the detection numbers are provably unchanged by lossless encryption, but the manifest's own
+`measured_bytes_per_round` and populated `ascon_backend` fields will only refresh on the next real
+run — command in the [results README](README.md).*
 
 **Binary FPR: 0.2975** (derivable from the stored per-seed confusion matrices;
 population-std convention, matching every other σ figure in this project, gives ±0.0418) — too

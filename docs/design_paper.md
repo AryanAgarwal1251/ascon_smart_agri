@@ -816,3 +816,80 @@ Nseq = X max 0, Lr −W+ 1
 which makes explicit that short runs contribute nothing once W grows large. That cost of increasing the window is easy to overlook. We sweep W ∈ {1, 8, 16, 32}, and include W = 1 as an ablation. If it matches W = 16, recurrence has not earned its place in the architecture, and we will say so.
 
 ## E. Detection Mode
+
+---
+
+# IMPLEMENTATION DEVIATION FROM THIS DESIGN (post-review, 2026-09-20)
+
+This section is an **addendum**, added after the review-2 checkpoint, recording a deliberate
+divergence between the implementation and the design specified in Sections I–III above. The
+original text is left intact as the historical record of what was designed; this section states
+what the code now does instead, and why. Per the project's operating rule (`CLAUDE.md` Golden
+Rule 1) the divergence is flagged here rather than silently reconciled into the body of the
+paper. Where the two disagree, **this section describes the code; Sections I–III describe the
+original design.**
+
+## What changed
+
+The paper couples the detector's verdict to Ascon-AEAD128 protection of **Channel 2**, the
+gateway-to-cloud telemetry channel (Section I-B; Eq. 5's `Enc_ke` on the benign branch; the
+authenticated-encryption design of Section III-G; the associated-data tuple of Eq. 27; the
+overhead of Eq. 29). Two things change:
+
+1. **Ascon is removed from Channel 2.** The benign-verdict telemetry payload is now sent to the
+   cloud receiver **in the clear**. Confidentiality and integrity of the cloud payload are
+   assumed to be provided by mechanisms **outside the scope of this codebase** (for example a
+   TLS-terminated transport, or an application-layer envelope the deployment already runs). The
+   system therefore no longer implements Eq. 5's `Enc_ke`, nor the wire overhead of Eq. 29, on
+   the telemetry channel. **What is retained from that design is the verdict-selects-path
+   structure itself** (gap G1): the benign and malicious paths remain disjoint *by construction*,
+   the malicious-path handler still holds no reference to the cloud transport, and the test that
+   asserts no malicious-verdict payload can reach the cloud (`tests/test_path_disjointness.py`)
+   remains a gating invariant. Replay detection via the monotonic counter (Section III-G2) is
+   also retained on the cloud receiver, since it does not depend on encryption.
+
+2. **Ascon is applied to Channel 3, the node-to-aggregator model-update channel** (Section I-B,
+   "Channel 3"), which the paper discusses but explicitly does **not** solve ("federated learning
+   addresses [reconstruction] only partially and [poisoning] not at all"). Every model-weight
+   blob crossing the client↔aggregator boundary — in **both** directions of **every** round
+   (server→client broadcast and client→server upload) — is now encrypted with Ascon-AEAD128 on
+   send and decrypted on receive. Decryption returns ⊥ (Eq. 26) on any tampered blob, surfaced as
+   a hard failure that aborts the round rather than aggregating unverified parameters. The
+   primitive, its KAT-conformance gate (Section III-G1, R5), and its nonce discipline (Section
+   III-G3, R6) are unchanged; only the channel they protect has moved.
+
+## Associated data and keys for Channel 3
+
+The associated-data tuple mirrors Eq. 27's shape but is specialised to this channel:
+
+    a = ⟨client_id, round_index, direction, schema_version⟩
+
+`direction ∈ {upload, broadcast}` binds each ciphertext to its leg of the round, so a blob
+produced for one leg cannot be replayed as the other; `round_index` gives the ordering/replay
+protection that Eq. 27's monotonic counter gives on the telemetry channel. The wire encoding is
+the same length-prefixed (TLV) framing already resolved for Eq. 27 (`docs/plans/phase6-ad-serialization.md`),
+shared in code so both AD types use one tested implementation.
+
+Keys follow an **extension of assumption A5** ("Ascon keys are pre-shared out of band"): one
+pre-shared 128-bit symmetric key per client↔server pair, reused for both directions across all
+rounds with a fresh CSPRNG nonce per message. Production key management remains out of scope
+(Section III-J3); the driver scripts generate demo keys inline and never write key material to a
+manifest.
+
+## Effect on the communication-cost model (Eq. 22)
+
+Eq. 22, `B_round = 2K|θ|b`, is unchanged as the model of the raw parameter traffic. The
+deviation adds a **constant per-round overhead**: a 16-byte nonce plus a 16-byte tag on each of
+the two legs per client, i.e. `2K·32` bytes per round (192 bytes for K=3), negligible against the
+~0.77 MiB/round the parameters themselves cost. Detection-quality results (macro-F1, the G4
+bracket, per-class F1, FPR) are **unaffected**: the encryption round-trips losslessly, so the
+tensors a client trains on are bit-identical to those it would receive without it.
+
+## What this deviation does and does not claim
+
+It adds confidentiality and tamper-evidence to the model-update *wire*. It does **not** provide
+secure aggregation, does **not** defend against a curious-but-honest aggregator inspecting the
+plaintext it legitimately decrypts (assumption A4 stands), and does **not** defend against
+gradient-inversion or a poisoned update — all of which Section I-F and Section III place out of
+scope, and all of which remain out of scope. The narrower privacy claim of the paper ("raw
+records are not transmitted") is likewise unchanged.

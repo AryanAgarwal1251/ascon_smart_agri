@@ -39,6 +39,7 @@ from pathlib import Path
 import numpy as np
 from configs.base import load_run_config
 
+from ascon_smart_agri.crypto.ascon_aead import backend_provenance
 from ascon_smart_agri.data.dedup import deduplicate
 from ascon_smart_agri.data.scaling import fit_scaler
 from ascon_smart_agri.data.split import make_blocks, stratified_block_split
@@ -53,7 +54,10 @@ from ascon_smart_agri.federated.partition import (
     per_client_class_histograms,
 )
 from ascon_smart_agri.federated.scaler_stats import combine_stats, local_sufficient_stats
-from ascon_smart_agri.federated.server import theoretical_bytes_per_round
+from ascon_smart_agri.federated.server import (
+    aead_overhead_bytes_per_round,
+    theoretical_bytes_per_round,
+)
 from ascon_smart_agri.model.gru import expected_param_count
 from ascon_smart_agri.sequences.windowing import build_windows, contiguity_segments
 
@@ -491,7 +495,14 @@ def main() -> None:
     theoretical = theoretical_bytes_per_round(
         n_clients, expected_param_count(len(columns), cfg.model.hidden_size, cfg.model.n_classes)
     )
+    # Implementation deviation (federated/crypto.py): weight transport is now Ascon-encrypted,
+    # so the measured figure includes a per-round AEAD overhead Eq. (22) itself does not model.
+    aead_overhead = aead_overhead_bytes_per_round(n_clients)
     print(f"  COST (Eq. 22): measured {measured:,} B/round vs theoretical {theoretical:,} B/round")
+    print(
+        f"  COST (deviation): +{aead_overhead:,} B/round AEAD overhead"
+        f" (theoretical+AEAD = {theoretical + aead_overhead:,} B/round)"
+    )
 
     versions, hardware = collect_environment()
     manifest = RunManifest(
@@ -501,7 +512,10 @@ def main() -> None:
         hardware=hardware,
         config_snapshot=json.loads(cfg.model_dump_json()),
         subsample_per_class_counts=per_class_counts,
-        ascon_backend={},
+        # Implementation deviation (CLAUDE.md golden rule 1; docs/design_paper.md's
+        # "Implementation deviation" section): Ascon now protects the federated weight
+        # transport (federated/crypto.py), so this run genuinely exercises the crypto path.
+        ascon_backend=backend_provenance(),
         results={
             "summary": summary,
             "per_seed": results,
@@ -518,6 +532,8 @@ def main() -> None:
             "communication": {
                 "measured_bytes_per_round": measured,
                 "theoretical_bytes_per_round": theoretical,
+                "aead_overhead_bytes_per_round": aead_overhead,
+                "theoretical_plus_aead_bytes_per_round": theoretical + aead_overhead,
             },
             "rounds": rounds,
             "local_epochs": local_epochs,

@@ -5,6 +5,15 @@
 [`manifest_phase7_e2e_default.json`](../artifacts/manifest_phase7_e2e_default.json). Scripts:
 [`train_federated_model.py`](../scripts/train_federated_model.py), [`run_phase7.py`](../scripts/run_phase7.py).
 
+> **Implementation deviation from the design paper (user-approved, 2026-09-20).** The runtime
+> cloud leg is now plaintext — the benign-verdict payload is sent to the mock cloud receiver
+> without Ascon (cloud-payload protection is assumed handled outside this codebase). Ascon now
+> protects the *training-plane* weight transport instead ([`federated/crypto.py`](../src/ascon_smart_agri/federated/crypto.py)),
+> which is exercised by `train_federated_model.py`, not by this runtime demo. See the design
+> paper's [Implementation Deviation section](../docs/design_paper.md). The routing counts and
+> macro-F1 below are unaffected: classification and path selection are unchanged, and the
+> weight-transport encryption is lossless.
+
 ## What the paper says
 
 > "The training plane runs offline and periodically... The runtime plane runs continuously:
@@ -30,8 +39,8 @@ against, 0.8308 ± 0.0150, is read from `manifest_phase4_default.json` at run ti
 
 **The full runtime loop, assembled and run for real** (100 simulated messages, 3 devices,
 W=16): `simulate_stream` → `FeatureProvenanceAdapter` (G6) → `DeviceWindowBuffer` (new this
-phase) → the real saved model → Eq. (5)'s `y > 0` projection → `VerdictRouter` → real
-`AsconAEAD128`/`MockCloudReceiver` or `AlertSink`.
+phase) → the real saved model → Eq. (5)'s `y > 0` projection → `VerdictRouter` → plaintext
+`MockCloudReceiver` or `AlertSink` (per the deviation, the cloud leg no longer runs `AsconAEAD128`).
 
 | | Count |
 | --- | --- |
@@ -42,9 +51,11 @@ phase) → the real saved model → Eq. (5)'s `y > 0` projection → `VerdictRou
 | Alert count | 55 (exactly matches malicious-classified) |
 | **Malicious-verdict messages reaching the cloud** | **0 — G1 holds in the fully assembled loop** |
 
-**Per-stage median latency:** provenance lookup 1.2 µs, window buffering 3.9 µs, model
-inference 112.0 µs, routing (encrypt+send or alert) 2.4 µs — inference dominates, as expected
-for a GRU forward pass against dict lookups and byte serialisation.
+**Per-stage median latency** (from the pre-deviation run; the routing stage then still included
+the benign-path encrypt): provenance lookup 1.2 µs, window buffering 3.9 µs, model inference
+112.0 µs, routing 2.4 µs — inference dominates. With the deviation the routing stage now does a
+plaintext send on the benign branch (no encrypt), so its latency can only fall; the figure will
+refresh on the next real run (see the note at the foot of this file).
 
 ## A real, verified finding: why this run classified zero benign messages
 
@@ -55,8 +66,10 @@ as malicious — 53/55 = 96.4% informal agreement with ground truth overall, **n
 evaluation** (see the module's own disclaimer), and n=2 is far too small a sample to be a new
 finding about the model. It is a small-sample echo of the already-documented FPR limitation
 (0.2975, Phase 4), not new evidence. Phase 6's own integration test already proved benign
-routing works correctly with real crypto (8 of 200 messages there were genuinely benign and all
-8 round-tripped correctly) — this run simply didn't draw one in its classified range.
+routing reaches the cloud correctly (8 of 200 messages there were genuinely benign and all 8
+were delivered) — this run simply didn't draw one in its classified range. (Under the deviation
+the benign path is plaintext, so "delivered" no longer means "decrypted"; the routing behaviour
+is otherwise identical.)
 
 ## A real bug in the verification script itself, caught and fixed
 
@@ -99,5 +112,19 @@ agreement); only the per-stage latencies moved, and those are wall-clock noise.
 ## What this phase does not claim
 
 Exactly Section III-H's own limitation, inherited: this demonstrates the pipeline composes —
-planes stay separate, routing is correct, crypto verifies — not that this model would detect
-attacks against a live agricultural deployment.
+planes stay separate, routing is correct — not that this model would detect attacks against a
+live agricultural deployment. (Under the deviation the runtime cloud leg is plaintext, so this
+run no longer demonstrates AEAD verification; that guarantee now lives on the training-plane
+weight transport, exercised by `train_federated_model.py` and covered by
+[Phase 6](phase6_ascon_and_alerting.md).)
+
+---
+
+*Re-run note (2026-09-20 deviation): the checkpoint and both Phase 7 manifests here were produced
+by the pre-deviation code. Re-running `train_federated_model.py` (now with the Ascon-encrypted
+weight transport) and `run_phase7.py` (now with a plaintext cloud leg) requires the raw
+CICIoT2023 corpus, which is not present in this environment, so the committed artifacts have not
+been regenerated. The checkpoint's macro-F1 (0.8507) is provably unchanged — the weight
+encryption is lossless — and the routing counts are unchanged; only the routing-stage latency and
+the manifests' `ascon_backend` field will refresh on the next real run. Commands are in the
+[results README](README.md).*

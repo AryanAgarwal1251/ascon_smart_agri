@@ -13,6 +13,11 @@
 > flow-feature vector drawn from **held-out CICIoT2023 records never seen during training**...
 > No value is invented. — Section III-H (gap G6)
 
+> **Deviation note (2026-09-20):** the two-planes separation this phase implements is unchanged,
+> but per the [implementation deviation](../docs/design_paper.md) the application plane (JSON
+> payload) is **no longer Ascon-protected** — the quote above describes the original design.
+> Ascon now protects the federated weight transport instead.
+
 > "The runtime demonstration establishes architectural correctness... It does not show that a
 > CICIoT2023-trained model would detect attacks against a live agricultural MQTT deployment."
 > — Section III-H, the declared limitation

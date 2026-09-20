@@ -1,42 +1,45 @@
 # Federated GRU Intrusion Detection with Ascon-Authenticated Telemetry for Smart Agriculture IoT
 
 Three simulated edge clients train a GRU-based intrusion detector on **CICIoT2023** using
-sample-weighted federated averaging (raw records never leave a client). At runtime, the
-current global model classifies a window of network-flow features and produces a verdict:
+sample-weighted federated averaging. Every model-weight blob exchanged between a client and the
+aggregator, in both directions of every round, is encrypted and authenticated with
+**Ascon-AEAD128** (NIST SP 800-232); raw records never leave a client either way. At runtime,
+the current global model classifies a window of network-flow features and produces a verdict:
 
-- **Benign** → the telemetry payload is encrypted and authenticated with **Ascon-AEAD128**
-  (NIST SP 800-232) and sent toward a mock cloud receiver.
+- **Benign** → the telemetry payload is sent toward a mock cloud receiver.
 - **Malicious** → the payload is diverted to an alerting path and, *by construction*, can
   never reach the cloud transport.
 
 The two data paths are **disjoint in the code, not merely by convention** (see
 [`routing/`](src/ascon_smart_agri/routing/)).
 
-> This repository is currently **scaffolding only**. Every module is a typed stub tied to the
-> phase in which its logic lands. No detection, federation, or cryptography logic is
-> implemented yet. See the work plan below.
-
 The authoritative specification is [`docs/design_paper.md`](docs/design_paper.md). Where any
 summary here and the paper disagree, **the paper wins** — raise the discrepancy rather than
-resolving it silently.
+resolving it silently. One such discrepancy is current and intentional: the paper couples
+Ascon-AEAD128 to the gateway→cloud telemetry channel, but the implementation now protects the
+federated weight-transport channel instead and sends telemetry in the clear. See the paper's
+**"Implementation deviation"** section (appended at its end) for the full rationale.
 
 ## Architecture
 
 Two planes share a model but nothing else (Section III-A):
 
 - **Training plane** (offline, periodic): clients train locally and exchange only the
-  parameter vector `θ_k` and their sequence count `n_k` with an aggregator. Raw records never
-  cross the client boundary.
+  parameter vector `θ_k` and their sequence count `n_k` with an aggregator, each direction of
+  every round **Ascon-AEAD128 encrypted** (implementation deviation from the design paper; see
+  [`federated/crypto.py`](src/ascon_smart_agri/federated/crypto.py)). Raw records never cross
+  the client boundary.
 - **Runtime plane** (continuous): telemetry arrives, is classified by the current global
   model, and is routed per Eq. (5). The malicious-path handler holds **no reference** to the
-  cloud transport.
+  cloud transport. The cloud leg is plaintext (same deviation) — payload confidentiality there
+  is assumed handled outside this codebase.
 
 ```
 data → dedup(before split) → block split → feature selection → windowing → GRU
                                                                      │
-                                          training plane ◄───────────┤ (FedAvg over K=3 clients)
+                    training plane ◄── Ascon-encrypted θ_k, n_k ────┤ (FedAvg over K=3 clients)
                                                                      │
-runtime plane:  telemetry ─┬─ application payload ──────────► Ascon ─┴─► [benign]  → mock cloud
+runtime plane:  telemetry ─┬─ application payload ────────────────────┴─► [benign]  → mock cloud
                            └─ network features (held-out) → GRU verdict ─► [malicious] → alert sink
 ```
 
@@ -47,8 +50,8 @@ The application-layer JSON payload (e.g. `{"deviceId": "...", "temperature": ...
 objects with different origins**. The network features come from **held-out CICIoT2023 records
 never seen during training** — never from parsing the JSON payload, and never synthesised. A
 runtime demonstration therefore establishes **architectural correctness only** (the pipeline
-separates the two planes, routes on the verdict, encrypts/verifies correctly, and never places
-a malicious-verdict payload on the cloud path). It does **not** show that a CICIoT2023-trained
+separates the two planes, routes on the verdict, and never places a malicious-verdict payload
+on the cloud path). It does **not** show that a CICIoT2023-trained
 model would detect attacks against a live agricultural MQTT deployment. That claim would
 require capture and feature re-extraction on the target network, and is not made.
 

@@ -62,6 +62,7 @@ Baselines 4-5 (Phase 4) add three more, flagged the same way:
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 
 import numpy as np
@@ -376,7 +377,12 @@ def run_federation(
         )
         for client_id, (seqs, labels) in enumerate(zip(client_seqs, client_y, strict=True))
     ]
-    server = FederatedServer(clients, aggregation=aggregation)
+    # Channel 3 weight-transport keys (implementation deviation, federated/crypto.py): one
+    # pre-shared 16-byte Ascon key per client, generated fresh per run -- a DEMO provisioning
+    # step, never written to any manifest (III-J3), exactly like run_phase7.py's existing
+    # telemetry demo-key precedent.
+    client_keys = {client.client_id: secrets.token_bytes(16) for client in clients}
+    server = FederatedServer(clients, client_keys, aggregation=aggregation)
 
     final_model = build_detector(n_features, hidden_size, n_classes)
 
@@ -396,7 +402,9 @@ def run_federation(
     per_round_macro_f1: list[float] = []
 
     for round_index in range(rounds):
-        global_state = server.run_round(global_state, local_epochs=local_epochs)
+        global_state = server.run_round(
+            global_state, local_epochs=local_epochs, round_index=round_index
+        )
         bytes_per_round.append(server.last_round_bytes)
         if evaluate_each_round:
             macro_f1 = evaluate(global_state).macro_f1

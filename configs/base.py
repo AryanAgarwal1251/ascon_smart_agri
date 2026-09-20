@@ -94,15 +94,30 @@ class FederatedConfig(BaseModel):
 
 
 class CryptoConfig(BaseModel):
-    """Ascon-AEAD128, NIST SP 800-232 (Section III-G)."""
+    """Ascon-AEAD128, NIST SP 800-232 (Section III-G).
+
+    IMPLEMENTATION DEVIATION FROM THE DESIGN PAPER (CLAUDE.md golden rule 1; see
+    docs/design_paper.md's "Implementation deviation" section): Ascon no longer runs on the
+    gateway-to-cloud telemetry channel Eq. (27)'s ``ad_fields`` describes -- that channel is now
+    plaintext. ``ad_fields`` is kept as a record of the (now unencrypted) routing-metadata
+    tuple's shape; ``weight_ad_fields``/``weight_schema_version`` describe the AD this config's
+    Ascon primitive now actually authenticates, on the federated weight transport
+    (federated/crypto.py, Channel 3).
+    """
 
     key_bits: int = 128
     nonce_bits: int = 128
     tag_bits: int = 128
-    # Associated data layout, Eq. (27): authenticated, not encrypted.
+    # Telemetry routing-metadata layout, Eq. (27) -- no longer cryptographic AD (see above).
     ad_fields: list[str] = Field(
         default_factory=lambda: ["edge_id", "device_id", "counter", "schema_version"]
     )
+    # Federated weight-transport associated-data layout (federated/crypto.py's
+    # WeightAssociatedData): the channel Ascon-AEAD128 actually protects now.
+    weight_ad_fields: list[str] = Field(
+        default_factory=lambda: ["client_id", "round_index", "direction", "schema_version"]
+    )
+    weight_schema_version: str = "1"
 
 
 class TelemetryConfig(BaseModel):

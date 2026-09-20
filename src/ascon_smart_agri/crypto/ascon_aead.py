@@ -4,14 +4,25 @@ r"""Ascon-AEAD128 wrapper, NIST SP 800-232 (Phase 6, Section III-G).
     Dec:  Dec_ke(nu, a, c, t) in {p, bottom}               (Eq. 26)
 
 128-bit key, 128-bit nonce, 128-bit tag. Decryption returns bottom (a verification failure),
-never plaintext, for any modified ciphertext OR associated data --- the property that matters
-here, since a farm must not act on a tampered reading. ``tests/test_ascon_tamper.py`` mutates
-one bit of ciphertext and one bit of associated data and asserts rejection in both cases.
+never plaintext, for any modified ciphertext OR associated data. ``tests/test_ascon_tamper.py``
+mutates one bit of ciphertext and one bit of associated data and asserts rejection in both cases.
 
-Associated data (authenticated, not encrypted), Eq. (27):
+    IMPLEMENTATION DEVIATION FROM THE DESIGN PAPER (flagged per CLAUDE.md golden rule 1, decided
+    with the user; see the paper's own "Implementation deviation" section at its end): this
+    primitive no longer protects the gateway-to-cloud telemetry channel (Channel 2, Eq. 5/25-29).
+    Cloud-payload confidentiality/integrity is now assumed to be handled by mechanisms outside
+    this codebase, so ``routing/router.py`` sends the benign-verdict payload in the clear; only
+    the benign/malicious *routing split* (G1, path disjointness) remains from that design.
+    ``AsconAEAD128``/``NonceRegistry``/``verify_kat_conformance`` are unchanged as *primitives* --
+    they are generic AEAD building blocks -- but their live call site is now
+    ``federated/crypto.py``'s ``protect_state``/``unprotect_state``, which encrypts model-weight
+    blobs on the client<->aggregator transport (Channel 3, discussed but left unsolved in
+    Section I-B). See ``federated/crypto.py`` for that AD tuple and key model.
+
+Associated data (authenticated, not encrypted), Eq. (27), still used to build the plaintext
+routing metadata on the (now unencrypted) telemetry path and reused verbatim as the tuple shape
+for that path's replay/edge-identification logic:
     a = <edge_id, device_id, counter, schema_version>
-The cloud receiver reads edge_id in the clear to select a decryption key; the monotonic
-counter gives replay detection.
 
     SPEC EXTENSION (design paper, CLAUDE.md golden rule 1 waived by the user for this decision):
     Eq. (27) defines the associated-data *tuple* but does NOT specify a byte serialisation for it.
@@ -23,11 +34,11 @@ counter gives replay detection.
     ``docs/plans/phase6-ad-serialization.md``); fixed-width padding was rejected because
     truncation/padding silently re-introduce the cross-device collision and it needs id-length
     figures Phase 1 has not produced. :meth:`AssociatedData.to_bytes` /
-    :meth:`AssociatedData.from_bytes` implement it, versioned by a leading ``fmt_version`` byte
-    (``ad_encoding = "length-prefixed-v1"`` in :func:`backend_provenance`). The AEAD facade stays
-    decoupled: :class:`AsconAEAD128` still operates on already-serialised ``bytes``, so callers
-    pass ``associated_data.to_bytes()``. This is an intentional extension of the paper; reconcile
-    with the design paper if it is later revised to define an AD serialisation.
+    :meth:`AssociatedData.from_bytes` implement it (shared wire-framing helpers live in
+    ``crypto/_ad_wire.py``, reused by ``federated/crypto.py``'s ``WeightAssociatedData``),
+    versioned by a leading ``fmt_version`` byte (``ad_encoding = "length-prefixed-v1"`` in
+    :func:`backend_provenance`). The AEAD facade stays decoupled: :class:`AsconAEAD128` still
+    operates on already-serialised ``bytes``, so callers pass ``associated_data.to_bytes()``.
 
 Nonce discipline (III-G3): a fresh 16-byte nonce is drawn per message from a CSPRNG
 (:func:`secrets.token_bytes`). :class:`NonceRegistry` accumulates every nonce issued per key so
@@ -53,6 +64,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from . import _ad_wire
 from ._vendor.pyascon import ascon_decrypt, ascon_encrypt
 
 _VARIANT: Final = "Ascon-AEAD128"
@@ -63,8 +75,6 @@ _TAG_BYTES = 16
 # Associated-data (Eq. 27) length-prefixed encoding (docs/plans/phase6-ad-serialization.md).
 _AD_ENCODING: Final = "length-prefixed-v1"
 _AD_FMT_VERSION: Final = 0x01  # leading wire-format version byte; receivers reject unknown values
-_U16_MAX: Final = 0xFFFF  # max UTF-8 byte length per string field (u16 length prefix)
-_U64_MAX: Final = 2**64 - 1  # counter is a fixed-width u64
 
 # Official SP 800-232 KAT vectors, committed under tests/ (see tests/kat/PROVENANCE.md). Resolved
 # relative to the repo root: this file is src/ascon_smart_agri/crypto/ascon_aead.py.
@@ -77,7 +87,15 @@ class NonceReuseError(Exception):
 
 @dataclass(frozen=True)
 class AssociatedData:
-    """Authenticated-but-not-encrypted metadata, Eq. (27).
+    """The Eq. (27) metadata tuple used on the telemetry/routing path.
+
+    Originally AEAD-authenticated-but-not-encrypted associated data (Eq. 27); since the
+    implementation deviation moved Ascon off this channel (see the module docstring), this tuple
+    now travels as plain, unauthenticated routing metadata alongside the (also plaintext) cloud
+    payload -- ``routing/cloud_sink.py`` still parses it for ``edge_id`` matching and replay
+    detection, but no cryptographic guarantee attaches to it any more on this path. The type and
+    its wire encoding are kept unchanged so that history/tests referencing this exact byte layout
+    stay valid.
 
     :meth:`to_bytes` / :meth:`from_bytes` implement the resolved length-prefixed (TLV-style)
     serialisation (see the module docstring and ``docs/plans/phase6-ad-serialization.md``): an
@@ -102,32 +120,21 @@ class AssociatedData:
     schema_version: str
 
     def to_bytes(self) -> bytes:
-        """Serialize the Eq. (27) tuple to authenticated-data bytes (phase6-ad-serialization.md).
+        """Serialize the Eq. (27) tuple to metadata bytes (phase6-ad-serialization.md).
 
-        Length-prefixed, big-endian, UTF-8:
+        Length-prefixed, big-endian, UTF-8, via the shared framing in ``crypto/_ad_wire.py``:
         ``fmt_version:u8 || L(edge_id):u16 || edge_id || L(device_id):u16 || device_id ||
         counter:u64 || L(schema_version):u16 || schema_version``. Raises :class:`ValueError` if
         any string field exceeds 65535 UTF-8 bytes or if ``counter`` is out of u64 range. Never
         truncates.
         """
-        if not 0 <= self.counter <= _U64_MAX:
-            raise ValueError(f"counter must be in [0, 2**64), got {self.counter}")
-
-        def prefixed(name: str, value: str) -> bytes:
-            encoded = value.encode("utf-8")
-            if len(encoded) > _U16_MAX:
-                raise ValueError(
-                    f"{name} is {len(encoded)} UTF-8 bytes, exceeds u16 max {_U16_MAX}"
-                )
-            return struct.pack(">H", len(encoded)) + encoded
-
         return b"".join(
             (
                 struct.pack(">B", _AD_FMT_VERSION),
-                prefixed("edge_id", self.edge_id),
-                prefixed("device_id", self.device_id),
-                struct.pack(">Q", self.counter),
-                prefixed("schema_version", self.schema_version),
+                _ad_wire.pack_str("edge_id", self.edge_id),
+                _ad_wire.pack_str("device_id", self.device_id),
+                _ad_wire.pack_u64("counter", self.counter),
+                _ad_wire.pack_str("schema_version", self.schema_version),
             )
         )
 
@@ -139,32 +146,17 @@ class AssociatedData:
         ``fmt_version``, input shorter than the declared lengths, or any trailing bytes after the
         last field. Guarantees ``from_bytes(to_bytes(x)) == x``.
         """
-        view = memoryview(data)
-        offset = 0
-
-        def take(n: int, what: str) -> bytes:
-            nonlocal offset
-            if offset + n > len(view):
-                raise ValueError(f"truncated AD: need {n} bytes for {what} at offset {offset}")
-            chunk = bytes(view[offset : offset + n])
-            offset += n
-            return chunk
-
-        (fmt_version,) = struct.unpack(">B", take(1, "fmt_version"))
+        cursor = _ad_wire.Cursor(data)
+        fmt_version = cursor.take_u8("fmt_version")
         if fmt_version != _AD_FMT_VERSION:
             raise ValueError(f"unknown AD fmt_version {fmt_version:#04x}")
 
-        def take_str(what: str) -> str:
-            (length,) = struct.unpack(">H", take(2, f"{what} length"))
-            return take(length, what).decode("utf-8")
+        edge_id = cursor.take_str("edge_id")
+        device_id = cursor.take_str("device_id")
+        counter = cursor.take_u64("counter")
+        schema_version = cursor.take_str("schema_version")
 
-        edge_id = take_str("edge_id")
-        device_id = take_str("device_id")
-        (counter,) = struct.unpack(">Q", take(8, "counter"))
-        schema_version = take_str("schema_version")
-
-        if offset != len(view):
-            raise ValueError(f"trailing bytes after AD: {len(view) - offset} extra")
+        cursor.assert_exhausted()
         return cls(
             edge_id=edge_id, device_id=device_id, counter=counter, schema_version=schema_version
         )

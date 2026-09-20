@@ -3,7 +3,12 @@
 Two guarantees:
   (a) STRUCTURAL (active now): the malicious-path handler (AlertSink) holds no reference to the
       cloud transport --- it is not even constructed with one. Checked by introspection.
-  (b) BEHAVIOURAL (Phase 6): zero encrypted payloads are emitted during a malicious-only run.
+  (b) BEHAVIOURAL (Phase 6): zero payloads reach the cloud transport during a malicious-only run.
+
+IMPLEMENTATION DEVIATION FROM THE DESIGN PAPER (flagged per CLAUDE.md golden rule 1): the cloud
+path no longer encrypts (see ``routing/router.py``'s module docstring), so guarantee (b) is
+stated as "zero payloads", not "zero encrypted payloads" -- nothing on this path is encrypted any
+more, but the routing split itself, which this file gates, is unchanged.
 """
 
 from __future__ import annotations
@@ -12,7 +17,7 @@ import inspect
 
 import pytest
 
-from ascon_smart_agri.crypto.ascon_aead import AsconAEAD128, AssociatedData
+from ascon_smart_agri.crypto.ascon_aead import AssociatedData
 from ascon_smart_agri.routing.alert_sink import AlertSink
 from ascon_smart_agri.routing.cloud_sink import CloudTransport, MockCloudReceiver
 from ascon_smart_agri.routing.router import VerdictRouter
@@ -35,15 +40,14 @@ def test_alert_sink_holds_no_cloud_reference() -> None:
 
 
 @pytest.mark.gating
-def test_malicious_only_run_emits_zero_encrypted_payloads() -> None:
+def test_malicious_only_run_emits_zero_payloads_to_the_cloud() -> None:
     """The behavioural half: route N malicious-verdict messages through the real VerdictRouter
     and assert the cloud receiver never accepts a payload -- not because nothing was sent past
     the router, but because AlertSink structurally cannot reach the cloud transport at all."""
     edge_id, device_id = "edge01", "sensor01"
-    key = b"\x00" * 16  # fixed test key; never a real/demo secret
-    cloud = MockCloudReceiver({edge_id: key})
+    cloud = MockCloudReceiver()
     alert = AlertSink()
-    router = VerdictRouter(cloud, alert, AsconAEAD128(key))
+    router = VerdictRouter(cloud, alert)
 
     for counter in range(5):
         ad = AssociatedData(edge_id, device_id, counter, "v1")

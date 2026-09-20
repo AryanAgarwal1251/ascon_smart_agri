@@ -52,7 +52,9 @@ crypto:
   key_bits: 128
   nonce_bits: 128
   tag_bits: 128
-  ad_fields: [edge_id, device_id, counter, schema_version]  # Eq. (27)
+  ad_fields: [edge_id, device_id, counter, schema_version]  # Eq. (27), telemetry (no longer encrypted)
+  weight_ad_fields: [client_id, round_index, direction, schema_version]  # Channel 3 (deviation)
+  weight_schema_version: "1"
 
 telemetry:
   device_ids: [soil01, soil02, soil03]

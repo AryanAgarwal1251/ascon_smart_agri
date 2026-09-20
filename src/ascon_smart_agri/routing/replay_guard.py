@@ -6,14 +6,19 @@ until the policy was chosen): **per-(edge_id, device_id) scope, strict-monotonic
 in-memory state.** Persistence across a receiver restart is not implemented -- the same class
 of exclusion as production key management, which the paper itself lists as out of scope.
 
-MUST be checked only AFTER Ascon verification succeeds (Eq. 26). The counter is only
-trustworthy because it is authenticated; checking it before verification would let an attacker
-poison this state with forged counters from a message that never should have been accepted.
-See ``routing/cloud_sink.py``'s ``MockCloudReceiver.send_encrypted`` for the enforced ordering.
+The counter check runs after the receiver has parsed and accepted the routing metadata. See
+``routing/cloud_sink.py``'s ``MockCloudReceiver.send_plaintext`` for the enforced ordering: a
+message rejected for any reason (malformed metadata, edge_id mismatch) must not advance this
+state, or a rejected message could poison the window for a legitimate later one.
 
-Deliberately its own small object, not folded into ``crypto/ascon_aead.py``: the
-``AssociatedData`` docstring there states replay state must not live in the crypto core, since
-the core's job is authenticating the counter, not interpreting it.
+    NOTE (2026-09-20 deviation): the telemetry path is no longer Ascon-encrypted (see
+    ``routing/cloud_sink.py``), so the counter is now carried as plaintext metadata rather than
+    authenticated associated data. Replay detection still works as ordering enforcement, but it no
+    longer rests on a cryptographic authenticity guarantee for the counter -- that guarantee moved
+    to the federated weight channel (``federated/crypto.py``).
+
+Deliberately its own small object, not folded into ``crypto/ascon_aead.py``: replay state does
+not belong in the crypto core, whose job is authenticating a value, not interpreting it.
 """
 
 from __future__ import annotations

@@ -8,6 +8,8 @@ parameters and n_k, and that Algorithm 1's round does what it says.
 
 from __future__ import annotations
 
+import secrets
+
 import numpy as np
 import pytest
 import torch
@@ -18,7 +20,11 @@ from ascon_smart_agri.federated.partition import (
     per_client_class_histograms,
 )
 from ascon_smart_agri.federated.serialization import deserialize_state, serialize_state
-from ascon_smart_agri.federated.server import FederatedServer, theoretical_bytes_per_round
+from ascon_smart_agri.federated.server import (
+    FederatedServer,
+    aead_overhead_bytes_per_round,
+    theoretical_bytes_per_round,
+)
 from ascon_smart_agri.model.gru import build_detector, count_parameters
 
 # ---------------------------------------------------------------- partitioning (III-F1)
@@ -163,13 +169,18 @@ def _client(client_id: int, n: int, *, n_features: int = 4, window: int = 3) -> 
     return FederatedClient(client_id, x, y, hidden_size=8, n_classes=2)
 
 
+def _keys_for(clients: list[FederatedClient]) -> dict[int, bytes]:
+    """One fresh Ascon key per client -- federated/crypto.py's Channel 3 transport keys."""
+    return {client.client_id: secrets.token_bytes(16) for client in clients}
+
+
 def test_round_returns_an_aggregated_state_of_the_right_shape() -> None:
     clients = [_client(0, 40), _client(1, 60)]
-    server = FederatedServer(clients)
+    server = FederatedServer(clients, _keys_for(clients))
     model = build_detector(4, 8, 2)
     global_state = {k: v.clone() for k, v in model.state_dict().items()}
 
-    new_state = server.run_round(global_state, local_epochs=1)
+    new_state = server.run_round(global_state, local_epochs=1, round_index=0)
 
     assert set(new_state) == set(global_state)
     for name, tensor in new_state.items():
@@ -177,17 +188,19 @@ def test_round_returns_an_aggregated_state_of_the_right_shape() -> None:
 
 
 def test_round_actually_changes_the_global_parameters() -> None:
-    server = FederatedServer([_client(0, 60), _client(1, 60)])
+    clients = [_client(0, 60), _client(1, 60)]
+    server = FederatedServer(clients, _keys_for(clients))
     model = build_detector(4, 8, 2)
     before = {k: v.clone() for k, v in model.state_dict().items()}
 
-    after = server.run_round(before, local_epochs=2)
+    after = server.run_round(before, local_epochs=2, round_index=0)
 
     assert not torch.allclose(after["head.weight"], before["head.weight"])
 
 
 def test_server_reports_per_client_sequence_counts() -> None:
-    server = FederatedServer([_client(0, 40), _client(1, 75)])
+    clients = [_client(0, 40), _client(1, 75)]
+    server = FederatedServer(clients, _keys_for(clients))
 
     assert server.sequence_counts() == [40, 75]
 
@@ -217,9 +230,16 @@ def test_client_does_not_expose_its_data_publicly() -> None:
 
 def test_server_rejects_bad_configuration() -> None:
     with pytest.raises(ValueError, match="at least one client"):
-        FederatedServer([])
+        FederatedServer([], {})
+    solo = [_client(0, 10)]
     with pytest.raises(ValueError, match="weighted"):
-        FederatedServer([_client(0, 10)], aggregation="median")
+        FederatedServer(solo, _keys_for(solo), aggregation="median")
+
+
+def test_server_rejects_a_client_with_no_key() -> None:
+    clients = [_client(0, 10), _client(1, 10)]
+    with pytest.raises(ValueError, match=r"no weight-transport key.*\[1\]"):
+        FederatedServer(clients, {0: secrets.token_bytes(16)})
 
 
 def test_client_rejects_non_positive_local_epochs() -> None:
@@ -243,16 +263,23 @@ def test_theoretical_round_cost_matches_the_papers_figure() -> None:
 
 
 def test_measured_round_cost_is_close_to_the_theoretical_figure() -> None:
-    """The claim is about what is actually sent, so measure it rather than trust Eq. (22)."""
+    """The claim is about what is actually sent, so measure it rather than trust Eq. (22).
+
+    Eq. (22) itself is the paper's UNENCRYPTED formula; the implementation deviation
+    (federated/crypto.py) adds a fixed per-round AEAD overhead on top of it (a 16-byte nonce +
+    16-byte tag per blob, two blobs -- broadcast and upload -- per client).
+    """
     model = build_detector(16, 96, 8)  # the reference sizing, 33,800 parameters
     clients = [_client(i, 30, n_features=16) for i in range(3)]
     for client in clients:
         client.hidden_size, client.n_classes = 96, 8
-    server = FederatedServer(clients)
+    server = FederatedServer(clients, _keys_for(clients))
 
-    server.run_round({k: v.clone() for k, v in model.state_dict().items()}, local_epochs=1)
+    server.run_round(
+        {k: v.clone() for k, v in model.state_dict().items()}, local_epochs=1, round_index=0
+    )
 
-    theoretical = theoretical_bytes_per_round(3, 33_800)
+    theoretical = theoretical_bytes_per_round(3, 33_800) + aead_overhead_bytes_per_round(3)
     # Serialised blobs carry a small JSON header on top of the raw tensor bytes.
     assert server.last_round_bytes == pytest.approx(theoretical, rel=0.02)
 

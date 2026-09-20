@@ -37,6 +37,7 @@ from pathlib import Path
 import numpy as np
 from configs.base import load_run_config
 
+from ascon_smart_agri.crypto.ascon_aead import backend_provenance
 from ascon_smart_agri.data.taxonomy import CLASS_NAMES
 from ascon_smart_agri.eval.baselines import federated_global_gru
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
@@ -168,7 +169,9 @@ def main() -> None:
         hardware=hardware,
         config_snapshot=json.loads(cfg.model_dump_json()),
         subsample_per_class_counts=per_class_counts,
-        ascon_backend={},
+        # Implementation deviation (federated/crypto.py): this training run's weight transport
+        # is genuinely Ascon-encrypted, unlike run_phase7.py's runtime demo.
+        ascon_backend=backend_provenance(),
         results={
             "checkpoint_path": str(out_path),
             "checkpoint_seed": CHECKPOINT_SEED,

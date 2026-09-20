@@ -13,7 +13,7 @@ description = "Federated GRU intrusion detection with Ascon-authenticated teleme
 readme = "README.md"
 # 3.12 is a floor set by the dependencies, not a preference: numpy >= 2.4 and scipy >= 1.16
 # both declare requires-python >= 3.12, so the pinned stack cannot install on 3.11 at all.
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13" # keep this to python 3.12 range only
 authors = [
     { name = "Abhishek Jadli", email = "abhishek.jadli2023@vitstudent.ac.in" },
     { name = "Aryan Agarwal", email = "aryan.agarwal2023@vitstudent.ac.in" },
@@ -38,6 +38,11 @@ dependencies = [
     "safetensors>=0.4",   # structured tensor serialization for FedAvg (never pickle) -- III-F2
     "pydantic>=2.6",      # typed run configs (III-I4 manifest / configs), not raw dicts
     "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit",
 ]
 
 [project.optional-dependencies]

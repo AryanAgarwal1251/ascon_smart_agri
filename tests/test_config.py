@@ -18,6 +18,14 @@ def test_default_config_values(default_config: RunConfig) -> None:
     assert cfg.federated.alpha_sweep == [0.1, 0.5, 100.0]  # heterogeneity (III-I3)
     assert cfg.federated.e_sweep == [1, 3, 5]  # local-epoch ablation (III-I3)
     assert cfg.crypto.ad_fields == ["edge_id", "device_id", "counter", "schema_version"]  # Eq.27
+    # Channel 3 weight-transport AD (implementation deviation, federated/crypto.py).
+    assert cfg.crypto.weight_ad_fields == [
+        "client_id",
+        "round_index",
+        "direction",
+        "schema_version",
+    ]
+    assert cfg.crypto.weight_schema_version == "1"
 
 
 def test_default_yaml_loads_and_matches() -> None:

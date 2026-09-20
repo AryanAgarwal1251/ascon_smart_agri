@@ -19,10 +19,10 @@ memory. Start at [`results/README.md`](results/README.md).
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
 | 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0). Two independent runs were merged; the reported figures are the **compute-matched** run (α=0.5, R=20, E=3, W=16, 60 local passes for every baseline): federated global macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040**, recovering **82.4 %** of the gap; client-to-global gap positive for all three clients (+0.10 / +0.16 / +0.07). FPR **0.2975 ± 0.0512** — read it first. The earlier minimal-gate run is kept at `artifacts/manifest_phase4_minimal_gate.json`; its bracket is inverted because its baselines were not compute-matched. **Not done:** the α/E/aggregation ablation sweep of Section III-I3 | `test_fedavg_weighting.py`, `test_scaler_equivalence.py` green ✅; gate checker exit 0 ✅ |
+| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0). Two independent runs were merged; the reported figures are the **compute-matched** run (α=0.5, R=20, E=3, W=16, 60 local passes for every baseline): federated global macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040**, recovering **82.4 %** of the gap; client-to-global gap positive for all three clients (+0.10 / +0.16 / +0.07). FPR **0.2975 ± 0.0512** — read it first. The earlier minimal-gate run is kept at `artifacts/manifest_phase4_minimal_gate.json`; its bracket is inverted because its baselines were not compute-matched. **2026-09-20 deviation:** the weight transport is now Ascon-encrypted on both legs of every round (+192 B/round, K=3); detection numbers unchanged (lossless). **Not done:** the α/E/aggregation ablation sweep of Section III-I3; regenerating the committed manifest with the crypto path (needs the raw corpus) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py`, `test_federated_weight_crypto.py` green ✅; gate checker exit 0 ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
-| 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
-| 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → Ascon/alert. G1 held throughout (0 malicious-verdict messages reached the cloud) | Full pipeline run producing a manifest ✅ |
+| 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green. **2026-09-20 deviation:** Ascon now protects the client↔aggregator weight channel (`federated/crypto.py`), not the gateway→cloud telemetry channel (now plaintext); the G1 routing split is retained. | above + `test_federated_weight_crypto.py` green ✅ |
+| 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, later 0.8507 on the fixed path, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → cloud/alert. G1 held throughout (0 malicious-verdict messages reached the cloud). **2026-09-20 deviation:** the runtime cloud leg is now plaintext (Ascon moved to the training-plane weight transport); routing counts and macro-F1 unchanged | Full pipeline run producing a manifest ✅ |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
 parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
@@ -31,6 +31,8 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 ## 2026-09-16
 
 ### Phase 4 local-only baseline now reports balanced accuracy and MCC, not macro-F1 alone
@@ -49,6 +51,67 @@ regenerate the manifest and results file with the new fields; the committed arti
 been regenerated in this change. `false_positive_rate` for local-only is a separate, not yet
 implemented gap (the confusion matrix is not currently retained per client) -- flagged, not
 fixed here.
+=======
+=======
+>>>>>>> Stashed changes
+## 2026-09-20
+
+### Moved Ascon from the telemetry channel to the federated weight channel (user-approved deviation)
+
+At the user's direction, the implementation now **diverges from the design paper** on which
+channel Ascon-AEAD128 protects. The paper couples the detector's verdict to Ascon protection of
+the gateway→cloud **telemetry** channel (Channel 2, Eq. 5/25-29, G1); the requirement changed so
+that cloud-payload security is handled by mechanisms outside this codebase, and the model-weight
+exchange between local GRUs and the aggregator is what needs protecting instead. Per Golden Rule
+1 the deviation is **flagged, not silently absorbed**: it is recorded in a new "Implementation
+Deviation" section appended to `docs/design_paper.md`, in `CLAUDE.md`'s golden rules and Ascon
+invariant, and in a callout on every affected `results/` file. The original paper text is left
+intact as the historical record.
+
+**What moved.**
+
+- **Telemetry (Channel 2) is now plaintext.** `routing/router.py`'s benign branch no longer calls
+  `AsconAEAD128.encrypt`; `routing/cloud_sink.py`'s `MockCloudReceiver` no longer decrypts
+  (`send_encrypted`+`keys` → `send_plaintext`, no key store). **What is retained:** the G1
+  benign/malicious routing split (the malicious path still structurally cannot reach the cloud
+  transport, `test_path_disjointness.py` unchanged in spirit), the `edge_id` match, and the
+  replay window — none of which depend on encryption. The gating test's wording changed from
+  "zero *encrypted* payloads" to "zero payloads".
+- **Model weights (Channel 3) are now Ascon-encrypted, both legs of every round.** New
+  `federated/crypto.py` adds `WeightAssociatedData` (AD tuple
+  `⟨client_id, round_index, direction, schema_version⟩`, sharing the Eq. 27 TLV framing via new
+  `crypto/_ad_wire.py`), `protect_state`/`unprotect_state`, and `WeightIntegrityError` (a tampered
+  blob aborts the round rather than aggregating unverified parameters — Eq. 26's ⊥ as a hard
+  failure, since a federated round has no alternate path). `federated/server.py`'s `run_round`
+  gained a required `client_keys: dict[int, bytes]` and a `round_index`, and now encrypts the
+  broadcast leg (previously a bare `tensor.clone()` that never crossed a real boundary) as well as
+  the upload leg. `federated/client.py` and `aggregation.py` are unchanged — the orchestrating
+  call site owns the cipher, mirroring the `routing/router.py` precedent.
+
+**Cost.** `theoretical_bytes_per_round` (Eq. 22) is unchanged; new `aead_overhead_bytes_per_round`
+adds `2K·32` bytes/round (192 B for K=3) for the nonce+tag on each leg — a 0.024% increase on the
+~0.77 MiB/round parameter traffic. Real benchmark at weight-blob sizes (`eval/crypto_benchmark.py`,
+100 samples): a full 33,800-param blob (135,200 B) expands by a flat 32 B (0.024%) and takes
+~230 ms to encrypt/decrypt on the vendored pure-Python reference backend.
+
+**Detection numbers are unchanged and this is provable, not asserted:** the encryption round-trips
+losslessly (KAT-gated; the tamper tests confirm exact bit-for-bit recovery), so the tensors a
+client trains on are identical to before. Macro-F1, the G4 bracket, per-class F1 and FPR all
+stand. The committed `artifacts/` (Phase 4 manifest, Phase 7 checkpoint + manifests) predate the
+deviation and were **not regenerated** — the raw CICIoT2023 corpus is not present in this
+environment; `results/` states this and gives the exact re-run commands. The manifests'
+`ascon_backend` field, empty in the old telemetry-era runs, is now populated by the Phase 4 and
+Phase-7-train drivers on the next run.
+
+**Config/tests.** `CryptoConfig` gained `weight_ad_fields` and `weight_schema_version` (with a
+docstring noting `ad_fields` is now unencrypted routing metadata); `configs/default.yaml` matches.
+New `tests/test_federated_weight_crypto.py` (AD round-trip/anti-ambiguity + protect/unprotect
+tamper-rejection); `test_router.py`, `test_cloud_sink.py`, `test_path_disjointness.py`,
+`test_federated.py`, `test_config.py` updated. **Full suite: 357 passed, 0 skipped.**
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
 ## 2026-09-15
 
