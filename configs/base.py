@@ -55,12 +55,22 @@ class FeatureConfig(BaseModel):
     # Rows drawn (seeded) from the training split for Spearman/MI/random-forest statistics.
     # None uses every training row; 200k keeps a full fit near a minute at stable estimates.
     selection_sample_size: int | None = 200_000
+    # Stage 0 (Phase 9): the universe the four stages select from. None = every column the
+    # corpus has (the single-corpus runs of Phases 2-7). A list restricts it to those columns
+    # -- the cross-corpus intersection, so a model trained here can be evaluated on, and
+    # federated with, a corpus that supplies only that intersection. A listed column the
+    # corpus lacks is an error, never invented (see features/selection.py:restrict_candidates).
+    candidate_columns: list[str] | None = None
 
 
 class SequenceConfig(BaseModel):
     """Windowing over contiguous same-label runs (Section III-D)."""
 
     window: int = 16  # W; label is that of the final record: y_i = y_{i+W-1}
+    # Phase 9: packets per extractor-style window when a packet corpus (Edge-IIoTset) is
+    # re-aggregated into window rows (data/packet_windows.py). An experimental knob; 10 is
+    # the value most often cited for the CICIoT2023 extractor.
+    window_packets: int = 10
     w_sweep: list[int] = Field(default_factory=lambda: [1, 8, 16, 32])  # W=1 = ablation
 
 

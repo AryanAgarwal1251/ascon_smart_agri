@@ -38,6 +38,7 @@ dependencies = [
     "safetensors>=0.4",   # structured tensor serialization for FedAvg (never pickle) -- III-F2
     "pydantic>=2.6",      # typed run configs (III-I4 manifest / configs), not raw dicts
     "pyyaml>=6.0",
+    "paho-mqtt>=2.0",     # Phase 8: farm-local MQTT between sensor nodes and the Pi runtime
 ]
 
 [project.optional-dependencies]
@@ -121,6 +122,7 @@ module = [
     "scipy.*",
     "safetensors.*",
     "yaml.*",
+    "paho.*",
 ]
 ignore_missing_imports = true
 

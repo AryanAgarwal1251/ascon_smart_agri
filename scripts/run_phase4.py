@@ -47,7 +47,7 @@ from ascon_smart_agri.data.taxonomy import CLASS_NAMES, to_class_index
 from ascon_smart_agri.eval.baselines import centralized_gru, local_only_grus, run_federation
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
 from ascon_smart_agri.eval.report import client_to_global_gap, mean_std
-from ascon_smart_agri.features.selection import FeatureSelector
+from ascon_smart_agri.features.selection import FeatureSelector, restrict_candidates
 from ascon_smart_agri.federated.partition import (
     dirichlet_block_partition,
     per_client_class_histograms,
@@ -104,7 +104,7 @@ def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped
 
     selector = FeatureSelector()
     selection = selector.fit(
-        train_frame.drop(columns=["label"]),
+        restrict_candidates(train_frame.drop(columns=["label"]), cfg.features.candidate_columns),
         train_frame["label"],
         tau=cfg.features.correlation_tau,
         f=cfg.features.selected_f,

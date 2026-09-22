@@ -86,7 +86,7 @@ def test_to_class_index_maps_leaves_to_fixed_indices() -> None:
 def test_unknown_labels_raise_rather_than_falling_back() -> None:
     labels = pd.Series(["BenignTraffic", "SomeNewAttack2027"])
 
-    with pytest.raises(ValueError, match="not present in the CICIoT2023 taxonomy"):
+    with pytest.raises(ValueError, match="not present in the taxonomy"):
         to_family(labels)
 
 

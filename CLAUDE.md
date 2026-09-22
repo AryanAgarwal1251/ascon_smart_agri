@@ -11,10 +11,15 @@ every module under `src/` is a typed stub tagged with the phase in which its log
 
 ## Golden rules
 
-1. **The design paper is authoritative.** Where any summary, request, or this file conflicts
-   with [docs/design_paper.md](docs/design_paper.md), the paper wins. **Flag the discrepancy
-   to the user — do not silently resolve it.** This matters most for the leakage control, the
-   Ascon variant, and the path-disjointness guarantee.
+1. **The Phase 8 architecture overrides the design paper.** On 2026-09-18 the user redirected
+   the project (see [docs/plans/phase8-hardware-federation.md](docs/plans/phase8-hardware-federation.md)):
+   Ascon-AEAD128 protects the **model weights exchanged between each local GRU and the master
+   GRU, in both directions**; the local GRU takes the benign/malicious decision with the weights
+   it receives back; the demo runs on two Raspberry Pis + a laptop + six ESP32s. Where
+   [docs/design_paper.md](docs/design_paper.md) disagrees with that architecture, **the
+   architecture wins and the paper is amended to match** — do not block on paper conformance.
+   For everything Phases 1–7 already settled (leakage control, Ascon variant, path
+   disjointness), the paper still describes what was built; flag, don't silently change.
 2. **Respect the seven-phase gating discipline (III-J4).** Do not skip ahead. Each phase
    begins only after the previous one's exit criterion is met. **Phase 3 (centralised GRU
    proven) is a hard gate before any federation work.** Stop and ask the user before starting
@@ -44,6 +49,13 @@ every module under `src/` is a typed stub tagged with the phase in which its log
 5. Telemetry simulation + feature-provenance adapter.
 6. Ascon integration + alerting path.
 7. End-to-end integration.
+8. Ascon-protected bidirectional weight exchange on physical hardware (Pi clients, laptop
+   aggregator, ESP32 sensors) — plan in `docs/plans/phase8-hardware-federation.md`.
+   **Steps 1–2 done** (sealed channel + networked nodes over loopback); **software twin
+   done** (`docs/plans/phase8-software-twin.md`: MQTT sensor contract, Pi runtime, TLS cloud
+   receiver, ESP32/Wokwi sketch, Docker Compose topology); 3–5 need the hardware itself.
+9. Multi-dataset generalisation (CICIoT2023 + CICIoMT2024 + Edge-IIoTset; leave-one-dataset-out
+   is the headline) — plan in `docs/plans/phase9-multi-dataset.md`. Scaffolding done, data pending.
 
 ## Non-negotiable invariants (each has a test that must stay green)
 
@@ -63,6 +75,24 @@ every module under `src/` is a typed stub tagged with the phase in which its log
 - **Federated scaler == pooled scaler** via Chan's parallel formula (Eqs. 23–24), without
   pooling raw data. `tests/test_scaler_equivalence.py`.
 - **Parameters serialized with safetensors, never pickle** (`federated/serialization.py`).
+- **Weights cross the network only Ascon-sealed (Phase 8):** every client update and every
+  global-state download is an AEAD frame under a per-client, per-direction key with AD
+  `⟨client_id, round, direction, schema_version⟩`; the aggregator never applies a frame that
+  opens to `⊥`. `tests/test_weight_channel.py`, `tests/test_node_loopback.py` (networked
+  FedAvg == in-process FedAvg bit-for-bit).
+- **The sensor node is a contract, and the scenario switch never synthesises (Phase 8):**
+  `farm/<farm>/sensor/<device>` JSON with a monotonic `seq`; `farm/<farm>/scenario` only
+  selects which *held-out* record pool the provenance adapter draws from (G6 unchanged).
+  `tests/test_mqtt_source.py`.
+- **TLS benign path keeps G1 (Phase 8):** `routing/tls_path.py`'s router is the only holder
+  of the cloud transport; the alert sink never sees one; a malicious-only run sends nothing.
+  `tests/test_tls_path.py`, `tests/test_software_twin.py`.
+- **No corpus trains with a placeholder-spelling collision (Phase 9):** a text column whose
+  "absent" value is spelled two ways encodes file provenance (Edge-IIoTset's `"0"`/`"0.0"`).
+  `characterize` reports it; `datasets.normalise_placeholders` removes it. `tests/test_datasets.py`.
+- **Harmonisation never invents a column:** a canonical feature a corpus cannot supply is
+  reported missing and selection runs over the intersection. Leave-one-dataset-out is the
+  generalisation claim; pooled accuracy is not.
 - **LayerNorm, not BatchNorm** (batch stats don't aggregate across federated clients).
 - **No PCA** (kills column interpretability the provenance adapter and operators need).
 - **No synthetic oversampling** (fabricates temporal structure). Class-weighted CE instead,
@@ -82,7 +112,11 @@ every module under `src/` is a typed stub tagged with the phase in which its log
 
 Byzantine-robust aggregation, differential privacy, secure aggregation, gradient-inversion
 defences, adversarial robustness, production key management, device attestation, dashboards,
-cloud agronomic analytics, physical hardware. **Dataset is CICIoT2023 only** — wire up no other.
+cloud agronomic analytics. Physical hardware is in scope **only** as the Phase 8 demo nodes.
+**Datasets are the three registered in `data/datasets.py`** (CICIoT2023, CICIoMT2024,
+Edge-IIoTset) — the "CICIoT2023 only" rule was lifted on 2026-09-19; wire up no fourth without
+asking, and never train on a corpus whose `asa characterize --dataset` report has not been
+reconciled with the registry.
 
 ## Commands
 
@@ -150,6 +184,19 @@ further arguments straight through, so `asa federate --rounds 2` is
 ./.venv/bin/asa train-centralized --cache artifacts/phase4_cache.npz   # Phase 3
 ./.venv/bin/asa federate --cache artifacts/phase4_cache.npz            # Phase 4 (--save-cache builds it)
 ./.venv/bin/asa run-e2e                                        # Phase 7 (needs the trained checkpoint)
+
+# Phase 8 (one aggregator + K client processes; demo keys are gitignored under keys/)
+./.venv/bin/asa aggregator --generate-keys --clients pi-1,pi-2,sim-3
+./.venv/bin/asa aggregator --port 7700 --rounds 20
+./.venv/bin/asa client-node --client-id pi-1 --client-index 0 --server <laptop-ip>:7700 --sequence-cap 40000
+
+# Phase 8 software twin (whole topology, no hardware; needs Docker) -- or see the plan for the
+# no-Docker process recipe. Manifests are tagged platform=docker-arm64-simulation.
+docker compose up --build --abort-on-container-exit
+
+# Phase 9 (per-corpus characterisation, the first thing to run when a corpus lands)
+./.venv/bin/asa characterize --dataset ciciomt2024 --root data/ciciomt2024
+./.venv/bin/asa characterize --dataset edge_iiotset --root data/edge_iiotset
 ```
 
 ```powershell

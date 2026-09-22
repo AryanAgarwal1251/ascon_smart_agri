@@ -80,6 +80,9 @@ import pandas as pd
 from .._types import Array
 from ..data.scaling import ScalerStats, apply_scaler
 
+#: Leaf labels that mean "benign" across the registered corpora (data/datasets.py).
+BENIGN_LABELS: frozenset[str] = frozenset({"BenignTraffic", "Benign", "Normal"})
+
 
 @dataclass(frozen=True)
 class ProvenancedFeatures:
@@ -121,7 +124,16 @@ class FeatureProvenanceAdapter:
         self._source_refs = source_refs
         self._labels = labels
         # Fixed once, not reshuffled per call -- see the module docstring.
-        self._order = np.random.default_rng(seed).permutation(len(features))
+        rng = np.random.default_rng(seed)
+        self._order = rng.permutation(len(features))
+        # Scenario pools (Phase 8): the same fixed-permutation discipline, restricted to the
+        # benign or the attack records. Empty when no labels were supplied.
+        benign = np.array([i for i, lab in enumerate(labels or []) if lab in BENIGN_LABELS])
+        attack = np.array([i for i, lab in enumerate(labels or []) if lab not in BENIGN_LABELS])
+        self._scenario_orders: dict[str, Array] = {
+            "benign": rng.permutation(benign) if len(benign) else benign,
+            "attack": rng.permutation(attack) if len(attack) else attack,
+        }
 
     @classmethod
     def from_held_out_frame(
@@ -157,8 +169,16 @@ class FeatureProvenanceAdapter:
         labels = list(kept["label"].astype(str)) if "label" in kept.columns else None
         return cls(scaled, source_refs, labels=labels, seed=seed)
 
-    def network_features_for(self, stream_index: int) -> ProvenancedFeatures:
+    def network_features_for(
+        self, stream_index: int, *, scenario: str = "any"
+    ) -> ProvenancedFeatures:
         """Return the held-out network-feature vector standing in for this message.
+
+        ``scenario`` (Phase 8, plan §8 option A) selects the pool the record is drawn from:
+        ``"any"`` is the original behaviour; ``"benign"`` / ``"attack"`` draw only from held-out
+        records of that kind, so a sensor node switched into an attack scenario is paired with
+        real held-out attack traffic. It is a *selection* over held-out records, never a
+        synthesis --- the G6 boundary is unchanged. Requires labels for anything but ``"any"``.
 
         Renamed from the scaffold's ``message_counter`` (flagged, Golden Rule 1): that name
         collides with ``TelemetryMessage.counter``, the crypto layer's PER-DEVICE replay
@@ -168,8 +188,21 @@ class FeatureProvenanceAdapter:
         """
         if stream_index < 0:
             raise ValueError(f"stream_index must be non-negative, got {stream_index}")
+        order: Array
+        if scenario == "any":
+            order = self._order
+        elif scenario in self._scenario_orders:
+            order = self._scenario_orders[scenario]
+            if len(order) == 0:
+                raise ValueError(
+                    f"no held-out {scenario!r} records available (labels missing or none of "
+                    "that kind); cannot honour the scenario without synthesising, which is "
+                    "forbidden (G6)"
+                )
+        else:
+            raise ValueError(f"scenario must be 'any', 'benign' or 'attack', got {scenario!r}")
 
-        index = int(self._order[stream_index % len(self._order)])
+        index = int(order[stream_index % len(order)])
         return ProvenancedFeatures(
             features=self._features[index],
             source_record_ref=self._source_refs[index],

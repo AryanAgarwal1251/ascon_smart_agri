@@ -13,6 +13,14 @@ Associated data (authenticated, not encrypted), Eq. (27):
 The cloud receiver reads edge_id in the clear to select a decryption key; the monotonic
 counter gives replay detection.
 
+Weight-channel associated data (Phase 8, ``docs/plans/phase8-hardware-federation.md`` Section 3):
+    a_w = <client_id, round, direction, schema_version>,   direction in {"up", "down"}
+The same AEAD now also seals the federated weight exchange between each local GRU and the
+aggregator, in both directions. ``round`` gives replay rejection and ``direction`` stops an
+uplink frame being reflected back as a downlink. :class:`WeightAssociatedData` carries a
+DIFFERENT ``fmt_version`` byte from :class:`AssociatedData`, so a telemetry AD can never parse
+as a weight AD or vice versa; the two channels are distinguishable by construction.
+
     SPEC EXTENSION (design paper, CLAUDE.md golden rule 1 waived by the user for this decision):
     Eq. (27) defines the associated-data *tuple* but does NOT specify a byte serialisation for it.
     Naive concatenation of the variable-length ``edge_id``/``device_id``/``schema_version`` strings
@@ -63,6 +71,8 @@ _TAG_BYTES = 16
 # Associated-data (Eq. 27) length-prefixed encoding (docs/plans/phase6-ad-serialization.md).
 _AD_ENCODING: Final = "length-prefixed-v1"
 _AD_FMT_VERSION: Final = 0x01  # leading wire-format version byte; receivers reject unknown values
+_WEIGHT_AD_FMT_VERSION: Final = 0x02  # weight-channel AD (Phase 8); distinct so the kinds never mix
+_DIRECTIONS: Final = frozenset({"up", "down"})  # client -> aggregator, aggregator -> client
 _U16_MAX: Final = 0xFFFF  # max UTF-8 byte length per string field (u16 length prefix)
 _U64_MAX: Final = 2**64 - 1  # counter is a fixed-width u64
 
@@ -167,6 +177,90 @@ class AssociatedData:
             raise ValueError(f"trailing bytes after AD: {len(view) - offset} extra")
         return cls(
             edge_id=edge_id, device_id=device_id, counter=counter, schema_version=schema_version
+        )
+
+
+@dataclass(frozen=True)
+class WeightAssociatedData:
+    """Authenticated metadata for one sealed weight frame (Phase 8 plan, Section 3).
+
+    ``<client_id, round, direction, schema_version>``: which client, which federated round, and
+    whether the frame travels client -> aggregator (``"up"``) or aggregator -> client
+    (``"down"``). Serialised with the same length-prefixed TLV scheme as
+    :class:`AssociatedData` but under its own ``fmt_version`` byte, so the two AD kinds are
+    mutually unparseable. The receiver (``federated/transport.py``) compares the parsed tuple
+    against what it expects for this connection; a mismatch is treated exactly like a failed
+    tag --- the frame is dropped and nothing is applied.
+    """
+
+    client_id: str
+    round: int  # federated round index; authenticated, replay-checked by the opener
+    direction: str  # "up" or "down"
+    schema_version: str
+
+    def __post_init__(self) -> None:
+        if self.direction not in _DIRECTIONS:
+            raise ValueError(
+                f"direction must be one of {sorted(_DIRECTIONS)}, got {self.direction!r}"
+            )
+        if not 0 <= self.round <= _U64_MAX:
+            raise ValueError(f"round must be in [0, 2**64), got {self.round}")
+
+    def to_bytes(self) -> bytes:
+        """``fmt_version:u8 || L(client_id):u16 || client_id || round:u64 || L(direction):u16 ||
+        direction || L(schema_version):u16 || schema_version``."""
+
+        def prefixed(name: str, value: str) -> bytes:
+            encoded = value.encode("utf-8")
+            if len(encoded) > _U16_MAX:
+                raise ValueError(
+                    f"{name} is {len(encoded)} UTF-8 bytes, exceeds u16 max {_U16_MAX}"
+                )
+            return struct.pack(">H", len(encoded)) + encoded
+
+        return b"".join(
+            (
+                struct.pack(">B", _WEIGHT_AD_FMT_VERSION),
+                prefixed("client_id", self.client_id),
+                struct.pack(">Q", self.round),
+                prefixed("direction", self.direction),
+                prefixed("schema_version", self.schema_version),
+            )
+        )
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> WeightAssociatedData:
+        """Strict inverse of :meth:`to_bytes`; raises :class:`ValueError` on anything malformed."""
+        view = memoryview(data)
+        offset = 0
+
+        def take(n: int, what: str) -> bytes:
+            nonlocal offset
+            if offset + n > len(view):
+                raise ValueError(f"truncated weight AD: need {n} bytes for {what} at {offset}")
+            chunk = bytes(view[offset : offset + n])
+            offset += n
+            return chunk
+
+        (fmt_version,) = struct.unpack(">B", take(1, "fmt_version"))
+        if fmt_version != _WEIGHT_AD_FMT_VERSION:
+            raise ValueError(f"unknown weight AD fmt_version {fmt_version:#04x}")
+
+        def take_str(what: str) -> str:
+            (length,) = struct.unpack(">H", take(2, f"{what} length"))
+            return take(length, what).decode("utf-8")
+
+        client_id = take_str("client_id")
+        (round_index,) = struct.unpack(">Q", take(8, "round"))
+        direction = take_str("direction")
+        schema_version = take_str("schema_version")
+        if offset != len(view):
+            raise ValueError(f"trailing bytes after weight AD: {len(view) - offset} extra")
+        return cls(
+            client_id=client_id,
+            round=round_index,
+            direction=direction,
+            schema_version=schema_version,
         )
 
 

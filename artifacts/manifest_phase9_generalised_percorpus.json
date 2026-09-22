@@ -1,0 +1,4379 @@
+{
+  "run_name": "phase9_generalised_percorpus",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "library_versions": {
+    "python": "3.11.9",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "sklearn": "1.9.1",
+    "scipy": "1.17.1",
+    "torch": "2.14.0"
+  },
+  "hardware": {
+    "platform": "macOS-26.5-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "arm",
+    "git_commit": "3cefc7371ec50178aee1a10f4e297e73ac689612",
+    "git_dirty": "True"
+  },
+  "config_snapshot": {
+    "run_name": "generalised",
+    "output_dir": "artifacts",
+    "data": {
+      "dataset_root": "data/ciciot2023_raw",
+      "subsample_target": 1800000,
+      "per_class_cap": 70000,
+      "chunk_size": 500000,
+      "block_size": 256,
+      "test_fraction": 0.2,
+      "seed": 0
+    },
+    "features": {
+      "correlation_tau": 0.95,
+      "f_sweep": [
+        8,
+        12,
+        16,
+        24
+      ],
+      "selected_f": 16,
+      "rf_n_estimators": 200,
+      "rrf_k": 60,
+      "selection_sample_size": 200000,
+      "candidate_columns": [
+        "Header_Length",
+        "Protocol Type",
+        "Time_To_Live",
+        "Rate",
+        "fin_flag_number",
+        "syn_flag_number",
+        "rst_flag_number",
+        "psh_flag_number",
+        "ack_flag_number",
+        "ece_flag_number",
+        "cwr_flag_number",
+        "ack_count",
+        "syn_count",
+        "fin_count",
+        "rst_count",
+        "HTTP",
+        "HTTPS",
+        "DNS",
+        "Telnet",
+        "SMTP",
+        "SSH",
+        "IRC",
+        "TCP",
+        "UDP",
+        "DHCP",
+        "ARP",
+        "ICMP",
+        "IGMP",
+        "IPv",
+        "LLC",
+        "Tot sum",
+        "Min",
+        "Max",
+        "AVG",
+        "Std",
+        "Tot size",
+        "IAT",
+        "Number",
+        "Variance"
+      ]
+    },
+    "sequence": {
+      "window": 16,
+      "window_packets": 10,
+      "w_sweep": [
+        1,
+        8,
+        16,
+        32
+      ]
+    },
+    "model": {
+      "n_features": 16,
+      "hidden_size": 96,
+      "n_classes": 8
+    },
+    "federated": {
+      "n_clients": 3,
+      "dirichlet_alpha": 0.5,
+      "alpha_sweep": [
+        0.1,
+        0.5,
+        100.0
+      ],
+      "rounds": 20,
+      "local_epochs": 3,
+      "e_sweep": [
+        1,
+        3,
+        5
+      ],
+      "aggregation": "weighted",
+      "fedprox_mu": null
+    },
+    "crypto": {
+      "key_bits": 128,
+      "nonce_bits": 128,
+      "tag_bits": 128,
+      "ad_fields": [
+        "edge_id",
+        "device_id",
+        "counter",
+        "schema_version"
+      ]
+    },
+    "telemetry": {
+      "device_ids": [
+        "soil01",
+        "soil02",
+        "soil03"
+      ],
+      "messages_per_stream": 100,
+      "schema_version": "v1",
+      "temperature_range_c": [
+        15.0,
+        35.0
+      ],
+      "soil_moisture_range_pct": [
+        0.0,
+        100.0
+      ],
+      "seed": 0
+    },
+    "evaluation": {
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "near_ceiling_accuracy": 0.98
+    }
+  },
+  "subsample_per_class_counts": {
+    "ciciot2023/Backdoor_Malware": 3218,
+    "ciciot2023/BenignTraffic": 70000,
+    "ciciot2023/BrowserHijacking": 5859,
+    "ciciot2023/CommandInjection": 5409,
+    "ciciot2023/DDoS-ACK_Fragmentation": 70000,
+    "ciciot2023/DDoS-HTTP_Flood": 28790,
+    "ciciot2023/DDoS-ICMP_Flood": 70000,
+    "ciciot2023/DDoS-ICMP_Fragmentation": 70000,
+    "ciciot2023/DDoS-PSHACK_Flood": 70000,
+    "ciciot2023/DDoS-RSTFINFlood": 70000,
+    "ciciot2023/DDoS-SYN_Flood": 70000,
+    "ciciot2023/DDoS-SlowLoris": 23426,
+    "ciciot2023/DDoS-SynonymousIP_Flood": 70000,
+    "ciciot2023/DDoS-TCP_Flood": 70000,
+    "ciciot2023/DDoS-UDP_Flood": 70000,
+    "ciciot2023/DDoS-UDP_Fragmentation": 70000,
+    "ciciot2023/DNS_Spoofing": 70000,
+    "ciciot2023/DictionaryBruteForce": 13064,
+    "ciciot2023/DoS-HTTP_Flood": 70000,
+    "ciciot2023/DoS-SYN_Flood": 70000,
+    "ciciot2023/DoS-TCP_Flood": 70000,
+    "ciciot2023/DoS-UDP_Flood": 70000,
+    "ciciot2023/MITM-ArpSpoofing": 70000,
+    "ciciot2023/Mirai-greeth_flood": 70000,
+    "ciciot2023/Mirai-greip_flood": 70000,
+    "ciciot2023/Mirai-udpplain": 70000,
+    "ciciot2023/Recon-HostDiscovery": 70000,
+    "ciciot2023/Recon-OSScan": 70000,
+    "ciciot2023/Recon-PingSweep": 2262,
+    "ciciot2023/Recon-PortScan": 70000,
+    "ciciot2023/SqlInjection": 5245,
+    "ciciot2023/Uploading_Attack": 1252,
+    "ciciot2023/VulnerabilityScan": 70000,
+    "ciciot2023/XSS": 3846,
+    "ciciomt2024/ARP_Spoofing": 17791,
+    "ciciomt2024/Benign": 70000,
+    "ciciomt2024/MQTT-DDoS-Connect_Flood": 70000,
+    "ciciomt2024/MQTT-DDoS-Publish_Flood": 36039,
+    "ciciomt2024/MQTT-DoS-Connect_Flood": 15904,
+    "ciciomt2024/MQTT-DoS-Publish_Flood": 52881,
+    "ciciomt2024/MQTT-Malformed_Data": 6877,
+    "ciciomt2024/Recon-OS_Scan": 20666,
+    "ciciomt2024/Recon-Ping_Sweep": 926,
+    "ciciomt2024/Recon-Port_Scan": 70000,
+    "ciciomt2024/Recon-VulScan": 3207,
+    "ciciomt2024/TCP_IP-DDoS-ICMP": 70000,
+    "ciciomt2024/TCP_IP-DDoS-SYN": 70000,
+    "ciciomt2024/TCP_IP-DDoS-TCP": 70000,
+    "ciciomt2024/TCP_IP-DDoS-UDP": 70000,
+    "ciciomt2024/TCP_IP-DoS-ICMP": 70000,
+    "ciciomt2024/TCP_IP-DoS-SYN": 70000,
+    "ciciomt2024/TCP_IP-DoS-TCP": 70000,
+    "ciciomt2024/TCP_IP-DoS-UDP": 70000
+  },
+  "ascon_backend": {
+    "weight_channel": "SealedFederatedServer (Ascon-AEAD128, per-client keys)"
+  },
+  "results": {
+    "corpora": {
+      "ciciot2023": {
+        "n_raw": 1772371,
+        "n_dedup": 1549531,
+        "n_train_rows": 1237904,
+        "n_test_rows": 311563,
+        "candidate_columns": [
+          "Header_Length",
+          "Protocol Type",
+          "Time_To_Live",
+          "Rate",
+          "fin_flag_number",
+          "syn_flag_number",
+          "rst_flag_number",
+          "psh_flag_number",
+          "ack_flag_number",
+          "ece_flag_number",
+          "cwr_flag_number",
+          "ack_count",
+          "syn_count",
+          "fin_count",
+          "rst_count",
+          "HTTP",
+          "HTTPS",
+          "DNS",
+          "Telnet",
+          "SMTP",
+          "SSH",
+          "IRC",
+          "TCP",
+          "UDP",
+          "DHCP",
+          "ARP",
+          "ICMP",
+          "IGMP",
+          "IPv",
+          "LLC",
+          "Tot sum",
+          "Min",
+          "Max",
+          "AVG",
+          "Std",
+          "Tot size",
+          "IAT",
+          "Number",
+          "Variance"
+        ],
+        "r3_overlap": 0
+      },
+      "ciciomt2024": {
+        "n_raw": 924291,
+        "n_dedup": 920523,
+        "n_train_rows": 736066,
+        "n_test_rows": 184457,
+        "candidate_columns": [
+          "Header_Length",
+          "Protocol Type",
+          "Time_To_Live",
+          "Rate",
+          "fin_flag_number",
+          "syn_flag_number",
+          "rst_flag_number",
+          "psh_flag_number",
+          "ack_flag_number",
+          "ece_flag_number",
+          "cwr_flag_number",
+          "ack_count",
+          "syn_count",
+          "fin_count",
+          "rst_count",
+          "HTTP",
+          "HTTPS",
+          "DNS",
+          "Telnet",
+          "SMTP",
+          "SSH",
+          "IRC",
+          "TCP",
+          "UDP",
+          "DHCP",
+          "ARP",
+          "ICMP",
+          "IGMP",
+          "IPv",
+          "LLC",
+          "Tot sum",
+          "Min",
+          "Max",
+          "AVG",
+          "Std",
+          "Tot size",
+          "IAT",
+          "Number",
+          "Variance"
+        ],
+        "r3_overlap": 0
+      }
+    },
+    "budget": {
+      "rounds": 20,
+      "local_epochs": 3,
+      "sequence_cap_per_client": 400000,
+      "scaling": "per-corpus",
+      "n_clients": 3,
+      "dirichlet_alpha": 0.5
+    },
+    "experiments": {
+      "in_distribution": {
+        "per_seed": [
+          {
+            "seed": 0,
+            "train_corpora": [
+              "ciciot2023",
+              "ciciomt2024"
+            ],
+            "clients": [
+              "ciciot2023:0",
+              "ciciot2023:1",
+              "ciciomt2024:0"
+            ],
+            "client_histograms_blocks": {
+              "ciciot2023": [
+                {
+                  "Benign": 196,
+                  "DDoS": 300,
+                  "DoS": 683,
+                  "Mirai": 332,
+                  "Reconnaissance": 296,
+                  "Spoofing": 400,
+                  "BruteForce": 25,
+                  "WebBased": 59
+                },
+                {
+                  "Benign": 22,
+                  "DDoS": 1540,
+                  "DoS": 46,
+                  "Mirai": 322,
+                  "Reconnaissance": 577,
+                  "Spoofing": 18,
+                  "BruteForce": 17,
+                  "WebBased": 21
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "IAT",
+              "Tot sum",
+              "Max",
+              "Number",
+              "Header_Length",
+              "Rate",
+              "Tot size",
+              "Min",
+              "Variance",
+              "Time_To_Live",
+              "Std",
+              "ack_flag_number",
+              "Protocol Type",
+              "TCP",
+              "rst_count",
+              "psh_flag_number"
+            ],
+            "sequence_counts_uncapped": [
+              568834,
+              635954,
+              726826
+            ],
+            "sequence_counts": [
+              400000,
+              399999,
+              400001
+            ],
+            "per_round_macro_f1": [
+              0.5407620617889002,
+              0.6015320683602253,
+              0.6582131684938355,
+              0.6401836746488376,
+              0.6606620977322121,
+              0.6619953949366596,
+              0.6724885702854122,
+              0.6950560099054843,
+              0.7137209029999784,
+              0.7153693276751067,
+              0.7216767128080731,
+              0.7297306150348903,
+              0.7283418959445122,
+              0.7461863816917519,
+              0.7567321691919785,
+              0.7568966405058886,
+              0.7588046528886913,
+              0.7559954670138407,
+              0.7682582785149112,
+              0.7658829612070742
+            ],
+            "bytes_per_round": [
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558
+            ],
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.7658829612070742,
+                "macro_f1_present": 0.7658829612070742,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8285593021997713,
+                "mcc": 0.850414306384548,
+                "accuracy": 0.880395513736486,
+                "per_class_f1": {
+                  "Benign": 0.6833953382431098,
+                  "DDoS": 0.9485574343381533,
+                  "DoS": 0.8816915871202993,
+                  "Mirai": 0.9977024698449167,
+                  "Reconnaissance": 0.7919342382277329,
+                  "Spoofing": 0.9430174662135462,
+                  "BruteForce": 0.5321618037135278,
+                  "WebBased": 0.3486033519553073
+                },
+                "confusion": [
+                  [
+                    9001,
+                    5,
+                    10,
+                    3,
+                    2257,
+                    204,
+                    198,
+                    1727
+                  ],
+                  [
+                    8,
+                    103416,
+                    8782,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    2343,
+                    42073,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    26,
+                    71,
+                    82,
+                    39951,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    3728,
+                    5,
+                    70,
+                    0,
+                    37428,
+                    600,
+                    1308,
+                    10510
+                  ],
+                  [
+                    15,
+                    1,
+                    1,
+                    0,
+                    560,
+                    23864,
+                    274,
+                    931
+                  ],
+                  [
+                    47,
+                    1,
+                    3,
+                    0,
+                    182,
+                    130,
+                    1605,
+                    472
+                  ],
+                  [
+                    112,
+                    0,
+                    0,
+                    1,
+                    447,
+                    168,
+                    207,
+                    3900
+                  ]
+                ],
+                "false_positive_rate": 0.3285341290563223,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6063951424780227,
+                "macro_f1_present": 0.8085268566373637,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8213649259815634,
+                "mcc": 0.5266041524664818,
+                "accuracy": 0.67863351134466,
+                "per_class_f1": {
+                  "Benign": 0.9550985499358551,
+                  "DDoS": 0.5853008115129084,
+                  "DoS": 0.636566525899396,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9600251990149476,
+                  "Spoofing": 0.8713361772395761,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.8428338762214984
+                },
+                "confusion": [
+                  [
+                    12284,
+                    10,
+                    0,
+                    0,
+                    526,
+                    199,
+                    43,
+                    139
+                  ],
+                  [
+                    42,
+                    38190,
+                    35413,
+                    61,
+                    15,
+                    55,
+                    2,
+                    28
+                  ],
+                  [
+                    111,
+                    18490,
+                    47633,
+                    247,
+                    127,
+                    0,
+                    0,
+                    2
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    78,
+                    0,
+                    0,
+                    0,
+                    16763,
+                    392,
+                    0,
+                    13
+                  ],
+                  [
+                    7,
+                    1,
+                    0,
+                    0,
+                    181,
+                    3166,
+                    0,
+                    34
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    64,
+                    66,
+                    40,
+                    1035
+                  ]
+                ],
+                "false_positive_rate": 0.06946443451253694,
+                "n_sequences": 175457
+              }
+            }
+          },
+          {
+            "seed": 1,
+            "train_corpora": [
+              "ciciot2023",
+              "ciciomt2024"
+            ],
+            "clients": [
+              "ciciot2023:0",
+              "ciciot2023:1",
+              "ciciomt2024:0"
+            ],
+            "client_histograms_blocks": {
+              "ciciot2023": [
+                {
+                  "Benign": 79,
+                  "DDoS": 1431,
+                  "DoS": 701,
+                  "Mirai": 124,
+                  "Reconnaissance": 867,
+                  "Spoofing": 385,
+                  "BruteForce": 4,
+                  "WebBased": 15
+                },
+                {
+                  "Benign": 139,
+                  "DDoS": 409,
+                  "DoS": 28,
+                  "Mirai": 530,
+                  "Reconnaissance": 6,
+                  "Spoofing": 33,
+                  "BruteForce": 38,
+                  "WebBased": 65
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "IAT",
+              "Tot sum",
+              "Max",
+              "Number",
+              "Header_Length",
+              "Tot size",
+              "Rate",
+              "Variance",
+              "Min",
+              "Time_To_Live",
+              "Std",
+              "ack_flag_number",
+              "rst_count",
+              "Protocol Type",
+              "TCP",
+              "psh_flag_number"
+            ],
+            "sequence_counts_uncapped": [
+              901435,
+              307318,
+              726826
+            ],
+            "sequence_counts": [
+              399998,
+              307318,
+              400001
+            ],
+            "per_round_macro_f1": [
+              0.5695166871766421,
+              0.6529011454534903,
+              0.6766757707816801,
+              0.6919406589435569,
+              0.702067804887839,
+              0.7021065221922547,
+              0.7115922776731062,
+              0.7146684839204005,
+              0.7219493715524898,
+              0.7296479858649189,
+              0.731448994276584,
+              0.7408967362107042,
+              0.7410516586314904,
+              0.7425492321116693,
+              0.7503454861802009,
+              0.7416833636264388,
+              0.7547534365205153,
+              0.7622574176623506,
+              0.7619527422178225,
+              0.7656268728944544
+            ],
+            "bytes_per_round": [
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558
+            ],
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.7656268728944544,
+                "macro_f1_present": 0.7656268728944544,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.7938370769912881,
+                "mcc": 0.8653447124466156,
+                "accuracy": 0.8938421719554609,
+                "per_class_f1": {
+                  "Benign": 0.694019471488178,
+                  "DDoS": 0.9632450791061963,
+                  "DoS": 0.9083632654871181,
+                  "Mirai": 0.9995637596440279,
+                  "Reconnaissance": 0.8046640594284769,
+                  "Spoofing": 0.9210652637238148,
+                  "BruteForce": 0.49975903614457834,
+                  "WebBased": 0.33433504813324505
+                },
+                "confusion": [
+                  [
+                    9481,
+                    5,
+                    3,
+                    0,
+                    1942,
+                    283,
+                    83,
+                    1608
+                  ],
+                  [
+                    0,
+                    107489,
+                    4718,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    3447,
+                    40969,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    14,
+                    15,
+                    40098,
+                    2,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    4135,
+                    7,
+                    74,
+                    3,
+                    38887,
+                    1210,
+                    480,
+                    8853
+                  ],
+                  [
+                    82,
+                    12,
+                    8,
+                    0,
+                    1131,
+                    23985,
+                    76,
+                    352
+                  ],
+                  [
+                    94,
+                    0,
+                    1,
+                    0,
+                    289,
+                    316,
+                    1037,
+                    703
+                  ],
+                  [
+                    124,
+                    0,
+                    0,
+                    0,
+                    754,
+                    641,
+                    34,
+                    3282
+                  ]
+                ],
+                "false_positive_rate": 0.2927265945542708,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6193376186622629,
+                "macro_f1_present": 0.825783491549684,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8676845742562498,
+                "mcc": 0.5969580147929816,
+                "accuracy": 0.7280473278353101,
+                "per_class_f1": {
+                  "Benign": 0.9773029692430522,
+                  "DDoS": 0.6733708535113361,
+                  "DoS": 0.6752969476133881,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9431206113758778,
+                  "Spoofing": 0.7865412445730825,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.8990683229813664
+                },
+                "confusion": [
+                  [
+                    12853,
+                    4,
+                    2,
+                    2,
+                    256,
+                    34,
+                    0,
+                    50
+                  ],
+                  [
+                    73,
+                    46303,
+                    26457,
+                    43,
+                    65,
+                    861,
+                    4,
+                    0
+                  ],
+                  [
+                    57,
+                    17413,
+                    47444,
+                    194,
+                    1062,
+                    439,
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    108,
+                    0,
+                    0,
+                    0,
+                    16722,
+                    264,
+                    0,
+                    152
+                  ],
+                  [
+                    10,
+                    0,
+                    0,
+                    0,
+                    108,
+                    3261,
+                    0,
+                    10
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0,
+                    0,
+                    2,
+                    44,
+                    0,
+                    1158
+                  ]
+                ],
+                "false_positive_rate": 0.026361639269752293,
+                "n_sequences": 175457
+              }
+            }
+          },
+          {
+            "seed": 2,
+            "train_corpora": [
+              "ciciot2023",
+              "ciciomt2024"
+            ],
+            "clients": [
+              "ciciot2023:0",
+              "ciciot2023:1",
+              "ciciomt2024:0"
+            ],
+            "client_histograms_blocks": {
+              "ciciot2023": [
+                {
+                  "Benign": 94,
+                  "DDoS": 1564,
+                  "DoS": 445,
+                  "Mirai": 32,
+                  "Reconnaissance": 421,
+                  "Spoofing": 356,
+                  "BruteForce": 18,
+                  "WebBased": 20
+                },
+                {
+                  "Benign": 124,
+                  "DDoS": 276,
+                  "DoS": 284,
+                  "Mirai": 622,
+                  "Reconnaissance": 452,
+                  "Spoofing": 62,
+                  "BruteForce": 24,
+                  "WebBased": 60
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "IAT",
+              "Tot sum",
+              "Max",
+              "Number",
+              "Header_Length",
+              "Tot size",
+              "Rate",
+              "Min",
+              "Variance",
+              "Time_To_Live",
+              "Std",
+              "ack_flag_number",
+              "ack_count",
+              "rst_count",
+              "Protocol Type",
+              "psh_flag_number"
+            ],
+            "sequence_counts_uncapped": [
+              733363,
+              469391,
+              726826
+            ],
+            "sequence_counts": [
+              399999,
+              400001,
+              400001
+            ],
+            "per_round_macro_f1": [
+              0.6313580350182315,
+              0.6391005131499203,
+              0.6563618849779431,
+              0.659745632426394,
+              0.6712680007765905,
+              0.6892820569228778,
+              0.6934953761909397,
+              0.7135182643161273,
+              0.7161804738335249,
+              0.7250221265575878,
+              0.7491788545076111,
+              0.7467857434319976,
+              0.7541778251558494,
+              0.758084086105151,
+              0.7621678900662963,
+              0.7654141148150553,
+              0.7704110615624667,
+              0.7845108897261882,
+              0.7875901901362575,
+              0.7909597672851516
+            ],
+            "bytes_per_round": [
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558,
+              815558
+            ],
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.7909597672851516,
+                "macro_f1_present": 0.7909597672851516,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8340552861102091,
+                "mcc": 0.8624101425439575,
+                "accuracy": 0.889626189641692,
+                "per_class_f1": {
+                  "Benign": 0.7031452977994725,
+                  "DDoS": 0.9406067311433756,
+                  "DoS": 0.872749386876159,
+                  "Mirai": 0.9953820161441712,
+                  "Reconnaissance": 0.8363727656155855,
+                  "Spoofing": 0.9494957469063925,
+                  "BruteForce": 0.6158216783216783,
+                  "WebBased": 0.4141045154743785
+                },
+                "confusion": [
+                  [
+                    8931,
+                    1,
+                    3,
+                    1,
+                    2979,
+                    132,
+                    94,
+                    1264
+                  ],
+                  [
+                    0,
+                    100319,
+                    11884,
+                    1,
+                    0,
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    641,
+                    43771,
+                    3,
+                    1,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    128,
+                    231,
+                    39768,
+                    3,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    2954,
+                    8,
+                    1,
+                    0,
+                    41643,
+                    630,
+                    446,
+                    7967
+                  ],
+                  [
+                    19,
+                    2,
+                    0,
+                    1,
+                    420,
+                    24055,
+                    110,
+                    1039
+                  ],
+                  [
+                    50,
+                    1,
+                    0,
+                    1,
+                    383,
+                    72,
+                    1409,
+                    524
+                  ],
+                  [
+                    44,
+                    0,
+                    0,
+                    0,
+                    502,
+                    131,
+                    77,
+                    4081
+                  ]
+                ],
+                "false_positive_rate": 0.33375606117120477,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.5818451821353168,
+                "macro_f1_present": 0.7757935761804223,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.7620213531842234,
+                "mcc": 0.5151979606065183,
+                "accuracy": 0.6684258821249651,
+                "per_class_f1": {
+                  "Benign": 0.8444002249426829,
+                  "DDoS": 0.5781616734761615,
+                  "DoS": 0.6527078536210956,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.8884061344298756,
+                  "Spoofing": 0.8308330673475902,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.8602525032651285
+                },
+                "confusion": [
+                  [
+                    9760,
+                    20,
+                    13,
+                    0,
+                    3288,
+                    63,
+                    2,
+                    55
+                  ],
+                  [
+                    73,
+                    36580,
+                    36942,
+                    70,
+                    0,
+                    106,
+                    0,
+                    35
+                  ],
+                  [
+                    41,
+                    16131,
+                    50173,
+                    92,
+                    44,
+                    4,
+                    124,
+                    1
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    14,
+                    1,
+                    0,
+                    0,
+                    17176,
+                    52,
+                    0,
+                    3
+                  ],
+                  [
+                    7,
+                    0,
+                    0,
+                    0,
+                    769,
+                    2603,
+                    0,
+                    10
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    21,
+                    1,
+                    0,
+                    0,
+                    144,
+                    49,
+                    2,
+                    988
+                  ]
+                ],
+                "false_positive_rate": 0.2606620710552231,
+                "n_sequences": 175457
+              }
+            }
+          }
+        ],
+        "summary": {
+          "ciciot2023": {
+            "macro_f1_mean": 0.7741565337955599,
+            "macro_f1_std": 0.011882140297810064,
+            "macro_f1_present_mean": 0.7741565337955599,
+            "macro_f1_present_std": 0.011882140297810064,
+            "balanced_accuracy_mean": 0.8188172217670896,
+            "balanced_accuracy_std": 0.01780556438403352,
+            "mcc_mean": 0.8593897204583737,
+            "mcc_std": 0.006458661805455186,
+            "false_positive_rate_mean": 0.3183389282605993,
+            "false_positive_rate_std": 0.018235695255301856,
+            "per_class_f1_mean": {
+              "Benign": 0.6935200358435868,
+              "DDoS": 0.9508030815292416,
+              "DoS": 0.8876014131611921,
+              "Mirai": 0.9975494152110386,
+              "Reconnaissance": 0.8109903544239317,
+              "Spoofing": 0.9378594922812512,
+              "BruteForce": 0.5492475060599281,
+              "WebBased": 0.3656809718543103
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Mirai",
+              "Reconnaissance",
+              "Spoofing",
+              "BruteForce",
+              "WebBased"
+            ],
+            "held_out": false,
+            "n_seeds": 3
+          },
+          "ciciomt2024": {
+            "macro_f1_mean": 0.6025259810918675,
+            "macro_f1_std": 0.015548815743883455,
+            "macro_f1_present_mean": 0.8033679747891567,
+            "macro_f1_present_std": 0.02073175432517801,
+            "balanced_accuracy_mean": 0.8170236178073456,
+            "balanced_accuracy_std": 0.04324591918571917,
+            "mcc_mean": 0.5462533759553273,
+            "mcc_std": 0.03615471940544137,
+            "false_positive_rate_mean": 0.11882938161250411,
+            "false_positive_rate_std": 0.10182287426490975,
+            "per_class_f1_mean": {
+              "Benign": 0.9256005813738634,
+              "DDoS": 0.6122777795001353,
+              "DoS": 0.6548571090446266,
+              "Mirai": 0.0,
+              "Reconnaissance": 0.9305173149402336,
+              "Spoofing": 0.8295701630534164,
+              "BruteForce": 0.0,
+              "WebBased": 0.8673849008226645
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Reconnaissance",
+              "Spoofing",
+              "WebBased"
+            ],
+            "held_out": false,
+            "n_seeds": 3
+          }
+        }
+      },
+      "lodo/ciciot2023": {
+        "per_seed": [
+          {
+            "seed": 0,
+            "train_corpora": [
+              "ciciomt2024"
+            ],
+            "clients": [
+              "ciciomt2024:0",
+              "ciciomt2024:1",
+              "ciciomt2024:2"
+            ],
+            "client_histograms_blocks": {
+              "ciciomt2024": [
+                {
+                  "Benign": 169,
+                  "DDoS": 3,
+                  "DoS": 0,
+                  "Reconnaissance": 3,
+                  "Spoofing": 2,
+                  "WebBased": 18
+                },
+                {
+                  "Benign": 19,
+                  "DDoS": 18,
+                  "DoS": 1084,
+                  "Reconnaissance": 256,
+                  "Spoofing": 45,
+                  "WebBased": 3
+                },
+                {
+                  "Benign": 31,
+                  "DDoS": 1187,
+                  "DoS": 8,
+                  "Reconnaissance": 26,
+                  "Spoofing": 9,
+                  "WebBased": 1
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "IAT",
+              "Rate",
+              "Header_Length",
+              "rst_count",
+              "Tot sum",
+              "Tot size",
+              "Number",
+              "fin_count",
+              "Variance",
+              "psh_flag_number",
+              "Time_To_Live",
+              "ack_flag_number",
+              "syn_count",
+              "rst_flag_number",
+              "Protocol Type",
+              "HTTPS"
+            ],
+            "sequence_counts_uncapped": [
+              48610,
+              358105,
+              317606
+            ],
+            "sequence_counts": [
+              48610,
+              358105,
+              317606
+            ],
+            "per_round_macro_f1": [
+              0.1599154451071298,
+              0.16945462617676454,
+              0.17157231239517456,
+              0.17049638369191022,
+              0.16544688015796719,
+              0.16859267343307352,
+              0.18132103063723698,
+              0.17869293958796897,
+              0.19186003236396687,
+              0.18289139224653875,
+              0.1757787836525084,
+              0.1749791216172464,
+              0.17214889253293483,
+              0.15002192890668234,
+              0.12913433732372195,
+              0.12280863861461609,
+              0.1299607795197277,
+              0.13066291786235637,
+              0.12392284523797603,
+              0.12436444471806632
+            ],
+            "bytes_per_round": [
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562
+            ],
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.12436444471806632,
+                "macro_f1_present": 0.12436444471806632,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.13284541512867842,
+                "mcc": 0.03803712987425008,
+                "accuracy": 0.25217370790757865,
+                "per_class_f1": {
+                  "Benign": 0.14555618820849942,
+                  "DDoS": 0.4649058484661136,
+                  "DoS": 0.14699905161902183,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.2156245836621335,
+                  "Spoofing": 0.020701429892580208,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.0011284558961820576
+                },
+                "confusion": [
+                  [
+                    1406,
+                    46,
+                    11878,
+                    0,
+                    25,
+                    0,
+                    0,
+                    50
+                  ],
+                  [
+                    778,
+                    48502,
+                    51880,
+                    0,
+                    9764,
+                    1283,
+                    0,
+                    0
+                  ],
+                  [
+                    1366,
+                    6808,
+                    14105,
+                    0,
+                    21361,
+                    776,
+                    0,
+                    0
+                  ],
+                  [
+                    68,
+                    39576,
+                    486,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1188,
+                    271,
+                    41379,
+                    0,
+                    10520,
+                    116,
+                    0,
+                    175
+                  ],
+                  [
+                    495,
+                    1215,
+                    21135,
+                    0,
+                    2256,
+                    291,
+                    0,
+                    254
+                  ],
+                  [
+                    330,
+                    13,
+                    2094,
+                    0,
+                    2,
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    283,
+                    15,
+                    4533,
+                    0,
+                    0,
+                    1,
+                    0,
+                    3
+                  ]
+                ],
+                "false_positive_rate": 0.8951137635210742,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.67813185394273,
+                "macro_f1_present": 0.9041758052569734,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.9018094264029989,
+                "mcc": 0.7425114978380327,
+                "accuracy": 0.8290008378121135,
+                "per_class_f1": {
+                  "Benign": 0.9922816622942093,
+                  "DDoS": 0.8071800734564616,
+                  "DoS": 0.7718550769709221,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9843370708588602,
+                  "Spoofing": 0.9414348462664714,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.9279661016949152
+                },
+                "confusion": [
+                  [
+                    13049,
+                    0,
+                    5,
+                    0,
+                    108,
+                    21,
+                    0,
+                    18
+                  ],
+                  [
+                    13,
+                    61426,
+                    12367,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    16967,
+                    49638,
+                    0,
+                    1,
+                    1,
+                    0,
+                    3
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    38,
+                    0,
+                    0,
+                    0,
+                    17031,
+                    142,
+                    0,
+                    35
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    170,
+                    3215,
+                    0,
+                    4
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    48,
+                    62,
+                    0,
+                    1095
+                  ]
+                ],
+                "false_positive_rate": 0.011514279221271117,
+                "n_sequences": 175457
+              }
+            }
+          },
+          {
+            "seed": 1,
+            "train_corpora": [
+              "ciciomt2024"
+            ],
+            "clients": [
+              "ciciomt2024:0",
+              "ciciomt2024:1",
+              "ciciomt2024:2"
+            ],
+            "client_histograms_blocks": {
+              "ciciomt2024": [
+                {
+                  "Benign": 25,
+                  "DDoS": 83,
+                  "DoS": 757,
+                  "Reconnaissance": 22,
+                  "Spoofing": 31,
+                  "WebBased": 1
+                },
+                {
+                  "Benign": 43,
+                  "DDoS": 24,
+                  "DoS": 67,
+                  "Reconnaissance": 259,
+                  "Spoofing": 24,
+                  "WebBased": 20
+                },
+                {
+                  "Benign": 151,
+                  "DDoS": 1101,
+                  "DoS": 268,
+                  "Reconnaissance": 4,
+                  "Spoofing": 1,
+                  "WebBased": 1
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "IAT",
+              "Rate",
+              "Header_Length",
+              "rst_count",
+              "Tot sum",
+              "Tot size",
+              "Number",
+              "fin_count",
+              "Variance",
+              "Std",
+              "Time_To_Live",
+              "ack_flag_number",
+              "psh_flag_number",
+              "syn_count",
+              "rst_flag_number",
+              "Protocol Type"
+            ],
+            "sequence_counts_uncapped": [
+              227177,
+              108402,
+              380762
+            ],
+            "sequence_counts": [
+              227177,
+              108402,
+              380762
+            ],
+            "per_round_macro_f1": [
+              0.11628159907220967,
+              0.09043845401418563,
+              0.08855725637407504,
+              0.04400397619315669,
+              0.04119860746556259,
+              0.0729643716764532,
+              0.06094988894349249,
+              0.07331174936494886,
+              0.08152115060914882,
+              0.07935960665400013,
+              0.07584167478547685,
+              0.06622126700742267,
+              0.04592914137230854,
+              0.045234805873580065,
+              0.044899144747690946,
+              0.04523896910551396,
+              0.047043969446561584,
+              0.04745399604828105,
+              0.04338078854807893,
+              0.04016499708402246
+            ],
+            "bytes_per_round": [
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562
+            ],
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.04016499708402246,
+                "macro_f1_present": 0.04016499708402246,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.06857753119093082,
+                "mcc": -0.13992909577387103,
+                "accuracy": 0.10378528483998814,
+                "per_class_f1": {
+                  "Benign": 0.0,
+                  "DDoS": 0.12497523925949822,
+                  "DoS": 0.1655218248676254,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.013045428333440122,
+                  "Spoofing": 0.014401737652280668,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.0033757465593352376
+                },
+                "confusion": [
+                  [
+                    0,
+                    7924,
+                    4310,
+                    0,
+                    0,
+                    606,
+                    0,
+                    565
+                  ],
+                  [
+                    918,
+                    11041,
+                    75828,
+                    0,
+                    14863,
+                    9553,
+                    0,
+                    4
+                  ],
+                  [
+                    3070,
+                    8342,
+                    18928,
+                    0,
+                    8811,
+                    5265,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    235,
+                    39792,
+                    0,
+                    103,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    23078,
+                    28055,
+                    0,
+                    509,
+                    928,
+                    0,
+                    1077
+                  ],
+                  [
+                    0,
+                    10343,
+                    13700,
+                    0,
+                    100,
+                    305,
+                    0,
+                    1198
+                  ],
+                  [
+                    0,
+                    1315,
+                    1110,
+                    0,
+                    0,
+                    5,
+                    0,
+                    10
+                  ],
+                  [
+                    0,
+                    2206,
+                    2568,
+                    0,
+                    0,
+                    48,
+                    0,
+                    13
+                  ]
+                ],
+                "false_positive_rate": 1.0,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6705958918353,
+                "macro_f1_present": 0.8941278557804001,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.889384121633752,
+                "mcc": 0.8619863975145637,
+                "accuracy": 0.9069002661620796,
+                "per_class_f1": {
+                  "Benign": 0.9799650596587741,
+                  "DDoS": 0.894253036868651,
+                  "DoS": 0.8938269841836552,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9707938388625592,
+                  "Spoofing": 0.8833491396829698,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.7425790754257907
+                },
+                "confusion": [
+                  [
+                    13182,
+                    0,
+                    0,
+                    0,
+                    5,
+                    9,
+                    0,
+                    5
+                  ],
+                  [
+                    17,
+                    62942,
+                    10847,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    4022,
+                    62588,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    420,
+                    0,
+                    0,
+                    0,
+                    16387,
+                    368,
+                    0,
+                    71
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    118,
+                    3260,
+                    0,
+                    11
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    83,
+                    0,
+                    0,
+                    0,
+                    4,
+                    355,
+                    0,
+                    763
+                  ]
+                ],
+                "false_positive_rate": 0.0014392849026588896,
+                "n_sequences": 175457
+              }
+            }
+          },
+          {
+            "seed": 2,
+            "train_corpora": [
+              "ciciomt2024"
+            ],
+            "clients": [
+              "ciciomt2024:0",
+              "ciciomt2024:1",
+              "ciciomt2024:2"
+            ],
+            "client_histograms_blocks": {
+              "ciciomt2024": [
+                {
+                  "Benign": 34,
+                  "DDoS": 149,
+                  "DoS": 156,
+                  "Reconnaissance": 151,
+                  "Spoofing": 17,
+                  "WebBased": 17
+                },
+                {
+                  "Benign": 45,
+                  "DDoS": 120,
+                  "DoS": 828,
+                  "Reconnaissance": 9,
+                  "Spoofing": 28,
+                  "WebBased": 2
+                },
+                {
+                  "Benign": 140,
+                  "DDoS": 939,
+                  "DoS": 108,
+                  "Reconnaissance": 125,
+                  "Spoofing": 11,
+                  "WebBased": 3
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "IAT",
+              "Rate",
+              "Header_Length",
+              "rst_count",
+              "Tot sum",
+              "Tot size",
+              "Number",
+              "fin_count",
+              "Std",
+              "Variance",
+              "psh_flag_number",
+              "Time_To_Live",
+              "ack_flag_number",
+              "syn_count",
+              "rst_flag_number",
+              "Protocol Type"
+            ],
+            "sequence_counts_uncapped": [
+              127946,
+              255511,
+              329138
+            ],
+            "sequence_counts": [
+              127946,
+              255511,
+              329138
+            ],
+            "per_round_macro_f1": [
+              0.0906967828528715,
+              0.07160345391260767,
+              0.07318404169127196,
+              0.05307493880481376,
+              0.04770632407222331,
+              0.04917898738006351,
+              0.03031270808112349,
+              0.028930858860772565,
+              0.03418598281747686,
+              0.07311036625891723,
+              0.09789437259629097,
+              0.09962879706301231,
+              0.09716425289851655,
+              0.09858002042621267,
+              0.09846380380082069,
+              0.09512256756999957,
+              0.09304377241474714,
+              0.09248212140414268,
+              0.09314067717812448,
+              0.09282683375053617
+            ],
+            "bytes_per_round": [
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562,
+              815562
+            ],
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.09282683375053617,
+                "macro_f1_present": 0.09282683375053617,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.12736304241969895,
+                "mcc": 0.02483622528336399,
+                "accuracy": 0.22829325173222614,
+                "per_class_f1": {
+                  "Benign": 0.03605653223026543,
+                  "DDoS": 0.4102770854713385,
+                  "DoS": 0.2923786874143606,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.003496026001693388,
+                  "Spoofing": 0.0,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.0004063388866314506
+                },
+                "confusion": [
+                  [
+                    523,
+                    6214,
+                    6652,
+                    0,
+                    0,
+                    0,
+                    0,
+                    16
+                  ],
+                  [
+                    2300,
+                    39179,
+                    58317,
+                    0,
+                    12401,
+                    1,
+                    0,
+                    9
+                  ],
+                  [
+                    12089,
+                    866,
+                    27846,
+                    0,
+                    3615,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    66,
+                    109,
+                    103,
+                    0,
+                    39852,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    396,
+                    18339,
+                    34707,
+                    0,
+                    192,
+                    1,
+                    0,
+                    14
+                  ],
+                  [
+                    222,
+                    10911,
+                    14336,
+                    0,
+                    130,
+                    0,
+                    0,
+                    47
+                  ],
+                  [
+                    0,
+                    975,
+                    1465,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    9,
+                    2188,
+                    2637,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1
+                  ]
+                ],
+                "false_positive_rate": 0.9609847071988065,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6847108424758241,
+                "macro_f1_present": 0.9129477899677655,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.9208293725928058,
+                "mcc": 0.7894719358410999,
+                "accuracy": 0.8601765674780716,
+                "per_class_f1": {
+                  "Benign": 0.9843578381244555,
+                  "DDoS": 0.8442332133022664,
+                  "DoS": 0.8184411379230592,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9770141902193034,
+                  "Spoofing": 0.9094947251526929,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.9441456350848159
+                },
+                "confusion": [
+                  [
+                    12995,
+                    1,
+                    0,
+                    0,
+                    109,
+                    96,
+                    0,
+                    0
+                  ],
+                  [
+                    19,
+                    63770,
+                    10017,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    13,
+                    13495,
+                    53080,
+                    0,
+                    6,
+                    8,
+                    0,
+                    8
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    175,
+                    0,
+                    0,
+                    0,
+                    16662,
+                    394,
+                    0,
+                    15
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    65,
+                    3276,
+                    0,
+                    48
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    3,
+                    0,
+                    20,
+                    41,
+                    0,
+                    1141
+                  ]
+                ],
+                "false_positive_rate": 0.015604878418301644,
+                "n_sequences": 175457
+              }
+            }
+          }
+        ],
+        "summary": {
+          "ciciot2023": {
+            "macro_f1_mean": 0.08578542518420833,
+            "macro_f1_std": 0.034733008521366626,
+            "macro_f1_present_mean": 0.08578542518420833,
+            "macro_f1_present_std": 0.034733008521366626,
+            "balanced_accuracy_mean": 0.1095953295797694,
+            "balanced_accuracy_std": 0.029090192403747772,
+            "mcc_mean": -0.025685246872085652,
+            "mcc_std": 0.08096216700585072,
+            "false_positive_rate_mean": 0.9520328235732936,
+            "false_positive_rate_std": 0.04328496903092213,
+            "per_class_f1_mean": {
+              "Benign": 0.060537573479588276,
+              "DDoS": 0.3333860577323167,
+              "DoS": 0.2016331879670026,
+              "Mirai": 0.0,
+              "Reconnaissance": 0.07738867933242234,
+              "Spoofing": 0.011701055848286958,
+              "BruteForce": 0.0,
+              "WebBased": 0.001636847114049582
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Mirai",
+              "Reconnaissance",
+              "Spoofing",
+              "BruteForce",
+              "WebBased"
+            ],
+            "held_out": true,
+            "n_seeds": 3
+          },
+          "ciciomt2024": {
+            "macro_f1_mean": 0.6778128627512846,
+            "macro_f1_std": 0.00576681740253513,
+            "macro_f1_present_mean": 0.9037504836683796,
+            "macro_f1_present_std": 0.00768908987004678,
+            "balanced_accuracy_mean": 0.9040076402098522,
+            "balanced_accuracy_std": 0.012931229895745914,
+            "mcc_mean": 0.7979899437312321,
+            "mcc_std": 0.049145906964137946,
+            "false_positive_rate_mean": 0.00951948084741055,
+            "false_positive_rate_std": 0.005952614289921843,
+            "per_class_f1_mean": {
+              "Benign": 0.9855348533591464,
+              "DDoS": 0.8485554412091263,
+              "DoS": 0.8280410663592122,
+              "Mirai": 0.0,
+              "Reconnaissance": 0.977381699980241,
+              "Spoofing": 0.9114262370340448,
+              "BruteForce": 0.0,
+              "WebBased": 0.8715636040685073
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Reconnaissance",
+              "Spoofing",
+              "WebBased"
+            ],
+            "held_out": false,
+            "n_seeds": 3
+          }
+        }
+      },
+      "lodo/ciciomt2024": {
+        "per_seed": [
+          {
+            "seed": 0,
+            "train_corpora": [
+              "ciciot2023"
+            ],
+            "clients": [
+              "ciciot2023:0",
+              "ciciot2023:1",
+              "ciciot2023:2"
+            ],
+            "client_histograms_blocks": {
+              "ciciot2023": [
+                {
+                  "Benign": 169,
+                  "DDoS": 266,
+                  "DoS": 264,
+                  "Mirai": 267,
+                  "Reconnaissance": 71,
+                  "Spoofing": 85,
+                  "BruteForce": 16,
+                  "WebBased": 28
+                },
+                {
+                  "Benign": 18,
+                  "DDoS": 1364,
+                  "DoS": 17,
+                  "Mirai": 259,
+                  "Reconnaissance": 140,
+                  "Spoofing": 20,
+                  "BruteForce": 24,
+                  "WebBased": 13
+                },
+                {
+                  "Benign": 31,
+                  "DDoS": 210,
+                  "DoS": 448,
+                  "Mirai": 128,
+                  "Reconnaissance": 662,
+                  "Spoofing": 313,
+                  "BruteForce": 2,
+                  "WebBased": 39
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "Tot sum",
+              "Max",
+              "AVG",
+              "Number",
+              "Header_Length",
+              "Std",
+              "Time_To_Live",
+              "IAT",
+              "ack_flag_number",
+              "Min",
+              "HTTPS",
+              "ack_count",
+              "TCP",
+              "Protocol Type",
+              "psh_flag_number",
+              "UDP"
+            ],
+            "sequence_counts_uncapped": [
+              284468,
+              458431,
+              452326
+            ],
+            "sequence_counts": [
+              284468,
+              400000,
+              400000
+            ],
+            "per_round_macro_f1": [
+              0.13246133980671454,
+              0.0991523734959327,
+              0.08948144390588537,
+              0.049045370164457314,
+              0.044229671310896765,
+              0.04849265065343199,
+              0.05034052869377161,
+              0.05469662994841535,
+              0.056596575887969236,
+              0.05574203890670031,
+              0.058309422400343286,
+              0.060637588931299294,
+              0.06801776087467609,
+              0.07361112161885698,
+              0.053390528913363405,
+              0.057297074674563075,
+              0.054943671984350025,
+              0.05735335739779429,
+              0.05513441741012152,
+              0.05520480200205126
+            ],
+            "bytes_per_round": [
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556
+            ],
+            "scores": {
+              "ciciomt2024": {
+                "macro_f1": 0.05520480200205126,
+                "macro_f1_present": 0.07360640266940169,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.15630676654650377,
+                "mcc": 0.02515834435946817,
+                "accuracy": 0.09581264925309335,
+                "per_class_f1": {
+                  "Benign": 0.08671890010887898,
+                  "DDoS": 0.05988274706867672,
+                  "DoS": 0.0001494120635300094,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.24901080970834183,
+                  "Spoofing": 0.043713995255845475,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.002162551811137142
+                },
+                "confusion": [
+                  [
+                    2031,
+                    3125,
+                    32,
+                    7,
+                    4482,
+                    931,
+                    2289,
+                    304
+                  ],
+                  [
+                    14975,
+                    2431,
+                    239,
+                    13507,
+                    28685,
+                    15,
+                    13383,
+                    571
+                  ],
+                  [
+                    13424,
+                    1109,
+                    5,
+                    3022,
+                    32842,
+                    25,
+                    13149,
+                    3034
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1900,
+                    472,
+                    13,
+                    4,
+                    12209,
+                    1355,
+                    864,
+                    429
+                  ],
+                  [
+                    1106,
+                    75,
+                    1,
+                    0,
+                    1939,
+                    129,
+                    139,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    204,
+                    174,
+                    29,
+                    7,
+                    657,
+                    58,
+                    70,
+                    6
+                  ]
+                ],
+                "false_positive_rate": 0.8461480190894629,
+                "n_sequences": 175457
+              },
+              "ciciot2023": {
+                "macro_f1": 0.8440604498476707,
+                "macro_f1_present": 0.8440604498476707,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8564106363693484,
+                "mcc": 0.8916318437422986,
+                "accuracy": 0.9159802917149713,
+                "per_class_f1": {
+                  "Benign": 0.7181437809052872,
+                  "DDoS": 0.9445135984668702,
+                  "DoS": 0.8622388275455627,
+                  "Mirai": 0.9986418291695222,
+                  "Reconnaissance": 0.8991796523823794,
+                  "Spoofing": 0.9687093596059113,
+                  "BruteForce": 0.6906503261514133,
+                  "WebBased": 0.6704062245544196
+                },
+                "confusion": [
+                  [
+                    9440,
+                    4,
+                    2,
+                    1,
+                    3522,
+                    61,
+                    96,
+                    279
+                  ],
+                  [
+                    0,
+                    105471,
+                    6692,
+                    38,
+                    6,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    5640,
+                    38771,
+                    5,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    9,
+                    48,
+                    40073,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    3222,
+                    2,
+                    0,
+                    0,
+                    48009,
+                    290,
+                    421,
+                    1705
+                  ],
+                  [
+                    101,
+                    0,
+                    0,
+                    4,
+                    409,
+                    24581,
+                    184,
+                    367
+                  ],
+                  [
+                    47,
+                    0,
+                    2,
+                    0,
+                    428,
+                    54,
+                    1747,
+                    162
+                  ],
+                  [
+                    75,
+                    1,
+                    0,
+                    4,
+                    761,
+                    118,
+                    171,
+                    3705
+                  ]
+                ],
+                "false_positive_rate": 0.29578515479298767,
+                "n_sequences": 296728
+              }
+            }
+          },
+          {
+            "seed": 1,
+            "train_corpora": [
+              "ciciot2023"
+            ],
+            "clients": [
+              "ciciot2023:0",
+              "ciciot2023:1",
+              "ciciot2023:2"
+            ],
+            "client_histograms_blocks": {
+              "ciciot2023": [
+                {
+                  "Benign": 25,
+                  "DDoS": 1518,
+                  "DoS": 245,
+                  "Mirai": 0,
+                  "Reconnaissance": 799,
+                  "Spoofing": 209,
+                  "BruteForce": 16,
+                  "WebBased": 39
+                },
+                {
+                  "Benign": 43,
+                  "DDoS": 11,
+                  "DoS": 342,
+                  "Mirai": 617,
+                  "Reconnaissance": 69,
+                  "Spoofing": 0,
+                  "BruteForce": 0,
+                  "WebBased": 11
+                },
+                {
+                  "Benign": 150,
+                  "DDoS": 311,
+                  "DoS": 142,
+                  "Mirai": 37,
+                  "Reconnaissance": 5,
+                  "Spoofing": 209,
+                  "BruteForce": 26,
+                  "WebBased": 30
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "Tot sum",
+              "Max",
+              "AVG",
+              "Number",
+              "Std",
+              "Header_Length",
+              "Time_To_Live",
+              "IAT",
+              "Min",
+              "ack_flag_number",
+              "HTTPS",
+              "TCP",
+              "ack_count",
+              "Protocol Type",
+              "psh_flag_number",
+              "UDP"
+            ],
+            "sequence_counts_uncapped": [
+              709414,
+              271340,
+              222211
+            ],
+            "sequence_counts": [
+              400000,
+              271340,
+              222211
+            ],
+            "per_round_macro_f1": [
+              0.15045870658323712,
+              0.14059040065740422,
+              0.15108115068921582,
+              0.16228812766475717,
+              0.15627952173627946,
+              0.17196225242010832,
+              0.13801473550400173,
+              0.14131270381164207,
+              0.14218583602181833,
+              0.13935306750616422,
+              0.19218006698459086,
+              0.15886192066512278,
+              0.1605771029098329,
+              0.16051063239442523,
+              0.15776274592313658,
+              0.15378401864697375,
+              0.14822450272494592,
+              0.14452292811550288,
+              0.1476517843717507,
+              0.14305490032423393
+            ],
+            "bytes_per_round": [
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556
+            ],
+            "scores": {
+              "ciciomt2024": {
+                "macro_f1": 0.14305490032423393,
+                "macro_f1_present": 0.19073986709897858,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.20789187622709385,
+                "mcc": 0.0959505589883039,
+                "accuracy": 0.2241460870754658,
+                "per_class_f1": {
+                  "Benign": 0.11365196725640349,
+                  "DDoS": 0.2919483913114486,
+                  "DoS": 0.24970738878432916,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.4473417469939382,
+                  "Spoofing": 0.0281405186683833,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.013649189579368726
+                },
+                "confusion": [
+                  [
+                    1076,
+                    1269,
+                    4142,
+                    48,
+                    1076,
+                    3152,
+                    2055,
+                    383
+                  ],
+                  [
+                    2931,
+                    13407,
+                    20258,
+                    13339,
+                    6697,
+                    53,
+                    13435,
+                    3686
+                  ],
+                  [
+                    944,
+                    1942,
+                    13334,
+                    13206,
+                    13598,
+                    41,
+                    13802,
+                    9743
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    266,
+                    175,
+                    741,
+                    6,
+                    11254,
+                    4050,
+                    744,
+                    10
+                  ],
+                  [
+                    396,
+                    617,
+                    1571,
+                    100,
+                    372,
+                    153,
+                    72,
+                    108
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    121,
+                    629,
+                    141,
+                    14,
+                    72,
+                    36,
+                    88,
+                    104
+                  ]
+                ],
+                "false_positive_rate": 0.9184910234073176,
+                "n_sequences": 175457
+              },
+              "ciciot2023": {
+                "macro_f1": 0.8208478048134958,
+                "macro_f1_present": 0.8208478048134958,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8484175369175913,
+                "mcc": 0.8675727915505435,
+                "accuracy": 0.8961304629155321,
+                "per_class_f1": {
+                  "Benign": 0.7038598767434318,
+                  "DDoS": 0.9326306767931873,
+                  "DoS": 0.8421880981751669,
+                  "Mirai": 0.9968126992062996,
+                  "Reconnaissance": 0.8737735555209469,
+                  "Spoofing": 0.938151890482399,
+                  "BruteForce": 0.6861802216182312,
+                  "WebBased": 0.5931854199683043
+                },
+                "confusion": [
+                  [
+                    10850,
+                    0,
+                    0,
+                    0,
+                    2183,
+                    70,
+                    59,
+                    243
+                  ],
+                  [
+                    0,
+                    102290,
+                    9908,
+                    0,
+                    4,
+                    3,
+                    0,
+                    2
+                  ],
+                  [
+                    0,
+                    4813,
+                    39598,
+                    0,
+                    3,
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    5,
+                    41,
+                    114,
+                    39875,
+                    0,
+                    95,
+                    0,
+                    0
+                  ],
+                  [
+                    5944,
+                    5,
+                    0,
+                    0,
+                    44884,
+                    141,
+                    365,
+                    2310
+                  ],
+                  [
+                    303,
+                    0,
+                    0,
+                    0,
+                    946,
+                    23026,
+                    177,
+                    1194
+                  ],
+                  [
+                    120,
+                    2,
+                    0,
+                    0,
+                    370,
+                    14,
+                    1641,
+                    293
+                  ],
+                  [
+                    203,
+                    0,
+                    0,
+                    0,
+                    697,
+                    92,
+                    100,
+                    3743
+                  ]
+                ],
+                "false_positive_rate": 0.1906005221932115,
+                "n_sequences": 296728
+              }
+            }
+          },
+          {
+            "seed": 2,
+            "train_corpora": [
+              "ciciot2023"
+            ],
+            "clients": [
+              "ciciot2023:0",
+              "ciciot2023:1",
+              "ciciot2023:2"
+            ],
+            "client_histograms_blocks": {
+              "ciciot2023": [
+                {
+                  "Benign": 34,
+                  "DDoS": 166,
+                  "DoS": 325,
+                  "Mirai": 21,
+                  "Reconnaissance": 251,
+                  "Spoofing": 146,
+                  "BruteForce": 17,
+                  "WebBased": 12
+                },
+                {
+                  "Benign": 45,
+                  "DDoS": 30,
+                  "DoS": 208,
+                  "Mirai": 404,
+                  "Reconnaissance": 270,
+                  "Spoofing": 25,
+                  "BruteForce": 22,
+                  "WebBased": 35
+                },
+                {
+                  "Benign": 139,
+                  "DDoS": 1644,
+                  "DoS": 196,
+                  "Mirai": 229,
+                  "Reconnaissance": 352,
+                  "Spoofing": 247,
+                  "BruteForce": 3,
+                  "WebBased": 33
+                }
+              ]
+            },
+            "scaler_stats_used": "per-corpus",
+            "selected_columns": [
+              "Tot sum",
+              "Max",
+              "Tot size",
+              "Number",
+              "Std",
+              "Header_Length",
+              "Time_To_Live",
+              "IAT",
+              "Min",
+              "ack_flag_number",
+              "TCP",
+              "HTTPS",
+              "ack_count",
+              "Protocol Type",
+              "psh_flag_number",
+              "UDP"
+            ],
+            "sequence_counts_uncapped": [
+              236541,
+              254612,
+              705135
+            ],
+            "sequence_counts": [
+              236541,
+              254612,
+              399999
+            ],
+            "per_round_macro_f1": [
+              0.08239647829907985,
+              0.08632498315515649,
+              0.10051915620087921,
+              0.10687866307332841,
+              0.1124295227079683,
+              0.10242175006305941,
+              0.11306669586987672,
+              0.10496705106091027,
+              0.12158327593029958,
+              0.11555877767364303,
+              0.11825123816717575,
+              0.12241337215298956,
+              0.1129820851529447,
+              0.12065118904281108,
+              0.12390812816254704,
+              0.11828028391500861,
+              0.11899118517983001,
+              0.09350071363664642,
+              0.09482802893855187,
+              0.11232101010560089
+            ],
+            "bytes_per_round": [
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556,
+              815556
+            ],
+            "scores": {
+              "ciciomt2024": {
+                "macro_f1": 0.11232101010560089,
+                "macro_f1_present": 0.14976134680746783,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.15352890286654297,
+                "mcc": 0.054364836940100275,
+                "accuracy": 0.17270898282770136,
+                "per_class_f1": {
+                  "Benign": 0.31829583606683903,
+                  "DDoS": 0.385887382896356,
+                  "DoS": 0.012737123691321647,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.16517240668604052,
+                  "Spoofing": 0.010121923165401427,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.006353408338848445
+                },
+                "confusion": [
+                  [
+                    4124,
+                    122,
+                    41,
+                    0,
+                    861,
+                    1108,
+                    6865,
+                    80
+                  ],
+                  [
+                    1642,
+                    21481,
+                    6395,
+                    21245,
+                    8488,
+                    13770,
+                    157,
+                    628
+                  ],
+                  [
+                    3674,
+                    15221,
+                    469,
+                    12773,
+                    15715,
+                    12073,
+                    1069,
+                    5616
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1743,
+                    537,
+                    100,
+                    0,
+                    4007,
+                    8500,
+                    2359,
+                    0
+                  ],
+                  [
+                    1092,
+                    148,
+                    13,
+                    0,
+                    1738,
+                    198,
+                    198,
+                    2
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    437,
+                    18,
+                    15,
+                    0,
+                    464,
+                    85,
+                    162,
+                    24
+                  ]
+                ],
+                "false_positive_rate": 0.6875994242860389,
+                "n_sequences": 175457
+              },
+              "ciciot2023": {
+                "macro_f1": 0.8571397997253747,
+                "macro_f1_present": 0.8571397997253747,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8596754963556971,
+                "mcc": 0.8972688549459621,
+                "accuracy": 0.9200513601682349,
+                "per_class_f1": {
+                  "Benign": 0.7420507073819863,
+                  "DDoS": 0.9454586544328686,
+                  "DoS": 0.8686798439588381,
+                  "Mirai": 0.9987660937519475,
+                  "Reconnaissance": 0.903203849535352,
+                  "Spoofing": 0.9729962093086874,
+                  "BruteForce": 0.725130890052356,
+                  "WebBased": 0.700832149380962
+                },
+                "confusion": [
+                  [
+                    10595,
+                    0,
+                    0,
+                    0,
+                    2537,
+                    81,
+                    47,
+                    145
+                  ],
+                  [
+                    1,
+                    104589,
+                    7580,
+                    34,
+                    2,
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    4445,
+                    39971,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    1,
+                    60,
+                    40067,
+                    0,
+                    0,
+                    0,
+                    2
+                  ],
+                  [
+                    4247,
+                    2,
+                    0,
+                    1,
+                    47770,
+                    262,
+                    268,
+                    1099
+                  ],
+                  [
+                    88,
+                    0,
+                    0,
+                    1,
+                    421,
+                    24898,
+                    69,
+                    169
+                  ],
+                  [
+                    86,
+                    1,
+                    0,
+                    0,
+                    445,
+                    95,
+                    1662,
+                    151
+                  ],
+                  [
+                    134,
+                    0,
+                    0,
+                    0,
+                    955,
+                    195,
+                    98,
+                    3453
+                  ]
+                ],
+                "false_positive_rate": 0.20962327489742633,
+                "n_sequences": 296728
+              }
+            }
+          }
+        ],
+        "summary": {
+          "ciciomt2024": {
+            "macro_f1_mean": 0.10352690414396204,
+            "macro_f1_std": 0.036399745132374116,
+            "macro_f1_present_mean": 0.13803587219194938,
+            "macro_f1_present_std": 0.04853299350983215,
+            "balanced_accuracy_mean": 0.1725758485467135,
+            "balanced_accuracy_std": 0.02499793978173872,
+            "mcc_mean": 0.05849124676262412,
+            "mcc_std": 0.029047717713345994,
+            "false_positive_rate_mean": 0.8174128222609398,
+            "false_positive_rate_std": 0.09642619384370543,
+            "per_class_f1_mean": {
+              "Benign": 0.1728889011440405,
+              "DDoS": 0.24590617375882715,
+              "DoS": 0.08753130817972693,
+              "Mirai": 0.0,
+              "Reconnaissance": 0.28717498779610684,
+              "Spoofing": 0.027325479029876736,
+              "BruteForce": 0.0,
+              "WebBased": 0.007388383243118104
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Reconnaissance",
+              "Spoofing",
+              "WebBased"
+            ],
+            "held_out": true,
+            "n_seeds": 3
+          },
+          "ciciot2023": {
+            "macro_f1_mean": 0.8406826847955138,
+            "macro_f1_std": 0.01500742474536387,
+            "macro_f1_present_mean": 0.8406826847955138,
+            "macro_f1_present_std": 0.01500742474536387,
+            "balanced_accuracy_mean": 0.8548345565475456,
+            "balanced_accuracy_std": 0.004729230619669514,
+            "mcc_mean": 0.8854911634129348,
+            "mcc_std": 0.012877500054403893,
+            "false_positive_rate_mean": 0.23200298396120847,
+            "false_positive_rate_std": 0.04576454426097511,
+            "per_class_f1_mean": {
+              "Benign": 0.7213514550102351,
+              "DDoS": 0.9408676432309754,
+              "DoS": 0.8577022565598559,
+              "Mirai": 0.9980735407092564,
+              "Reconnaissance": 0.8920523524795595,
+              "Spoofing": 0.9599524864656659,
+              "BruteForce": 0.7006538126073335,
+              "WebBased": 0.6548079313012286
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Mirai",
+              "Reconnaissance",
+              "Spoofing",
+              "BruteForce",
+              "WebBased"
+            ],
+            "held_out": false,
+            "n_seeds": 3
+          }
+        }
+      },
+      "pooled_centralised": {
+        "per_seed": [
+          {
+            "seed": 0,
+            "train_corpora": [
+              "ciciot2023",
+              "ciciomt2024"
+            ],
+            "selected_columns": [
+              "IAT",
+              "Tot sum",
+              "Max",
+              "Number",
+              "Header_Length",
+              "Rate",
+              "Tot size",
+              "Min",
+              "Variance",
+              "Time_To_Live",
+              "Std",
+              "ack_flag_number",
+              "Protocol Type",
+              "TCP",
+              "rst_count",
+              "psh_flag_number"
+            ],
+            "n_sequences": 1200000,
+            "epochs": 60,
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.8340004021703302,
+                "macro_f1_present": 0.8340004021703302,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.865430685485053,
+                "mcc": 0.9142427890301301,
+                "accuracy": 0.9330329459976814,
+                "per_class_f1": {
+                  "Benign": 0.7031603888637235,
+                  "DDoS": 0.976359849611858,
+                  "DoS": 0.9431501077904597,
+                  "Mirai": 0.999352396134303,
+                  "Reconnaissance": 0.8754405318598498,
+                  "Spoofing": 0.9727756537109262,
+                  "BruteForce": 0.5698977106673161,
+                  "WebBased": 0.6318665787242062
+                },
+                "confusion": [
+                  [
+                    10090,
+                    0,
+                    0,
+                    0,
+                    2692,
+                    108,
+                    204,
+                    311
+                  ],
+                  [
+                    0,
+                    108291,
+                    3870,
+                    41,
+                    3,
+                    0,
+                    2,
+                    0
+                  ],
+                  [
+                    1,
+                    1318,
+                    43093,
+                    1,
+                    0,
+                    0,
+                    3,
+                    0
+                  ],
+                  [
+                    0,
+                    7,
+                    1,
+                    40122,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    4934,
+                    0,
+                    1,
+                    2,
+                    44837,
+                    676,
+                    1453,
+                    1746
+                  ],
+                  [
+                    38,
+                    3,
+                    0,
+                    0,
+                    100,
+                    25316,
+                    39,
+                    150
+                  ],
+                  [
+                    86,
+                    0,
+                    0,
+                    0,
+                    278,
+                    103,
+                    1755,
+                    218
+                  ],
+                  [
+                    145,
+                    0,
+                    0,
+                    0,
+                    874,
+                    200,
+                    263,
+                    3353
+                  ]
+                ],
+                "false_positive_rate": 0.24729578515479297,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6809087103011207,
+                "macro_f1_present": 0.9078782804014943,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.9121140596047704,
+                "mcc": 0.7705431410205433,
+                "accuracy": 0.8478145642522099,
+                "per_class_f1": {
+                  "Benign": 0.9822444537783038,
+                  "DDoS": 0.8264159596422839,
+                  "DoS": 0.8058331572114369,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9783857097509595,
+                  "Spoofing": 0.9177020903376699,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.9366883116883117
+                },
+                "confusion": [
+                  [
+                    12862,
+                    3,
+                    7,
+                    1,
+                    188,
+                    117,
+                    1,
+                    22
+                  ],
+                  [
+                    35,
+                    61268,
+                    12485,
+                    0,
+                    11,
+                    0,
+                    4,
+                    3
+                  ],
+                  [
+                    1,
+                    13197,
+                    53380,
+                    1,
+                    26,
+                    0,
+                    2,
+                    3
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    88,
+                    0,
+                    2,
+                    0,
+                    16952,
+                    152,
+                    0,
+                    52
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    225,
+                    3139,
+                    0,
+                    25
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0,
+                    0,
+                    5,
+                    44,
+                    0,
+                    1154
+                  ]
+                ],
+                "false_positive_rate": 0.02567987273691387,
+                "n_sequences": 175457
+              }
+            }
+          },
+          {
+            "seed": 1,
+            "train_corpora": [
+              "ciciot2023",
+              "ciciomt2024"
+            ],
+            "selected_columns": [
+              "IAT",
+              "Tot sum",
+              "Max",
+              "Number",
+              "Header_Length",
+              "Tot size",
+              "Rate",
+              "Variance",
+              "Min",
+              "Time_To_Live",
+              "Std",
+              "ack_flag_number",
+              "rst_count",
+              "Protocol Type",
+              "TCP",
+              "psh_flag_number"
+            ],
+            "n_sequences": 1107317,
+            "epochs": 60,
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.8410858356784507,
+                "macro_f1_present": 0.8410858356784507,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8589899097098576,
+                "mcc": 0.9219524869618357,
+                "accuracy": 0.9393990455905745,
+                "per_class_f1": {
+                  "Benign": 0.705654501955721,
+                  "DDoS": 0.9791456124039364,
+                  "DoS": 0.9491626464126823,
+                  "Mirai": 0.9994395805571815,
+                  "Reconnaissance": 0.8922443376801648,
+                  "Spoofing": 0.9753595850035369,
+                  "BruteForce": 0.5924608819345661,
+                  "WebBased": 0.6352195394798172
+                },
+                "confusion": [
+                  [
+                    9291,
+                    1,
+                    2,
+                    0,
+                    3501,
+                    66,
+                    276,
+                    268
+                  ],
+                  [
+                    3,
+                    108998,
+                    3168,
+                    37,
+                    0,
+                    0,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    1423,
+                    42989,
+                    4,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    4,
+                    40126,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    3286,
+                    7,
+                    4,
+                    0,
+                    47450,
+                    206,
+                    1020,
+                    1676
+                  ],
+                  [
+                    68,
+                    3,
+                    0,
+                    0,
+                    311,
+                    24819,
+                    84,
+                    361
+                  ],
+                  [
+                    105,
+                    0,
+                    0,
+                    0,
+                    433,
+                    56,
+                    1666,
+                    180
+                  ],
+                  [
+                    175,
+                    0,
+                    0,
+                    0,
+                    1017,
+                    99,
+                    137,
+                    3407
+                  ]
+                ],
+                "false_positive_rate": 0.3069004102946662,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6716747645502339,
+                "macro_f1_present": 0.8955663527336452,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.9009620445126257,
+                "mcc": 0.7469472366988492,
+                "accuracy": 0.8147238354696592,
+                "per_class_f1": {
+                  "Benign": 0.9820468839336763,
+                  "DDoS": 0.7411897701394237,
+                  "DoS": 0.8011039975802793,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9790819123459996,
+                  "Spoofing": 0.9233475010992233,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.9466280513032685
+                },
+                "confusion": [
+                  [
+                    12882,
+                    4,
+                    0,
+                    0,
+                    223,
+                    72,
+                    9,
+                    11
+                  ],
+                  [
+                    36,
+                    45240,
+                    28520,
+                    0,
+                    0,
+                    5,
+                    0,
+                    5
+                  ],
+                  [
+                    6,
+                    3024,
+                    63566,
+                    0,
+                    0,
+                    7,
+                    1,
+                    6
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    104,
+                    0,
+                    0,
+                    0,
+                    16967,
+                    162,
+                    0,
+                    13
+                  ],
+                  [
+                    1,
+                    0,
+                    0,
+                    0,
+                    205,
+                    3150,
+                    0,
+                    33
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    5,
+                    0,
+                    0,
+                    0,
+                    18,
+                    38,
+                    0,
+                    1144
+                  ]
+                ],
+                "false_positive_rate": 0.024164835997272933,
+                "n_sequences": 175457
+              }
+            }
+          },
+          {
+            "seed": 2,
+            "train_corpora": [
+              "ciciot2023",
+              "ciciomt2024"
+            ],
+            "selected_columns": [
+              "IAT",
+              "Tot sum",
+              "Max",
+              "Number",
+              "Header_Length",
+              "Tot size",
+              "Rate",
+              "Min",
+              "Variance",
+              "Time_To_Live",
+              "Std",
+              "ack_flag_number",
+              "ack_count",
+              "rst_count",
+              "Protocol Type",
+              "psh_flag_number"
+            ],
+            "n_sequences": 1200001,
+            "epochs": 60,
+            "scores": {
+              "ciciot2023": {
+                "macro_f1": 0.8418738949551462,
+                "macro_f1_present": 0.8418738949551462,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Mirai",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "BruteForce",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.8424676439847552,
+                "mcc": 0.9219535240648743,
+                "accuracy": 0.9394091558599121,
+                "per_class_f1": {
+                  "Benign": 0.7030194830396647,
+                  "DDoS": 0.9771916228101795,
+                  "DoS": 0.9454967481989183,
+                  "Mirai": 0.9987910512868449,
+                  "Reconnaissance": 0.8942056628580952,
+                  "Spoofing": 0.9784251109899524,
+                  "BruteForce": 0.6160977665402444,
+                  "WebBased": 0.6217637139172701
+                },
+                "confusion": [
+                  [
+                    9057,
+                    0,
+                    0,
+                    0,
+                    3891,
+                    50,
+                    149,
+                    258
+                  ],
+                  [
+                    0,
+                    108437,
+                    3735,
+                    34,
+                    1,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    1231,
+                    43178,
+                    2,
+                    2,
+                    0,
+                    3,
+                    0
+                  ],
+                  [
+                    0,
+                    58,
+                    3,
+                    40069,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    3012,
+                    2,
+                    1,
+                    0,
+                    48288,
+                    320,
+                    525,
+                    1501
+                  ],
+                  [
+                    35,
+                    0,
+                    0,
+                    0,
+                    289,
+                    25124,
+                    61,
+                    137
+                  ],
+                  [
+                    86,
+                    1,
+                    1,
+                    0,
+                    612,
+                    62,
+                    1462,
+                    216
+                  ],
+                  [
+                    171,
+                    0,
+                    0,
+                    0,
+                    1270,
+                    154,
+                    106,
+                    3134
+                  ]
+                ],
+                "false_positive_rate": 0.32435658336441625,
+                "n_sequences": 296728
+              },
+              "ciciomt2024": {
+                "macro_f1": 0.6744154511145604,
+                "macro_f1_present": 0.8992206014860806,
+                "families_present": [
+                  "Benign",
+                  "DDoS",
+                  "DoS",
+                  "Reconnaissance",
+                  "Spoofing",
+                  "WebBased"
+                ],
+                "balanced_accuracy": 0.904267402955791,
+                "mcc": 0.7551599071681446,
+                "accuracy": 0.8268920590230084,
+                "per_class_f1": {
+                  "Benign": 0.9837553386211104,
+                  "DDoS": 0.7698275524967739,
+                  "DoS": 0.8077345609583846,
+                  "Mirai": 0.0,
+                  "Reconnaissance": 0.9769228547497328,
+                  "Spoofing": 0.9241338985528431,
+                  "BruteForce": 0.0,
+                  "WebBased": 0.9329494035376388
+                },
+                "confusion": [
+                  [
+                    12899,
+                    0,
+                    0,
+                    1,
+                    221,
+                    50,
+                    0,
+                    30
+                  ],
+                  [
+                    12,
+                    49217,
+                    24552,
+                    2,
+                    10,
+                    6,
+                    2,
+                    5
+                  ],
+                  [
+                    1,
+                    4842,
+                    61761,
+                    0,
+                    3,
+                    2,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    106,
+                    0,
+                    1,
+                    0,
+                    16912,
+                    178,
+                    0,
+                    49
+                  ],
+                  [
+                    2,
+                    0,
+                    0,
+                    0,
+                    218,
+                    3161,
+                    0,
+                    8
+                  ],
+                  [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0,
+                    0,
+                    13,
+                    55,
+                    0,
+                    1134
+                  ]
+                ],
+                "false_positive_rate": 0.02287705476857814,
+                "n_sequences": 175457
+              }
+            }
+          }
+        ],
+        "summary": {
+          "ciciot2023": {
+            "macro_f1_mean": 0.8389867109346424,
+            "macro_f1_std": 0.0035405004990527035,
+            "macro_f1_present_mean": 0.8389867109346424,
+            "macro_f1_present_std": 0.0035405004990527035,
+            "balanced_accuracy_mean": 0.8556294130598886,
+            "balanced_accuracy_std": 0.009671091701110744,
+            "mcc_mean": 0.91938293335228,
+            "mcc_std": 0.0036346309311302673,
+            "false_positive_rate_mean": 0.2928509262712918,
+            "false_positive_rate_std": 0.03299123778791735,
+            "per_class_f1_mean": {
+              "Benign": 0.7039447912863697,
+              "DDoS": 0.9775656949419913,
+              "DoS": 0.9459365008006868,
+              "Mirai": 0.9991943426594432,
+              "Reconnaissance": 0.8872968441327034,
+              "Spoofing": 0.9755201165681385,
+              "BruteForce": 0.5928187863807088,
+              "WebBased": 0.6296166107070978
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Mirai",
+              "Reconnaissance",
+              "Spoofing",
+              "BruteForce",
+              "WebBased"
+            ],
+            "held_out": false,
+            "n_seeds": 3
+          },
+          "ciciomt2024": {
+            "macro_f1_mean": 0.675666308655305,
+            "macro_f1_std": 0.0038721158705982413,
+            "macro_f1_present_mean": 0.9008884115404067,
+            "macro_f1_present_std": 0.005162821160797702,
+            "balanced_accuracy_mean": 0.9057811690243956,
+            "balanced_accuracy_std": 0.004676927476930413,
+            "mcc_mean": 0.7575500949625124,
+            "mcc_std": 0.009780130314704205,
+            "false_positive_rate_mean": 0.02424058783425498,
+            "false_positive_rate_std": 0.0011454986967869855,
+            "per_class_f1_mean": {
+              "Benign": 0.9826822254443636,
+              "DDoS": 0.7791444274261604,
+              "DoS": 0.8048905719167002,
+              "Mirai": 0.0,
+              "Reconnaissance": 0.9781301589488973,
+              "Spoofing": 0.9217278299965788,
+              "BruteForce": 0.0,
+              "WebBased": 0.9387552555097396
+            },
+            "families_present": [
+              "Benign",
+              "DDoS",
+              "DoS",
+              "Reconnaissance",
+              "Spoofing",
+              "WebBased"
+            ],
+            "held_out": false,
+            "n_seeds": 3
+          }
+        }
+      }
+    },
+    "elapsed_seconds": 31750.1
+  }
+}

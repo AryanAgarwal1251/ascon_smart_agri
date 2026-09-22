@@ -36,6 +36,27 @@ PHASES: dict[str, tuple[str, str | None]] = {
     "telemetry": ("Phase 5: telemetry simulation + feature-provenance adapter", None),
     "secure": ("Phase 6: Ascon integration + alerting path", None),
     "run-e2e": ("Phase 7: end-to-end integration", "run_phase7.py"),
+    "aggregator": (
+        "Phase 8: master-GRU aggregator node over the Ascon-sealed weight channel",
+        "run_aggregator.py",
+    ),
+    "client-node": (
+        "Phase 8: local-GRU client node (Raspberry Pi or simulated) over the sealed channel",
+        "run_client_node.py",
+    ),
+    "generalise": (
+        "Phase 9: one corpus per federated client + leave-one-dataset-out (sealed channel)",
+        "run_phase9.py",
+    ),
+    "pi-runtime": (
+        "Phase 8: local-GRU runtime on a Pi: MQTT sensors -> GRU -> TLS cloud / local alert",
+        "run_pi_runtime.py",
+    ),
+    "cloud-receiver": ("Phase 8: demo cloud ingest endpoint (TLS)", "run_cloud_receiver.py"),
+    "virtual-sensor": (
+        "Phase 8: virtual sensor node publishing the ESP32 contract over MQTT",
+        "run_virtual_sensor.py",
+    ),
 }
 
 LIBRARY_ONLY = {

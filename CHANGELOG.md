@@ -23,6 +23,8 @@ memory. Start at [`results/README.md`](results/README.md).
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
 | 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
 | 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → Ascon/alert. G1 held throughout (0 malicious-verdict messages reached the cloud) | Full pipeline run producing a manifest ✅ |
+| 8 | Ascon-protected bidirectional weight exchange on physical hardware | **Steps 1–2 DONE; software twin DONE; 3–5 pending hardware.** Sealed weight channel + networked nodes (gated), and the whole topology as software: MQTT sensor contract, Pi runtime, TLS cloud receiver, ESP32/Wokwi sketch, Docker Compose. Headless end-to-end run: G1 held on the wire (cloud accepted == benign verdicts, 0 malicious). Plans: `docs/plans/phase8-hardware-federation.md`, `docs/plans/phase8-software-twin.md` | Two Pis + simulated third client complete R rounds with every weight frame Ascon-sealed both ways; tamper/replay frames rejected; hardware global model == in-process FedAvg bit-for-bit; local GRU routes on its own verdict with 0 malicious payloads on the cloud path |
+| 9 | Multi-dataset generalisation (CICIoT2023 + CICIoMT2024; Edge-IIoTset registered, not trained on) | **Second design COMPLETE (2026-09-22), mixed result.** Per-corpus scaling fixed the in-distribution collapse (CICIoT2023 0.603 → **0.7742 ± 0.0119** federated, pooled twin **0.8390 ± 0.0035** = Phase 3's single-corpus number) and the driver reproduces Phase 4 (0.8407 ± 0.0150 vs 0.8308). **Leave-one-dataset-out failed: 0.0858 ± 0.0347 on held-out CICIoT2023 (FPR 0.95), 0.1380 ± 0.0485 present-only on held-out CICIoMT2024 (FPR 0.82)** — no transfer to an unseen testbed, reported as a negative result. Manifest `artifacts/manifest_phase9_generalised_percorpus.json`. Prior status: **second design running (2026-09-22).** The first full run (2026-09-21, all three corpora, global scaler, 13 features) gave in-distribution 0.60 / 0.56 / 0.12 and leave-one-dataset-out ≈ 0 -- per-corpus feature scales, and an Edge-IIoTset whose reconstructed windows are near-constant. Decided: Edge-IIoTset `not_for_training`, all 16 features back, per-corpus standardisation, K = 3 across corpora (Dirichlet within one), a pooled-centralised twin on the same windows, LODO over the two corpora, at Phase 4's budget. Plan §5: `docs/plans/phase9-multi-dataset.md` | Each corpus characterised and reconciled with the registry; per-corpus R3 gate green; leave-one-dataset-out results over ≥ 3 seeds |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
 parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
@@ -30,6 +32,445 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 (see the 2026-09-12 Phase 6 entry below), `data/characterize.py` (Phase 1), and
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
+
+## 2026-09-22
+
+### Phase 9 second design: Edge-IIoTset out of training, 16 features back, per-corpus scaling, pooled twin
+
+The user read the 2026-09-21 run (macro-F1 0.83 → 0.60 on CICIoT2023, leave-one-dataset-out
+≈ 0) and asked whether the two added corpora were a good fit. The answer, from the manifests
+and `artifacts/phase9_cache.npz` rather than from memory: the 0.83 → 0.60 drop stacks four
+changes (Phase 3 complete 0.830 → Phase 3 default driver 0.787 → 13-feature intersection
+0.763 → three-corpus federation at R = 10, E = 2, 150k/client 0.603), so the feature cut
+cost 0.024 and the rest was corpus mixing plus an unmatched budget; LODO ≈ 0 with FPR 0.6–0.99
+is a scale mismatch, not a generalisation number. CICIoMT2024 is the right second corpus
+(same extractor family, all 16 features, MQTT floods) once its per-corpus scale is handled;
+Edge-IIoTset is not usable as a network-feature corpus in this form. Decided, implemented:
+
+- **`data/datasets.py`:** `DatasetSpec.not_for_training` (a reason string) and
+  `TRAINING_CORPORA` (every registered corpus without one). Edge-IIoTset carries the measured
+  reason: near-constant reconstructed windows (99 % TCP, 93 % ACK-flagged), 81 % exact
+  duplicates, in-distribution 0.12 macro-F1 / 0.93 FPR on its own split, and the only corpus
+  that cannot supply `Header_Length`, `IAT`, `Time_To_Live`. It stays registered and
+  characterisable; `tests/test_datasets.py` pins the training set to CICIoT2023 + CICIoMT2024.
+- **`configs/generalised.yaml`:** the candidate set is now the full 39-column canonical
+  vocabulary (the CICIoT2023 ∩ CICIoMT2024 intersection), so all 16 Phase 2 features are
+  available again. The 17-column record of the three-corpus run stays in
+  `artifacts/manifest_phase9_generalised.json`.
+- **`scripts/run_phase9.py`** (rewritten): K = `federated.n_clients` allocated across the
+  training corpora (larger corpus gets the extra farm; Phase 4's block Dirichlet inside a
+  corpus; three Dirichlet farms for a single-corpus fold) with client ids `corpus:index`;
+  `--scaling per-corpus` (default; each corpus's farms combine their sufficient statistics
+  into that corpus's scaler, a held-out corpus uses its own training split's label-free
+  statistics) vs `global` (III-F4, the ablation); feature selection on the scaled rows; a
+  `pooled_centralised` twin trained on the concatenation of the *same* capped farm windows
+  for R × E epochs (same sequences, no federation); LODO folds scored on the training
+  corpus's own split too (the single-corpus ceiling at the same budget); seed-major order
+  with `artifacts/<run>_progress.json` rewritten after every run; the cache now carries
+  block ids and refuses a cache built for a narrower candidate list.
+- **`docs/plans/phase9-multi-dataset.md` §5** records the design and the stated expectation
+  before the run. The one third-corpus candidate, CIC IoT-DIAD 2024, was checked the same
+  day: its packet-based set is the IoTDevID per-packet schema and its flow set is
+  CICFlowMeter, so none of the 39 canonical columns appears -- no drop-in third corpus exists
+  in CICIoT2023's feature family, and the training set is the two.
+
+Run completed in 8.82 h; manifest `artifacts/manifest_phase9_generalised_percorpus.json`,
+writeup [`results/phase9_multi_dataset.md`](results/phase9_multi_dataset.md). Dedup-before-split
+held independently on both corpora (`r3_overlap = 0`). 3 seeds, mean ± std:
+
+| experiment | test corpus | macro-F1 | present-only | FPR |
+| --- | --- | --- | --- | --- |
+| in_distribution | CICIoT2023 | 0.7742 ± 0.0119 | 0.7742 ± 0.0119 | 0.3183 ± 0.0182 |
+| in_distribution | CICIoMT2024 | 0.6025 ± 0.0155 | 0.8034 ± 0.0207 | 0.1188 ± 0.1018 |
+| pooled_centralised | CICIoT2023 | 0.8390 ± 0.0035 | 0.8390 ± 0.0035 | 0.2929 ± 0.0330 |
+| pooled_centralised | CICIoMT2024 | 0.6757 ± 0.0039 | 0.9009 ± 0.0052 | 0.0242 ± 0.0011 |
+| lodo/ciciomt2024 | CICIoT2023 (ceiling) | 0.8407 ± 0.0150 | 0.8407 ± 0.0150 | 0.2320 ± 0.0458 |
+| lodo/ciciomt2024 | **CICIoMT2024 held out** | 0.1035 ± 0.0364 | 0.1380 ± 0.0485 | 0.8174 ± 0.0964 |
+| lodo/ciciot2023 | CICIoMT2024 (ceiling) | 0.6778 ± 0.0058 | 0.9038 ± 0.0077 | 0.0095 ± 0.0060 |
+| lodo/ciciot2023 | **CICIoT2023 held out** | 0.0858 ± 0.0347 | 0.0858 ± 0.0347 | 0.9520 ± 0.0433 |
+
+Three of the four comparisons came out as designed and the headline one did not:
+
+- **The rewritten driver reproduces Phase 4.** Trained on CICIoT2023 alone at the same budget
+  it scores 0.8407 ± 0.0150 against Phase 4's 0.8308 ± 0.0150 — within a seed's spread, on a
+  wider candidate vocabulary and a per-corpus scaler. The Phase 9 rework broke nothing.
+- **Per-corpus scaling fixed the in-distribution collapse**, which is what the second design
+  was built to test: CICIoT2023 0.603 → 0.774, CICIoMT2024 present-only 0.562 → 0.803. The
+  **pooled two-corpus twin reaches 0.8390 ± 0.0035, matching Phase 3's single-corpus 0.830** —
+  a model that sees both corpora at once pays nothing for the second.
+- **Mixing costs ≈ 0.066 and federation ≈ 0.065** on CICIoT2023 (ceiling 0.841 → federated
+  two-corpus 0.774 → pooled 0.839).
+- **Leave-one-dataset-out failed.** 0.086 on held-out CICIoT2023 (FPR 0.95) and 0.138
+  present-only on held-out CICIoMT2024 (FPR 0.82), against 0.84 / 0.90 on the corpus each model
+  trained on: the detector flags nearly every benign window of a testbed it has not seen. The
+  plan's pre-registered expectation ("well below, but no longer near zero") was **not met**.
+  Per-corpus standardisation removed the scale offset blamed for the first run's LODO ≈ 0 and
+  the number did not move, so that explanation was incomplete; the residual gap is shift in the
+  features themselves. Reported, not tuned away (R4, III-J). What Phase 9 can claim is
+  generalisation across farms and across two jointly-seen testbeds, **not** transfer to an
+  unseen one; cross-testbed transfer needs domain adaptation or corpus-invariant features,
+  neither in scope.
+
+## 2026-09-21
+
+### Phase 9: CICIoMT2024 and Edge-IIoTset are on disk; two characterisation bugs fixed on first contact
+
+The two new corpora landed (both gitignored under `data/`): CICIoMT2024 `WiFI_and_MQTT/attacks/
+CSV/{train,test}` complete (51 + 21 files, every file checked to end with a newline; not
+`profiling/`, `PCAP/` or `Bluetooth/`, which the plan and the registry exclude), and
+Edge-IIoTset `DNN-EdgeIIoT-dataset.csv` (63 columns, 1.2 GB). Running `asa characterize
+--dataset edge_iiotset` on real data, the first time the Phase 9 scan met a corpus that was not
+synthetic, exposed two defects in the scan itself:
+
+- **Per-chunk dtype inference broke cross-chunk reductions.** `pd.read_csv(chunksize=...)`
+  infers each column's dtype per chunk, so Edge-IIoTset's `arp.dst.proto_ipv4` (the placeholder
+  `0` for most rows, an IP address for the rest) came back `int64` from one chunk and `object`
+  from the next, and the cross-chunk `min()` died with `TypeError: '<=' not supported between
+  instances of 'str' and 'int'`. Had the string rows come first the float moment block would
+  have died instead. `characterize_dataset` now runs a probe pass (`_text_columns`) that
+  settles every column's type corpus-wide -- text iff any non-null value fails to parse as a
+  number -- and reads those columns as `str` in the real scan, so the report no longer depends
+  on where a chunk boundary falls. The committed CICIoT2023 reports are unaffected (no column
+  there is mixed).
+- **A placeholder collision split across chunks was invisible.** `placeholder_collisions` only
+  flagged a column when both spellings occurred *within one chunk*, and the scan unioned those
+  per-chunk verdicts -- so `"0"` in one source file and `"0.0"` in another, which is exactly
+  the file-provenance pattern the check exists to catch, went unreported. New
+  `datasets.placeholder_spellings` returns what each chunk contains; the scan unions it over
+  the corpus and judges the collision at the end. `placeholder_collisions` is now a thin
+  wrapper over it and keeps its contract for single frames.
+- `tests/test_characterize.py`: a regression test with a mixed `0`/IP/`0.0` column and a
+  two-row chunk size covering both defects.
+
+Both corpora characterised on the fixed scan (reports at
+`artifacts/phase1_characterization_report_{ciciomt2024,edge_iiotset}.json`) and reconciled with
+the registry — plan §3 step 1 is done; the findings are recorded in the plan. What the real
+file changed in code:
+
+- **CICIoMT2024 is the drop-in the plan predicted:** 19/19 labels in the taxonomy, 16/16
+  selected features through `harmonise_columns`, no text columns, no collisions.
+- **Edge-IIoTset's placeholder artefact is real and neutralised:** 17 columns collide on
+  `"0"`/`"0.0"` over the raw file; 0 after `normalise_placeholders`, verified over all 2.2 M
+  rows (the file is class-sorted, so nothing short of a full scan proves it).
+- **`packet_windows.edge_iiotset_packets`, reconciled against the file:** (i) a missing
+  `tcp.flags` (a normalised placeholder on every non-TCP packet) reached the hex parser as a
+  float under pandas 3 and crashed; parsed with `na_action="ignore"` now. (ii) `udp.port` is
+  the placeholder on every `DDoS_UDP` row; `udp.stream` is what marks a UDP packet, so the
+  derivation now takes either. (iii) **`frame.time` is the literal `"6.0"` on every `DDoS_UDP`
+  and `MITM` row** — two classes with no time base, so `IAT`/`Rate` would be `NaN`/`0` for
+  exactly those windows, a class marker. User decision: drop the two *features* for this
+  corpus, not the two classes (MITM exists in no other corpus). `PacketColumns.time_s` is now
+  optional and `aggregate_packet_windows` emits no `IAT`/`Rate` without it; the harmoniser
+  reports them missing. Edge-IIoTset supplies **12/16** selected features (`Header_Length`,
+  `Time_To_Live`, `Protocol Type`, `IAT` missing; nothing imputed).
+- Verified on a stratified 249 k-packet slice of the real file: normalise → packets → 24.9 k
+  windows of 10 → harmonise, 0 NaN, 0 collisions, per-class TCP/UDP shares physically sensible.
+- `tests/test_datasets.py`: two new tests (derivation after placeholder normalisation with the
+  real `udp.port`/`udp.stream` pattern; aggregation without a time base reports `IAT` missing).
+
+### Phase 9 step 4 first: the cost of the cross-corpus feature intersection, measured
+
+The user's direction: the model must work *generally*, not just on CICIoT2023. The question
+that decides the design is what restricting to the features every corpus supplies costs on
+the corpus the project was built on. Answered before any federation code:
+
+- `packet_windows.edge_iiotset_packets` now derives the **IP protocol number** (6/17/1 from
+  the TCP, UDP and `icmp.checksum` markers, 0 for non-IP such as MITM's ARP), so `Protocol
+  Type` (the window mode) is no longer missing for Edge-IIoTset: **13 of the original 16**
+  selected features are cross-corpus.
+- `features.candidate_columns` (config, `FeatureConfig`) + `selection.restrict_candidates`:
+  a **Stage 0** that limits the universe the four stages select from. `None` = the
+  single-corpus runs of Phases 2-7, unchanged. A listed column the corpus lacks raises, never
+  imputed. Wired into `run_phase3`, `run_phase3_complete`, `run_phase4`, `run_phase7`.
+- `configs/generalised.yaml`: `default.yaml` with the intersection as candidates. The
+  intersection, computed from the real files: CICIoT2023 and CICIoMT2024 supply 39 canonical
+  columns each, Edge-IIoTset's windows 18. `Number` is excluded (fixed at the window size for
+  Edge-IIoTset by construction, so a testbed marker), leaving 17 candidates.
+- **Ablation, `artifacts/manifest_phase3_generalised.json`** — Phase 3 centralised GRU on
+  CICIoT2023, 3 epochs × 3 seeds, W=16, identical split (1,222,009 / 296,750 sequences),
+  against `manifest_phase3_default.json`. Stage 2's Spearman prune collapses the 17 to
+  **F = 13** (`AVG`≈`Tot size`, `Std`≈`Variance`, `*_count`≈`*_flag_number`):
+
+  | metric | F=16 (default) | F=13 (intersection) | Δ |
+  | --- | --- | --- | --- |
+  | macro-F1 | 0.7866 ± 0.0199 | 0.7629 ± 0.0098 | −0.024 |
+  | balanced accuracy | 0.8660 ± 0.0084 | 0.8380 ± 0.0045 | −0.028 |
+  | MCC | 0.8532 ± 0.0097 | 0.8407 ± 0.0070 | −0.013 |
+  | binary FPR | 0.2573 ± 0.0612 | 0.3059 ± 0.0757 | +0.049 |
+
+  Per class, the loss is concentrated where the three dropped features carried the signal:
+  BruteForce 0.51 → 0.40, Benign 0.70 → 0.67; the flood families are within a point. So the
+  cost of generality on CICIoT2023 is **about 2.4 macro-F1 points, ~1.2 baseline σ** — real,
+  but small next to what the intersection buys (MITM, injection, ransomware, MQTT floods,
+  which CICIoT2023 cannot teach at all). Reported next to the generalisation results, never
+  instead of them.
+
+### Phase 9 steps 2-6: the generalised detector -- `asa generalise`
+
+The user's direction, verbatim in spirit: the GRU must not be good on one dataset only, it
+must be good *generally*. This entry is the build that measures that.
+
+- `data/corpus.py` (new): `load_corpus(spec, ...)` -- one registered corpus in, one
+  harmonised, leaf-labelled frame out (canonical columns the corpus actually supplies +
+  `label` + `source_file`), ready for `dedup -> make_blocks -> stratified_block_split`
+  unchanged. Window corpora go through the Phase 2 capped subsample (`subsample.py` gained a
+  `label_from_path`/`parts` hook so CICIoMT2024's `_train`/`_test` filenames label correctly;
+  the CICIoT2023 default is untouched); Edge-IIoTset goes text -> `normalise_placeholders`
+  -> `edge_iiotset_packets` -> `aggregate_packet_windows` -> per-leaf cap on *window* rows,
+  so the cap means "rows the model sees" for every corpus. `SequenceConfig.window_packets`
+  (10) is the knob.
+- `federated/server.py`: **`SealedFederatedServer`** -- the Phase 4 round with the Phase 8
+  channel on every exchange: each client seals `(theta_k, n_k)` under its `k_up`, the
+  aggregator opens it (a frame that opens to bottom is *dropped*: weight 0 that round), and
+  seals the new global back per client under `k_down`; a client trains from what it last
+  authenticated. `run_federation(..., sealed=(client_ids, keys))` selects it.
+  `tests/test_sealed_server.py`: bit-for-bit equal to the plain server over 3 rounds; a
+  tampered client's frames are dropped and the aggregate equals a federation without it.
+- `scripts/run_phase9.py` / **`asa generalise`**: per corpus, load -> dedup -> block split
+  -> **R3 gate** (raises on any shared hash); selection over `candidate_columns` fitted on
+  the *training* corpora of each experiment only; global scaler from client sufficient
+  statistics; **one corpus per client** (client id = corpus name); two experiments over
+  >= 3 seeds -- `in_distribution` (K = 3, scored on every corpus's own test split) and
+  `lodo/<held-out>` (K = 2, scored on the held-out corpus's test split, the same
+  sequences). Reports `macro_f1` (C = 8, absent families score 0) **and**
+  `macro_f1_present` (families present in that split -- CICIoMT2024 has no Mirai or
+  BruteForce, Edge-IIoTset no DoS or Mirai). Budget flags `--rounds/--local-epochs/
+  --sequence-cap`; `--cache` holds the prepared corpora so a re-run with another budget
+  skips loading. `tests/test_corpus.py` covers the loader on synthetic files shaped like the
+  real ones.
+- Data facts from the real run, recorded in the manifest: CICIoT2023 1,772,371 -> 1,549,531
+  after dedup; CICIoMT2024 924,291 -> 920,523; **Edge-IIoTset 130,351 windows -> 24,753
+  (81 % exact duplicates)** -- with only `tcp.len` and flag bits per packet, flood windows
+  are identical rows, so Edge-IIoTset is a small client by construction. R3 overlap 0 on all
+  three.
+
+**First full run, `artifacts/manifest_phase9_generalised.json`** (R = 10, E = 2, 150k
+sequences/client, 3 seeds; Phase 4's budget was R = 20, E = 3, uncapped, so the
+in-distribution numbers are a lower budget than Phase 4's 0.83 and the CICIoT2023 curve was
+still rising at round 10). Macro-F1 over families present in the test split, mean ± std:
+
+| experiment | test corpus | macro-F1 (present) | FPR |
+| --- | --- | --- | --- |
+| in_distribution (K = 3) | CICIoT2023 | 0.603 ± 0.001 | 0.19 |
+| in_distribution (K = 3) | CICIoMT2024 | 0.562 ± 0.032 | 0.37 |
+| in_distribution (K = 3) | Edge-IIoTset | 0.118 ± 0.022 | 0.93 |
+| lodo (train MT+Edge) | CICIoT2023 | 0.064 ± 0.011 | 0.58 |
+| lodo (train IoT+Edge) | CICIoMT2024 | 0.265 ± 0.056 | 0.92 |
+| lodo (train IoT+MT) | Edge-IIoTset | 0.092 ± 0.022 | 0.99 |
+
+**Reading, stated plainly.** (i) The federation trains: the two large clients reach usable
+in-distribution scores under a reduced budget, and the sealed channel carried every frame
+(0 dropped). (ii) The small client is swamped: Edge-IIoTset holds 19,372 of 319,373 training
+sequences (6 % of the Eq. 21 weight) and the global model does not fit it -- 81 % of its
+benign windows are called Spoofing. (iii) **Leave-one-dataset-out is near zero on every
+fold, and the per-round curves are flat**, so this is not a budget problem: a model trained
+on two testbeds does not recognise the third's traffic, benign included (FPR 0.58-0.99). The
+"testbed shortcut" the plan warned about is not a risk, it is the dominant signal.
+(iv) The cache shows why, feature by feature: the *same canonical column* lives on different
+scales per corpus -- `ack_count` median 2 / 0 / 10 and std 27 / 0.3 / 1.4 across
+CICIoT2023 / CICIoMT2024 / Edge-IIoTset; `Protocol Type` is integer protocol numbers in two
+corpora and fractional values (0.1, 0.2, ...) in CICIoMT2024, i.e. a mean, not a mode;
+benign `Tot sum` medians 1.8k / 1.1k / 6.5k. The "same extractor" claim for CICIoMT2024
+holds for column *names* and not for column *values*. No harmonisation by renaming can fix
+that, and the global (pooled-equivalent) scaler of III-F4 cannot either: it standardises the
+union, so each corpus keeps its own offset and the model reads the offset as the label.
+The negative result is the honest generalisation number and is recorded as such; the
+follow-ups (per-client standardisation or rank features -- a design change to III-F4;
+re-verifying CICIoMT2024's feature semantics against its README; the plan's stretch item,
+one extractor over raw pcaps) are the user's call and are listed in the plan.
+
+**Follow-up decided the same day** (user: "do what you think is best"): `run_phase9.py
+--scaling per-client` -- each client standardises with its own training statistics, and a
+test corpus with the statistics of its own training split (for a held-out LODO corpus, the
+label-free feature statistics a new farm would compute over its own traffic before running
+the model; no test row, no label). This departs from III-F4's single global scaler and the
+paper absorbs it if the result is kept. Queued at the Phase 4 budget (R = 20, E = 3, 400k
+sequences per client ≈ Phase 4's per-client load) behind the empirical K sweep; manifest
+`manifest_phase9_generalised_perclient.json` when it lands.
+
+### Phase 4 extension: the empirical client-count sweep, finally run
+
+`scripts/run_k_sweep.py --k-values 3,5,10,20,30,50` at Phase 4's exact budget on the Phase 4
+cache, so K = 3 reproduces `manifest_phase4_default.json` and every point is read against
+the 0.8543 centralised ceiling. The analytical prediction it tests
+(`artifacts/k_threshold_analysis.json`): K* ≈ 48 at α = 0.5, BruteForce pigeonholed past
+K = 42, communication break-even with the paper's pooling figure at K = 51. Results below when
+the run completes; an α ∈ {0.1, 100} pass around the knee follows.
+
+## 2026-09-19
+
+### Phase 8 Steps 1–2: the Ascon-sealed weight channel and networked federation nodes
+
+The weight exchange between each local GRU and the master GRU is now Ascon-AEAD128 sealed in
+both directions, and the federation runs as separate processes over TCP.
+
+- `crypto/ascon_aead.py`: `WeightAssociatedData` `⟨client_id, round, direction,
+  schema_version⟩` with its own `fmt_version` byte (0x02), so a telemetry AD and a weight AD are
+  mutually unparseable by construction.
+- `federated/transport.py` (new): `WeightSealer`/`WeightOpener` and the `ClientChannel` /
+  `AggregatorChannel` pairs. Frame = `magic ‖ nonce ‖ L(ad) ‖ ad ‖ ciphertext‖tag`; plaintext is
+  the existing safetensors blob, so `n_k` is authenticated too. One key per client per
+  direction, so every key has exactly one encrypting process and the nonce registry's
+  zero-reuse guarantee is structural. `open()` returns `⊥` for a bad tag, malformed frame,
+  foreign client, wrong direction, wrong schema, or a round other than the one expected;
+  a replayed round-r frame is dead once round r completes. Demo keys are written as a
+  labelled JSON file that `load_keys` refuses without the label; `keys/` is gitignored.
+- `federated/node.py` (new): `AggregatorNode` (threaded TCP server with a per-round barrier;
+  a frame that fails to open is dropped with no reply and logged locally) and `ClientNode`
+  (train → seal → send → open → repeat; retries a dropped connection with the same round's
+  frame, which is safe because the frame is bound to that round). **Round 0 is the scaler
+  exchange over the same channel**: each client seals `(count, mean, M2)`; the aggregator
+  combines with Chan's formula and seals `(mean, std)` back. The initial global state is
+  derived from the run seed on every node, never transmitted.
+- `federated/cache_partition.py` (new): one client's unscaled partition from the Phase 4 cache
+  with the shared Dirichlet draw, plus `sequence_cap` (capture order, no shuffle) for Pi-class
+  compute — documented as a simulation convenience.
+- `scripts/run_aggregator.py`, `scripts/run_client_node.py`; `asa aggregator`, `asa client-node`.
+  Both refuse to run unless the Ascon KAT passes, and write manifests with per-round byte
+  counts, timings and the rejection log.
+- Tests (all gating): `test_weight_channel.py` (22: bit-exact roundtrip incl. `n_k`, FedAvg over
+  the channel == in-process, single-bit tamper in every region → `⊥` with nothing applied,
+  truncation/foreign protocol/wrong key, replay into same and next round, uplink reflected as
+  downlink, foreign client, schema mismatch, 100 sealed frames with 100 distinct nonces, key
+  file label enforcement) and `test_node_loopback.py` (2: three client threads + aggregator
+  over loopback reproduce `FederatedServer` **bit-for-bit** including the sealed scaler round;
+  a tampering proxy on the wire → one rejection, nothing applied, client recovers).
+- Verified by hand, not committed as a result: four processes over loopback on the real
+  `artifacts/phase4_cache.npz` (cap 5,000 sequences, R=2, E=1) — scaler round carried the true
+  per-client row counts 297,067 / 473,352 / 467,492 (identical to Phase 4's manifest), each
+  sealed weight frame was 135,917 B (≈ 0.05 % over the 135 KB plaintext, against 33 % for
+  96-byte telemetry), zero rejections. The manifests were deleted so a smoke run does not sit
+  in `artifacts/` looking like a finding.
+- Measured while testing: the vendored pure-Python Ascon costs ≈ 0.5 s per 135 KB seal on
+  this laptop. Fine per round; the Pi figure is a plan §7 deliverable.
+
+### Phase 8 software twin: the whole hardware topology simulated before any hardware exists
+
+The user was asked to simulate the entire setup in software first. No free online tool
+simulates a Linux Pi and an ESP32 together, so it is split into three free layers (Wokwi for
+the ESP32, Docker Compose for Pis/laptop/cloud, QEMU optional for the OS image) — see
+`docs/plans/phase8-software-twin.md`. Docker is not installed on the development machine, so
+the compose file is validated structurally and by a headless process-level run, not by
+`docker compose up`; that run is the user's.
+
+- **Sensor contract** (`telemetry/mqtt_source.py`, new): `farm/<farm>/sensor/<device>` JSON with
+  a monotonic `seq`, plus `farm/<farm>/scenario`. Parses, orders, drops replays/malformed/
+  foreign messages, tracks per-device scenario. Driven by an injected fake client in tests;
+  `paho-mqtt` (new dependency) only for a real broker.
+- **Scenario-restricted provenance** (`telemetry/provenance.py`): `network_features_for(...,
+  scenario=)` draws from the benign-only or attack-only held-out pool with the same fixed
+  permutation discipline; refuses (never synthesises) when no such records exist. G6 unchanged.
+- **TLS benign path** (`routing/tls_path.py`, new): `ReadingEnvelope`, `TlsVerdictRouter`
+  (only holder of the transport; alert sink never sees one), `HttpsCloudClient`,
+  `CloudReceiverServer` (HTTPS or plain HTTP, per-device `ReplayGuard`, `/readings`, `/stats`).
+  The Phase 6/7 Ascon-on-telemetry modules are untouched and their tests still run.
+- **Scripts / CLI**: `asa pi-runtime` (MQTT or `--source sim` → provenance → windows → the
+  global GRU the node received → Eq. 5 → TLS cloud / local alert; per-stage latency; manifest
+  tagged `platform`), `asa cloud-receiver` (`--generate-cert` for a self-signed demo cert),
+  `asa virtual-sensor` (the ESP32 contract from Python, with a scripted attack switch);
+  `asa client-node` now saves its final model + scaler for the runtime and takes `--platform`.
+- **Firmware** `firmware/esp32_sensor/` (`.ino`, Wokwi `diagram.json`, libraries, README):
+  DHT22 + moisture probe → MQTT; subscribes to the scenario topic; readings never change.
+- **Docker** `docker/Dockerfile` (python:3.12-slim, arm64 by default, CPU torch),
+  `docker/mosquitto.conf`, `docker/init-secrets.sh` (one-shot demo keys + cert into volumes),
+  `docker-compose.yml` (init-secrets, aggregator, cloud-receiver, two farm brokers, pi-1,
+  pi-2, sim-3, two virtual-sensor services), `.dockerignore`.
+- **Tests**: `test_mqtt_source.py` (7), `test_tls_path.py` (6, gating: malicious-only run
+  emits nothing; alert sink holds no transport; real HTTP round-trip with replay rejection),
+  `test_software_twin.py` (compose references only registered subcommands; topology matches
+  the plan; `docker compose config` when Docker exists; headless end-to-end run when the
+  Phase 4 cache exists — asserts cloud accepted == benign verdicts, 0 rejected, alerts ==
+  malicious verdicts, and the scenario switch reached the adapter).
+- Verified by hand on loopback (`platform=laptop-loopback-smoke`, manifests deleted
+  afterwards): 1 sealed round with 3 clients, 136,410 B/frame, 0 rejections; then 240
+  readings with an attack switch at 120 → 76 benign → cloud accepted 76, 119 malicious → 119
+  alerts, 0 at the cloud.
+
+### `scripts/fetch_ciciomt2024.py`: resumable, selective download of the WiFi/MQTT CSVs
+
+The user's connection is slow and the UNB listing has one link per file (the TCP/IP floods
+alone are ~40 numbered parts). The script reads the listing page, keeps every un-numbered
+file plus **part 1** of each numbered flood family (the subsampler's per-class cap means
+parts 2+ would never be read), and downloads with ``curl -C -`` so an interrupted transfer
+resumes. ``--all`` fetches everything; ``--dry-run`` lists. The listing's filenames
+(``TCP_IP-DDoS-ICMP1_train.pcap.csv``) confirm the spelling the taxonomy and
+``label_from_ciciomt2024_filename`` were written for. Test: selection rule + every kept name
+resolves to a known leaf.
+
+### Phase 9 scaffolding: multi-dataset generalisation (data not yet downloaded)
+
+The user lifted the "CICIoT2023 only" rule: the detector must generalise across two to three
+IoT intrusion corpora. Chosen after verification: **CICIoMT2024** (same UNB extractor, 44
+columns shared; WiFi/MQTT part only) and **Edge-IIoTset** (agriculture sensors over MQTT; 14
+attacks; per-packet Wireshark rows; a documented `"0"`/`"0.0"` provenance artefact, arXiv
+2608.15761). Everything below is written from the published documentation and tested on
+synthetic frames shaped like it; **it is not validated on the real files**, and
+`docs/plans/phase9-multi-dataset.md` §3 says what to reconcile first.
+
+- `data/datasets.py` (new): `REGISTRY` of `DatasetSpec`s; `CANONICAL_COLUMNS` (CICIoT2023's 39
+  raw columns) and `SELECTED_COLUMNS` (Phase 2's 16); `harmonise_columns` (aliases, identifier
+  drops, never invents a column — gaps reported as `missing_canonical`);
+  `normalise_placeholders` / `placeholder_collisions` for the artefact.
+- `data/taxonomy.py`: `CICIOMT2024_LEAF_TO_FAMILY` (19) and `EDGE_IIOTSET_LEAF_TO_FAMILY` (15)
+  into the fixed C=8 families; `to_family` / `to_class_index` take an optional map, default
+  unchanged. Judgement calls documented in the module.
+- `data/packet_windows.py` (new): `aggregate_packet_windows` (windows never cross a label
+  change or a source file; partial tail windows dropped; only supplied ingredients produce
+  columns) and `edge_iiotset_packets` (derives length/flags/transport from the documented
+  Wireshark columns; fails loudly on an unexpected layout).
+- `data/characterize.py`: optional `parts`/`label_of` so a registered corpus is scanned with its
+  own discovery and label derivation; new `placeholder_collisions` report field.
+  `scripts/run_phase1.py --dataset <name> [--root PATH]` → `asa characterize --dataset …`.
+  Verified on synthetic CICIoMT2024 and Edge-IIoTset trees: labels derived from filenames /
+  the `Attack_type` column, and the artefact warning fires.
+- `tests/test_datasets.py` (18 tests) and `tests/test_taxonomy.py` (error message generalised).
+- **Reconciled against the CICIoMT2024 README (same day).** Its WiFi/MQTT feature table lists
+  39 features whose names and definitions are the CICIoT2023 raw vocabulary verbatim — the
+  "44 of 47" figure from the literature search referred to the Kaggle-era CICIoT2023 columns,
+  not the raw distribution this project uses. Consequences: the guessed `Duration → Time_To_Live`
+  alias was removed; `datasets.canonical_name` maps any spelling ("Header Length",
+  "Time-To-Live", "Tot Sum") onto the canonical name, so the CSV header spelling no longer
+  needs guessing; `discover_parts` gains `exclude_dirs` and CICIoMT2024 skips `profiling/`,
+  `Bluetooth/` and `PCAP/`; the TCP/IP flood leaves are mapped under both the filename
+  (`TCP_IP-DDoS-ICMP`) and README-chart (`DDoS-ICMP`) spellings. `packet_windows.py` now
+  follows the README's definitions — Header_Length is a mean (was sum), Protocol Type the
+  window mode (was mean), and `Rate` (packets/s) is produced. Tests: 22 in `test_datasets.py`,
+  including one asserting the README table maps onto `CANONICAL_COLUMNS` exactly.
+
+Repo bookkeeping: `CLAUDE.md` phase list (8 status, 9 added), commands, invariants (sealed
+weights; placeholder collisions; harmonisation never invents), and the dataset scope line.
+Full gate set green: ruff, ruff-format, mypy (50 files), vulture, 390 tests, pre-commit.
+
+## 2026-09-18
+
+### Architecture redirect: Ascon now protects the weight exchange, and the paper follows the architecture
+
+The user redefined the system and stated that the design paper is no longer the authority;
+it will be amended to match. The new specification, recorded in
+`docs/plans/phase8-hardware-federation.md`: per-farm ESP32 sensors feed a **local GRU** on a
+Raspberry Pi; local GRUs are clients of a **master (federated) GRU** on a laptop; the
+**model weights are Ascon-AEAD128 encrypted in both directions** (local → master update,
+master → local global state) because that exchange crosses the untrusted IoT network; the
+**local GRU takes the benign/malicious decision** with the weights it receives back and is the
+only party that talks to the cloud. The plan fixes per-client per-direction keys, an
+authenticated-data layout `⟨client_id, round, direction, schema_version⟩`, a length-prefixed TCP
+frame protocol, the module/test list, and the Pi feasibility constraints (Python ≥ 3.12 rules
+out Pi OS Bookworm; cap per-client sequences for the hardware run).
+
+Changed in this piece of work: `CLAUDE.md` golden rule 1 (architecture overrides the paper),
+the phase list (Phase 8 added), the invariants (weights cross the network only Ascon-sealed),
+and the out-of-scope line (physical hardware is in scope as the Phase 8 demo nodes). No source,
+test, or config was touched; the phase-status table gains a "Planned, not started" Phase 8 row.
+Assumption still to confirm with the user, written into the plan: ESP32 "attacks" are
+**scenario-triggered replay** of held-out CICIoT2023 records (option A) rather than live traffic.
+
+**2026-09-19 follow-up:** the user confirmed Ascon on the weight channel is definite (both
+directions, so a hacker manipulating weights is detected and rejected), and asked which cloud-hop
+option is better. Decision: the Pi → cloud hop uses **plain TLS** and Ascon is *not* layered
+under it — one cipher per hop, matching real-world practice, keeping the project's security claim
+on the weight channel alone. The cloud receives the benign reading, never a verdict; the
+benign/malicious routing and the path-disjointness test are unchanged. The plan doc was updated
+to match (§1, §3, §4, §5, §8).
 
 ## 2026-09-16
 

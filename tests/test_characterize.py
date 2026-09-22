@@ -102,3 +102,29 @@ def test_characterize_raises_on_mismatched_columns(tmp_path: Path) -> None:
 def test_characterize_raises_when_no_csv_found(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         characterize_dataset(tmp_path, chunk_size=100)
+
+
+def test_characterize_column_types_are_settled_corpus_wide(tmp_path: Path) -> None:
+    # Edge-IIoTset's ``arp.dst.proto_ipv4``: the placeholder ``0`` for most rows, an IP address
+    # for the rest. With per-chunk dtype inference the first chunk is int64 and a later one is
+    # object, and the cross-chunk ``min`` raised ``TypeError: '<=' not supported between
+    # instances of 'str' and 'int'``. The column must be text everywhere, the numeric
+    # column next to it must stay numeric, and the mixed one must stay out of the
+    # correlation matrix.
+    header = "arp,f1,label"
+    _write_csv(
+        tmp_path / "a.csv",
+        ["0,1,benign", "0,2,benign", "0,3,benign", "192.168.0.7,4,attack", "0.0,5,attack"],
+        header,
+    )
+
+    report = characterize_dataset(tmp_path, chunk_size=2)
+
+    assert report.n_records == 5
+    assert report.columns["arp"] in ("object", "str")  # pandas < 3 / >= 3 spelling
+    assert report.columns["f1"] == "int64"
+    assert "arp" not in report.correlation_matrix
+    assert "f1" in report.correlation_matrix
+    assert "arp" not in report.zero_variance_columns
+    # Read as text, both spellings of the placeholder are seen exactly as the file has them.
+    assert report.placeholder_collisions == {"arp": ["0", "0.0"]}

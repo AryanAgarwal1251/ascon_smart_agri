@@ -1,0 +1,4 @@
+# Wokwi / Arduino library manager
+PubSubClient
+DHT sensor library
+ArduinoJson

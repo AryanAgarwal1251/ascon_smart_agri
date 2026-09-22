@@ -29,7 +29,7 @@ from ascon_smart_agri.data.taxonomy import BENIGN_CLASS_INDEX, CLASS_NAMES, to_c
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
 from ascon_smart_agri.eval.metrics import binary_metrics, multiclass_metrics
 from ascon_smart_agri.eval.report import format_seed_summary, mean_std, near_ceiling_note
-from ascon_smart_agri.features.selection import FeatureSelector
+from ascon_smart_agri.features.selection import FeatureSelector, restrict_candidates
 from ascon_smart_agri.model.train import predict, train_centralized
 from ascon_smart_agri.sequences.windowing import build_windows, contiguity_segments
 
@@ -72,7 +72,7 @@ def main() -> None:
 
     selector = FeatureSelector()
     selection = selector.fit(
-        train_frame.drop(columns=["label"]),
+        restrict_candidates(train_frame.drop(columns=["label"]), cfg.features.candidate_columns),
         train_frame["label"],
         tau=cfg.features.correlation_tau,
         f=cfg.features.selected_f,

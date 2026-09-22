@@ -72,7 +72,8 @@ from torch import nn
 from .._types import Array
 from ..federated.client import FederatedClient
 from ..federated.serialization import StateDict
-from ..federated.server import FederatedServer
+from ..federated.server import FederatedServer, SealedFederatedServer
+from ..federated.transport import ChannelKeys
 from ..model.gru import build_detector, expected_param_count
 from ..model.train import predict, train_centralized, train_module
 from .metrics import MulticlassMetrics, multiclass_metrics
@@ -340,11 +341,14 @@ def run_federation(
     device: str = "cpu",
     evaluate_each_round: bool = False,
     verbose: bool = False,
+    sealed: tuple[list[str], dict[str, ChannelKeys]] | None = None,
 ) -> FederatedRun:
     """Run R rounds of Algorithm 1 over K clients and score the final global model.
 
     ``evaluate_each_round`` costs one extra prediction pass per round and is off by default;
-    the runner turns it on to record the convergence curve.
+    the runner turns it on to record the convergence curve. ``sealed = (client_ids, keys)``
+    runs the rounds through :class:`SealedFederatedServer` (Phase 9): every parameter vector
+    crosses as an Ascon frame, as on the Phase 8 hardware.
     """
     _check_partitions(client_seqs, client_y)
     if rounds <= 0:
@@ -376,7 +380,12 @@ def run_federation(
         )
         for client_id, (seqs, labels) in enumerate(zip(client_seqs, client_y, strict=True))
     ]
-    server = FederatedServer(clients, aggregation=aggregation)
+    server: FederatedServer
+    if sealed is None:
+        server = FederatedServer(clients, aggregation=aggregation)
+    else:
+        client_ids, keys = sealed
+        server = SealedFederatedServer(clients, client_ids, keys, aggregation=aggregation)
 
     final_model = build_detector(n_features, hidden_size, n_classes)
 

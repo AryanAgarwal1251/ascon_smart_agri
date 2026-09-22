@@ -20,6 +20,7 @@ Current test suite: **344 passed, 0 skipped**, all lint/type/dead-code gates gre
 | 5 | [Telemetry + provenance](phase5_telemetry_and_provenance.md) | ✅ Done | G6 verified: 0 leaked into training index across 200+ checks |
 | 6 | [Ascon + alerting](phase6_ascon_and_alerting.md) | ✅ Done — zero skips | G1 holds: 0 malicious-verdict payloads ever reached the cloud |
 | 7 | [End-to-end integration](phase7_end_to_end_integration.md) | ✅ Done | Real model, real pipeline, real routing — G1 holds in the assembled loop |
+| 9 | [Multi-dataset generalisation](phase9_multi_dataset.md) | 🔄 Second run in progress | First run: LODO ≈ 0 was a scale artefact, not a finding; second design (CICIoT2023 + CICIoMT2024, per-corpus scaling) running |
 
 ## How to read each phase file
 

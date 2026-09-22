@@ -40,7 +40,7 @@ from ascon_smart_agri.eval.baselines import (
 )
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
 from ascon_smart_agri.eval.report import mean_std
-from ascon_smart_agri.features.selection import FeatureSelector
+from ascon_smart_agri.features.selection import FeatureSelector, restrict_candidates
 from ascon_smart_agri.sequences.windowing import build_windows, contiguity_segments
 
 print = functools.partial(builtins.print, flush=True)
@@ -93,7 +93,9 @@ def main() -> None:
 
         selector = FeatureSelector()
         selection = selector.fit(
-            train_frame.drop(columns=["label"]),
+            restrict_candidates(
+                train_frame.drop(columns=["label"]), cfg.features.candidate_columns
+            ),
             train_frame["label"],
             tau=cfg.features.correlation_tau,
             f=cfg.features.selected_f,

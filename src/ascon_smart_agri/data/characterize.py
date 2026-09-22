@@ -45,7 +45,8 @@ bounded regardless of corpus size (R1):
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -66,6 +67,10 @@ class CharacterizationReport:
     label_counts: dict[str, int]
     imbalance_ratio: float  # max class count / min class count (Section II-C)
     correlation_matrix: dict[str, dict[str, float]]  # Pearson, numeric columns only
+    # Text columns whose "absent" value is spelled more than one way (e.g. "0" and "0.0"):
+    # the Edge-IIoTset provenance artefact (see data/datasets.py). Must be empty before any
+    # corpus is trained on; the multi-dataset path neutralises it and this proves it did.
+    placeholder_collisions: dict[str, list[str]] = field(default_factory=dict)
 
 
 def _discover_csv_parts(dataset_root: Path) -> list[Path]:
@@ -75,9 +80,46 @@ def _discover_csv_parts(dataset_root: Path) -> list[Path]:
     return parts
 
 
-def characterize_dataset(dataset_root: Path, chunk_size: int) -> CharacterizationReport:
-    """Scan the raw CICIoT2023 CSV parts in fixed-size chunks and report the facts above."""
-    parts = _discover_csv_parts(dataset_root)
+def _text_columns(parts: list[Path], chunk_size: int) -> set[str]:
+    """Columns holding at least one non-null value that does not parse as a number.
+
+    ``pd.read_csv(chunksize=...)`` infers every column's dtype per chunk, so a column that is
+    ``0`` for a million rows and an IP address afterwards (Edge-IIoTset's ``arp.*.proto_ipv4``)
+    comes back ``int64`` from one chunk and ``object`` from the next, and any reduction across
+    chunks -- ``min``, the float moment block -- then fails or depends on the chunk boundary.
+    This probe settles the type once, corpus-wide, so the scan can read those columns as text.
+    """
+    text: set[str] = set()
+    for part in parts:
+        for chunk in pd.read_csv(part, chunksize=chunk_size, dtype=str):
+            for col in chunk.columns:
+                if col in text:
+                    continue
+                values = chunk[col].dropna()
+                if values.empty:
+                    continue
+                if pd.to_numeric(values, errors="coerce").isna().any():
+                    text.add(str(col))
+    return text
+
+
+def characterize_dataset(
+    dataset_root: Path,
+    chunk_size: int,
+    *,
+    parts: list[Path] | None = None,
+    label_of: Callable[[Path, pd.DataFrame], pd.Series[str]] | None = None,
+) -> CharacterizationReport:
+    """Scan the CSV parts in fixed-size chunks and report the facts above.
+
+    ``parts`` and ``label_of`` let a registered corpus (``data/datasets.py``) supply its own
+    file discovery and label derivation; without them this is the original CICIoT2023 scan of
+    every CSV under ``dataset_root`` with labels read from a ``label`` column if present.
+    """
+    from .datasets import placeholder_spellings  # local: datasets imports taxonomy only
+
+    parts = parts if parts is not None else _discover_csv_parts(dataset_root)
+    spellings_seen: dict[str, set[str]] = {}  # placeholder spellings per text column, whole corpus
 
     columns: dict[str, str] | None = None
     numeric_cols: list[str] = []
@@ -94,8 +136,10 @@ def characterize_dataset(dataset_root: Path, chunk_size: int) -> Characterizatio
     sumsq_vec: npt.NDArray[np.float64] | None = None
     sumprod_mat: npt.NDArray[np.float64] | None = None
 
+    text_dtypes = dict.fromkeys(_text_columns(parts, chunk_size), str)
+
     for part in parts:
-        for chunk in pd.read_csv(part, chunksize=chunk_size):
+        for chunk in pd.read_csv(part, chunksize=chunk_size, dtype=text_dtypes):
             if columns is None:
                 columns = {str(name): str(dtype) for name, dtype in chunk.dtypes.items()}
                 numeric_cols = [c for c in chunk.columns if pd.api.types.is_numeric_dtype(chunk[c])]
@@ -122,8 +166,12 @@ def characterize_dataset(dataset_root: Path, chunk_size: int) -> Characterizatio
                 if col in numeric_cols:
                     infinite_counts[col] += int(np.isinf(non_null.to_numpy(dtype=np.float64)).sum())
 
-            if "label" in chunk.columns:
+            if label_of is not None:
+                label_counts.update(label_of(part, chunk).astype(str))
+            elif "label" in chunk.columns:
                 label_counts.update(chunk["label"].astype(str))
+            for col, spellings in placeholder_spellings(chunk).items():
+                spellings_seen.setdefault(col, set()).update(spellings)
 
             row_hashes: npt.NDArray[np.uint64] = np.asarray(
                 pd.util.hash_pandas_object(chunk, index=False), dtype=np.uint64
@@ -181,4 +229,7 @@ def characterize_dataset(dataset_root: Path, chunk_size: int) -> Characterizatio
         label_counts=dict(label_counts),
         imbalance_ratio=imbalance_ratio,
         correlation_matrix=correlation_matrix,
+        placeholder_collisions={
+            c: sorted(v) for c, v in sorted(spellings_seen.items()) if len(v) > 1
+        },
     )

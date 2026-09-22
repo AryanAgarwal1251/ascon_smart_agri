@@ -11,7 +11,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ascon_smart_agri.features.selection import FeatureSelector, SelectionResult
+from ascon_smart_agri.features.selection import (
+    FeatureSelector,
+    SelectionResult,
+    restrict_candidates,
+)
 
 
 def _labelled_frame(n: int = 600, seed: int = 0) -> tuple[pd.DataFrame, pd.Series[str]]:
@@ -196,3 +200,21 @@ def test_fit_raises_when_stage1_eliminates_everything() -> None:
 
     with pytest.raises(ValueError, match="Stage 1 eliminated every column"):
         FeatureSelector().fit(frame, y, tau=0.95, f=1)
+
+
+def test_restrict_candidates_is_stage_zero_and_never_invents() -> None:
+    # Phase 9: the universe the four stages select from is the cross-corpus intersection.
+    frame = pd.DataFrame(
+        {
+            "IAT": [1.0, 2.0],
+            "Tot sum": [3.0, 4.0],
+            "TCP": [1.0, 0.0],
+            "label": ["a", "b"],
+            "source_file": ["x", "x"],
+        }
+    )
+    assert restrict_candidates(frame, None) is frame  # single-corpus runs: untouched
+    kept = restrict_candidates(frame, ["Tot sum", "TCP"])
+    assert list(kept.columns) == ["Tot sum", "TCP", "label", "source_file"]  # order preserved
+    with pytest.raises(ValueError, match="Header_Length"):
+        restrict_candidates(frame, ["Tot sum", "Header_Length"])  # a corpus cannot supply it

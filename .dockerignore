@@ -1,0 +1,9 @@
+.venv
+.git
+data
+artifacts/*
+!artifacts/phase4_cache.npz
+keys
+docs
+results
+**/__pycache__

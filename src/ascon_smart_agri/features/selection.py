@@ -106,6 +106,22 @@ def _knee_index(scores: Sequence[float]) -> int:
     return int(np.argmax(distance))
 
 
+def restrict_candidates(frame: pd.DataFrame, candidates: Sequence[str] | None) -> pd.DataFrame:
+    """Stage 0 (Phase 9): keep only the ``candidates`` (plus the non-inference columns).
+
+    ``None`` keeps everything. A candidate the frame lacks raises: the intersection is a
+    statement about what every corpus *supplies*, and a column that is not there cannot be
+    selected, imputed or invented.
+    """
+    if candidates is None:
+        return frame
+    missing = [c for c in candidates if c not in frame.columns]
+    if missing:
+        raise ValueError(f"candidate columns not in the frame: {missing}")
+    keep = [c for c in frame.columns if c in set(candidates) or c in NON_INFERENCE_COLUMNS]
+    return frame[keep]
+
+
 class FeatureSelector:
     """Stateful four-stage selector, fitted on training blocks and applied everywhere."""
 

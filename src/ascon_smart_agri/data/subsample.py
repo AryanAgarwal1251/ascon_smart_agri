@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -78,10 +79,14 @@ def _part_number(path: Path) -> int:
     return int(match.group(1)) if match else 0
 
 
-def _discover_parts_by_label(dataset_root: Path) -> dict[str, list[Path]]:
+def _discover_parts_by_label(
+    dataset_root: Path,
+    label_from_path: Callable[[Path], str] = _label_from_filename,
+    parts: list[Path] | None = None,
+) -> dict[str, list[Path]]:
     groups: dict[str, list[Path]] = {}
-    for path in dataset_root.rglob("*.csv"):
-        groups.setdefault(_label_from_filename(path), []).append(path)
+    for path in dataset_root.rglob("*.csv") if parts is None else parts:
+        groups.setdefault(label_from_path(path), []).append(path)
     if not groups:
         raise FileNotFoundError(f"no *.csv files found under {dataset_root}")
     for parts in groups.values():
@@ -96,8 +101,14 @@ def stratified_capped_subsample(
     per_class_cap: int,
     chunk_size: int,
     seed: int,
+    label_from_path: Callable[[Path], str] = _label_from_filename,
+    parts: list[Path] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, int]]:
     """Return the capped subsample and its realised per-class counts.
+
+    ``label_from_path`` and ``parts`` let another window corpus (Phase 9: CICIoMT2024, whose
+    filenames carry a ``_train``/``_test`` suffix the CICIoT2023 rule would keep as part of
+    the label) reuse the same capped draw; the defaults are the CICIoT2023 rules.
 
     Returns:
         A ``(frame, per_class_counts)`` pair; ``per_class_counts`` goes into the manifest.
@@ -109,7 +120,7 @@ def stratified_capped_subsample(
     if target <= 0:
         raise ValueError(f"target must be positive, got {target}")
 
-    parts_by_label = _discover_parts_by_label(dataset_root)
+    parts_by_label = _discover_parts_by_label(dataset_root, label_from_path, parts)
     rng = np.random.default_rng(seed)
 
     class_frames: list[pd.DataFrame] = []

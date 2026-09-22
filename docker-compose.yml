@@ -1,0 +1,107 @@
+# Software twin of the Phase 8 hardware topology (docs/plans/phase8-software-twin.md).
+#
+#   laptop  = aggregator + cloud-receiver + sim-3           (three containers)
+#   farm 1  = pi-1 (client-node then pi-runtime) + broker-farm1 + sensors-farm1 (soil01..03)
+#   farm 2  = pi-2 (client-node then pi-runtime) + broker-farm2 + sensors-farm2 (soil04..06)
+#
+#   docker compose up --build --abort-on-container-exit
+#
+# Every weight frame between a pi and the aggregator is Ascon-sealed; each pi classifies its
+# own farm's stream with the weights it got back; benign -> TLS -> cloud-receiver, malicious
+# -> local alert. Manifests land in ./artifacts tagged platform=docker-arm64-simulation.
+# Requires ./artifacts/phase4_cache.npz (asa federate --save-cache).
+
+x-node: &node
+  build: { context: ., dockerfile: docker/Dockerfile }
+  image: ascon-smart-agri:twin
+  platform: ${TWIN_PLATFORM:-linux/arm64}
+  volumes:
+    - ./artifacts:/app/artifacts
+    - keys:/keys:ro
+    - certs:/certs:ro
+
+services:
+  init-secrets:
+    <<: *node
+    entrypoint: ["/bin/sh", "/app/docker/init-secrets.sh"]
+    volumes:
+      - ./docker/init-secrets.sh:/app/docker/init-secrets.sh:ro
+      - keys:/keys
+      - certs:/certs
+
+  aggregator:
+    <<: *node
+    command: ["aggregator", "--keys", "/keys/phase8.demo.key", "--clients", "pi-1,pi-2,sim-3",
+              "--host", "0.0.0.0", "--port", "7700", "--rounds", "${ROUNDS:-2}",
+              "--checkpoint", "artifacts/phase8_twin_global_model.safetensors"]
+    depends_on:
+      init-secrets: { condition: service_completed_successfully }
+
+  cloud-receiver:
+    <<: *node
+    command: ["cloud-receiver", "--host", "0.0.0.0", "--port", "8443",
+              "--cert", "/certs/cloud.demo.pem", "--key", "/certs/cloud.demo.key",
+              "--edges", "pi-1,pi-2", "--seconds", "${CLOUD_SECONDS:-600}",
+              "--platform", "docker-arm64-simulation"]
+    depends_on:
+      init-secrets: { condition: service_completed_successfully }
+
+  broker-farm1:
+    image: eclipse-mosquitto:2
+    volumes: [ "./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro" ]
+  broker-farm2:
+    image: eclipse-mosquitto:2
+    volumes: [ "./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro" ]
+
+  pi-1:
+    <<: *node
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        asa client-node --client-id pi-1 --client-index 0 --server aggregator:7700
+        --keys /keys/phase8.demo.key --rounds ${ROUNDS:-2} --local-epochs ${EPOCHS:-1}
+        --sequence-cap ${SEQ_CAP:-5000} --platform docker-arm64-simulation
+        && asa pi-runtime --client-id pi-1 --farm farm1 --broker broker-farm1:1883
+        --cloud https://cloud-receiver:8443 --ca-cert /certs/cloud.demo.pem
+        --messages ${MESSAGES:-240} --idle-timeout 120 --platform docker-arm64-simulation
+    depends_on: [ aggregator, broker-farm1, cloud-receiver ]
+
+  pi-2:
+    <<: *node
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        asa client-node --client-id pi-2 --client-index 1 --server aggregator:7700
+        --keys /keys/phase8.demo.key --rounds ${ROUNDS:-2} --local-epochs ${EPOCHS:-1}
+        --sequence-cap ${SEQ_CAP:-5000} --platform docker-arm64-simulation
+        && asa pi-runtime --client-id pi-2 --farm farm2 --broker broker-farm2:1883
+        --cloud https://cloud-receiver:8443 --ca-cert /certs/cloud.demo.pem
+        --messages ${MESSAGES:-240} --idle-timeout 120 --platform docker-arm64-simulation
+    depends_on: [ aggregator, broker-farm2, cloud-receiver ]
+
+  sim-3:
+    <<: *node
+    command: ["client-node", "--client-id", "sim-3", "--client-index", "2",
+              "--server", "aggregator:7700", "--keys", "/keys/phase8.demo.key",
+              "--rounds", "${ROUNDS:-2}", "--local-epochs", "${EPOCHS:-1}",
+              "--sequence-cap", "${SEQ_CAP:-5000}", "--platform", "docker-arm64-simulation"]
+    depends_on: [ aggregator ]
+
+  sensors-farm1:
+    <<: *node
+    command: ["virtual-sensor", "--farm", "farm1", "--devices", "soil01,soil02,soil03",
+              "--broker", "broker-farm1:1883", "--interval", "${INTERVAL:-0.5}",
+              "--messages", "${MESSAGES:-240}", "--attack-after", "${ATTACK_AFTER:-120}",
+              "--attack-device", "soil02"]
+    depends_on: [ broker-farm1, pi-1 ]
+
+  sensors-farm2:
+    <<: *node
+    command: ["virtual-sensor", "--farm", "farm2", "--devices", "soil04,soil05,soil06",
+              "--broker", "broker-farm2:1883", "--interval", "${INTERVAL:-0.5}",
+              "--messages", "${MESSAGES:-240}", "--attack-after", "${ATTACK_AFTER:-120}"]
+    depends_on: [ broker-farm2, pi-2 ]
+
+volumes:
+  keys: {}
+  certs: {}

@@ -47,7 +47,7 @@ from ascon_smart_agri.data.subsample import stratified_capped_subsample
 from ascon_smart_agri.data.taxonomy import BENIGN_CLASS_INDEX
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
 from ascon_smart_agri.eval.report import mean_std
-from ascon_smart_agri.features.selection import FeatureSelector
+from ascon_smart_agri.features.selection import FeatureSelector, restrict_candidates
 from ascon_smart_agri.model.checkpoint import load_model, read_metadata
 from ascon_smart_agri.routing.alert_sink import AlertSink
 from ascon_smart_agri.routing.cloud_sink import MockCloudReceiver
@@ -99,7 +99,7 @@ def main() -> None:
     test_frame = deduped.loc[block_ids.isin(split.test_blocks)]  # THE HELD-OUT SET (G6)
 
     selection = FeatureSelector().fit(
-        train_frame.drop(columns=["label"]),
+        restrict_candidates(train_frame.drop(columns=["label"]), cfg.features.candidate_columns),
         train_frame["label"],
         tau=cfg.features.correlation_tau,
         f=cfg.features.selected_f,
