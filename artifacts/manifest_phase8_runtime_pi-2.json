@@ -1,5 +1,5 @@
 {
-  "run_name": "phase8_aggregator",
+  "run_name": "phase8_runtime_pi-2",
   "seeds": [
     0
   ],
@@ -116,70 +116,55 @@
     }
   },
   "subsample_per_class_counts": {},
-  "ascon_backend": {
-    "backend": "vendored:meichlseder/pyascon (official reference implementation)",
-    "source_url": "https://github.com/meichlseder/pyascon",
-    "commit": "ed24e54abf9507d26fa49b46a56091570c7e743e",
-    "variant": "Ascon-AEAD128",
-    "ad_encoding": "length-prefixed-v1",
-    "standard": "NIST SP 800-232",
-    "kat_source": "https://github.com/ascon/ascon-c (crypto_aead/asconaead128)",
-    "kat_source_commit": "446347f21b209f3921c65ece70027c366cbe1693",
-    "kat_file": "LWC_AEAD_KAT_128_128.txt",
-    "kat_passed": "true"
-  },
+  "ascon_backend": {},
   "results": {
-    "clients": [
-      "pi-1",
-      "pi-2",
-      "sim-3"
-    ],
-    "rounds": 2,
-    "aggregation": "weighted",
-    "key_file": "/keys/phase8.demo.key",
-    "key_label": "DEMO",
-    "per_round": [
-      {
-        "round_index": 0,
-        "sequence_counts": {
-          "pi-1": 297067,
-          "pi-2": 473352,
-          "sim-3": 467492
-        },
-        "bytes_up": 1480,
-        "bytes_down": 1462,
-        "seconds": 6.126789086000002,
-        "rejections": 0
+    "client_id": "pi-2",
+    "farm": "farm2",
+    "source": "mqtt",
+    "checkpoint": "artifacts/phase8_client_pi-2_model.safetensors",
+    "received": 180,
+    "buffering": 45,
+    "benign_verdicts": 65,
+    "malicious_verdicts": 70,
+    "cloud_sent": 65,
+    "cloud_failed": 0,
+    "cloud_last_error": null,
+    "alerts": 70,
+    "scenario_agreement": {
+      "benign": [
+        15,
+        15
+      ],
+      "attack": [
+        70,
+        120
+      ]
+    },
+    "dropped_by_source": [],
+    "stage_latency": {
+      "provenance": {
+        "median_us": 124.20800000256804,
+        "mean_us": 151.29698333472183,
+        "n": 180
       },
-      {
-        "round_index": 1,
-        "sequence_counts": {
-          "pi-1": 5000,
-          "pi-2": 5000,
-          "sim-3": 5000
-        },
-        "bytes_up": 407752,
-        "bytes_down": 407758,
-        "seconds": 9.222822921000002,
-        "rejections": 0
+      "window": {
+        "median_us": 164.89599998692483,
+        "mean_us": 269.21386111153663,
+        "n": 180
       },
-      {
-        "round_index": 2,
-        "sequence_counts": {
-          "pi-1": 5000,
-          "pi-2": 5000,
-          "sim-3": 5000
-        },
-        "bytes_up": 407752,
-        "bytes_down": 407758,
-        "seconds": 7.0147747940000045,
-        "rejections": 0
+      "inference": {
+        "median_us": 40506.24999999286,
+        "mean_us": 42893.26078518596,
+        "n": 135
+      },
+      "routing": {
+        "median_us": 72.45800000532654,
+        "mean_us": 3173.1404222240494,
+        "n": 135
       }
-    ],
-    "rejections": [],
-    "checkpoint": "artifacts/phase8_twin_global_model.safetensors",
-    "elapsed_seconds": 24.6,
-    "n_parameters": 33800,
-    "torch_threads": 8
+    },
+    "elapsed_seconds": 211.3,
+    "platform": "docker-arm64-simulation",
+    "declared_limitation": "architectural correctness only; held-out records, not live capture"
   }
 }

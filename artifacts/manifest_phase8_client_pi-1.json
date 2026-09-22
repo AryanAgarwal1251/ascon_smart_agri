@@ -4,19 +4,19 @@
     0
   ],
   "library_versions": {
-    "python": "3.11.9",
-    "numpy": "2.4.6",
-    "pandas": "3.0.5",
+    "python": "3.12.14",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
     "sklearn": "1.9.1",
-    "scipy": "1.17.1",
-    "torch": "2.14.0"
+    "scipy": "1.18.1",
+    "torch": "2.14.0+cpu"
   },
   "hardware": {
-    "platform": "macOS-26.5-arm64-arm-64bit",
-    "machine": "arm64",
-    "processor": "arm",
-    "git_commit": "ae931a36c8e0ca07602c59176788898da94c459d",
-    "git_dirty": "True"
+    "platform": "Linux-7.0.12-linuxkit-aarch64-with-glibc2.41",
+    "machine": "aarch64",
+    "processor": "unknown",
+    "git_commit": "unavailable",
+    "git_dirty": "False"
   },
   "config_snapshot": {
     "run_name": "default",
@@ -139,13 +139,13 @@
     "bytes_up": 272327,
     "bytes_down": 272325,
     "round_seconds": [
-      0.09,
-      2.66,
-      2.68
+      0.19,
+      2.53,
+      2.56
     ],
-    "elapsed_seconds": 7.7,
+    "elapsed_seconds": 16.8,
     "checkpoint": "artifacts/phase8_client_pi-1_model.safetensors",
     "scaler": "artifacts/phase8_client_pi-1_scaler.npz",
-    "platform": "laptop-loopback-smoke"
+    "platform": "docker-arm64-simulation"
   }
 }

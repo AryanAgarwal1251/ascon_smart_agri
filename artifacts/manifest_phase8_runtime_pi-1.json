@@ -4,19 +4,19 @@
     0
   ],
   "library_versions": {
-    "python": "3.11.9",
-    "numpy": "2.4.6",
-    "pandas": "3.0.5",
+    "python": "3.12.14",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
     "sklearn": "1.9.1",
-    "scipy": "1.17.1",
-    "torch": "2.14.0"
+    "scipy": "1.18.1",
+    "torch": "2.14.0+cpu"
   },
   "hardware": {
-    "platform": "macOS-26.5-arm64-arm-64bit",
-    "machine": "arm64",
-    "processor": "arm",
-    "git_commit": "ae931a36c8e0ca07602c59176788898da94c459d",
-    "git_dirty": "True"
+    "platform": "Linux-7.0.12-linuxkit-aarch64-with-glibc2.41",
+    "machine": "aarch64",
+    "processor": "unknown",
+    "git_commit": "unavailable",
+    "git_dirty": "False"
   },
   "config_snapshot": {
     "run_name": "default",
@@ -120,51 +120,51 @@
   "results": {
     "client_id": "pi-1",
     "farm": "farm1",
-    "source": "sim",
+    "source": "mqtt",
     "checkpoint": "artifacts/phase8_client_pi-1_model.safetensors",
-    "received": 240,
+    "received": 180,
     "buffering": 45,
-    "benign_verdicts": 111,
-    "malicious_verdicts": 84,
-    "cloud_sent": 111,
+    "benign_verdicts": 105,
+    "malicious_verdicts": 30,
+    "cloud_sent": 105,
     "cloud_failed": 0,
     "cloud_last_error": null,
-    "alerts": 84,
+    "alerts": 30,
     "scenario_agreement": {
       "benign": [
-        70,
-        75
+        86,
+        95
       ],
       "attack": [
-        79,
-        120
+        21,
+        40
       ]
     },
     "dropped_by_source": [],
     "stage_latency": {
       "provenance": {
-        "median_us": 2.874992787837982,
-        "mean_us": 2.900170875363983,
-        "n": 240
+        "median_us": 106.66650000956679,
+        "mean_us": 124.71250555571423,
+        "n": 180
       },
       "window": {
-        "median_us": 12.479002180043608,
-        "mean_us": 11.029487783768369,
-        "n": 240
+        "median_us": 149.45799999566134,
+        "mean_us": 179.12569444457438,
+        "n": 180
       },
       "inference": {
-        "median_us": 272.45801175013185,
-        "mean_us": 297.6609324552835,
-        "n": 195
+        "median_us": 40208.75000000501,
+        "mean_us": 43014.52596296237,
+        "n": 135
       },
       "routing": {
-        "median_us": 324.66600532643497,
-        "mean_us": 238.6185749529455,
-        "n": 195
+        "median_us": 4729.542000006859,
+        "mean_us": 4822.31111851903,
+        "n": 135
       }
     },
-    "elapsed_seconds": 0.1,
-    "platform": "laptop-loopback-smoke",
+    "elapsed_seconds": 211.3,
+    "platform": "docker-arm64-simulation",
     "declared_limitation": "architectural correctness only; held-out records, not live capture"
   }
 }
