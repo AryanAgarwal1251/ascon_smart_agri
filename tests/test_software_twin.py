@@ -66,6 +66,30 @@ def test_compose_topology_matches_the_plan() -> None:
     assert any(v.startswith("keys:/keys:ro") for v in services["pi-1"]["volumes"])
 
 
+def test_no_document_tells_anyone_to_abort_on_container_exit() -> None:
+    """``--abort-on-container-exit`` breaks this topology, so no doc may recommend it.
+
+    Compose treats ANY container exit as the abort signal, and ``init-secrets`` is a one-shot
+    that exits 0 by design. Measured on 2026-09-22: init-secrets finished 4.2 s into the run,
+    compose stopped the brokers and SIGKILLed the aggregator 3.4 s after that, and the Pis then
+    spent 28 minutes loading their partitions before dying on ``Name or service not known``.
+    ``--exit-code-from`` implies the same flag and fails the same way.
+    """
+    offenders = []
+    for path in (COMPOSE, REPO / "CLAUDE.md", REPO / "docs" / "plans" / "phase8-software-twin.md"):
+        for number, line in enumerate(path.read_text().splitlines(), start=1):
+            # Drop a YAML comment marker, then anything after a trailing "#" -- a note *about*
+            # the flag is exactly what this fix added, and must not count as recommending it.
+            command = line.lstrip("# ").split("#", 1)[0].strip()
+            if command.startswith(("docker compose", "$ docker compose")) and (
+                "--abort-on-container-exit" in command or "--exit-code-from" in command
+            ):
+                offenders.append(f"{path.name}:{number}: {command}")
+    assert not offenders, "these recommend a flag that tears the topology down:\n" + "\n".join(
+        offenders
+    )
+
+
 @pytest.mark.skipif(shutil.which("docker") is None, reason="docker not installed")
 def test_compose_file_is_valid_for_docker() -> None:
     result = subprocess.run(

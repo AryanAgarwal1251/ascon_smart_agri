@@ -192,7 +192,9 @@ further arguments straight through, so `asa federate --rounds 2` is
 
 # Phase 8 software twin (whole topology, no hardware; needs Docker) -- or see the plan for the
 # no-Docker process recipe. Manifests are tagged platform=docker-arm64-simulation.
-docker compose up --build --abort-on-container-exit
+docker compose up -d --build   # NOT --abort-on-container-exit: it aborts on init-secrets
+docker compose logs -f pi-1 pi-2
+docker compose down -v
 
 # Phase 9 (per-corpus characterisation, the first thing to run when a corpus lands)
 ./.venv/bin/asa characterize --dataset ciciomt2024 --root data/ciciomt2024

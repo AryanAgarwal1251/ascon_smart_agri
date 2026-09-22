@@ -1,0 +1,151 @@
+{
+  "run_name": "phase8_client_pi-1",
+  "seeds": [
+    0
+  ],
+  "library_versions": {
+    "python": "3.11.9",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "sklearn": "1.9.1",
+    "scipy": "1.17.1",
+    "torch": "2.14.0"
+  },
+  "hardware": {
+    "platform": "macOS-26.5-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "arm",
+    "git_commit": "ae931a36c8e0ca07602c59176788898da94c459d",
+    "git_dirty": "True"
+  },
+  "config_snapshot": {
+    "run_name": "default",
+    "output_dir": "artifacts",
+    "data": {
+      "dataset_root": "data/ciciot2023_raw",
+      "subsample_target": 1800000,
+      "per_class_cap": 70000,
+      "chunk_size": 500000,
+      "block_size": 256,
+      "test_fraction": 0.2,
+      "seed": 0
+    },
+    "features": {
+      "correlation_tau": 0.95,
+      "f_sweep": [
+        8,
+        12,
+        16,
+        24
+      ],
+      "selected_f": 16,
+      "rf_n_estimators": 200,
+      "rrf_k": 60,
+      "selection_sample_size": 200000,
+      "candidate_columns": null
+    },
+    "sequence": {
+      "window": 16,
+      "window_packets": 10,
+      "w_sweep": [
+        1,
+        8,
+        16,
+        32
+      ]
+    },
+    "model": {
+      "n_features": 16,
+      "hidden_size": 96,
+      "n_classes": 8
+    },
+    "federated": {
+      "n_clients": 3,
+      "dirichlet_alpha": 0.5,
+      "alpha_sweep": [
+        0.1,
+        0.5,
+        100.0
+      ],
+      "rounds": 20,
+      "local_epochs": 3,
+      "e_sweep": [
+        1,
+        3,
+        5
+      ],
+      "aggregation": "weighted",
+      "fedprox_mu": null
+    },
+    "crypto": {
+      "key_bits": 128,
+      "nonce_bits": 128,
+      "tag_bits": 128,
+      "ad_fields": [
+        "edge_id",
+        "device_id",
+        "counter",
+        "schema_version"
+      ]
+    },
+    "telemetry": {
+      "device_ids": [
+        "soil01",
+        "soil02",
+        "soil03"
+      ],
+      "messages_per_stream": 100,
+      "schema_version": "v1",
+      "temperature_range_c": [
+        15.0,
+        35.0
+      ],
+      "soil_moisture_range_pct": [
+        0.0,
+        100.0
+      ],
+      "seed": 0
+    },
+    "evaluation": {
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "near_ceiling_accuracy": 0.98
+    }
+  },
+  "subsample_per_class_counts": {},
+  "ascon_backend": {
+    "backend": "vendored:meichlseder/pyascon (official reference implementation)",
+    "source_url": "https://github.com/meichlseder/pyascon",
+    "commit": "ed24e54abf9507d26fa49b46a56091570c7e743e",
+    "variant": "Ascon-AEAD128",
+    "ad_encoding": "length-prefixed-v1",
+    "standard": "NIST SP 800-232",
+    "kat_source": "https://github.com/ascon/ascon-c (crypto_aead/asconaead128)",
+    "kat_source_commit": "446347f21b209f3921c65ece70027c366cbe1693",
+    "kat_file": "LWC_AEAD_KAT_128_128.txt",
+    "kat_passed": "true"
+  },
+  "results": {
+    "client_id": "pi-1",
+    "client_index": 0,
+    "rows": 297067,
+    "n_sequences": 5000,
+    "sequence_cap": 5000,
+    "rounds": 2,
+    "local_epochs": 1,
+    "bytes_up": 272327,
+    "bytes_down": 272325,
+    "round_seconds": [
+      0.09,
+      2.66,
+      2.68
+    ],
+    "elapsed_seconds": 7.7,
+    "checkpoint": "artifacts/phase8_client_pi-1_model.safetensors",
+    "scaler": "artifacts/phase8_client_pi-1_scaler.npz",
+    "platform": "laptop-loopback-smoke"
+  }
+}

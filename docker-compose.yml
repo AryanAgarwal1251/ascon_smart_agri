@@ -4,7 +4,14 @@
 #   farm 1  = pi-1 (client-node then pi-runtime) + broker-farm1 + sensors-farm1 (soil01..03)
 #   farm 2  = pi-2 (client-node then pi-runtime) + broker-farm2 + sensors-farm2 (soil04..06)
 #
-#   docker compose up --build --abort-on-container-exit
+#   docker compose up -d --build     # then: docker compose logs -f pi-1 pi-2
+#   docker compose down -v           # when the run is done
+#
+# Do NOT pass --abort-on-container-exit: compose treats ANY container exit as the abort
+# signal, including init-secrets, which is a one-shot that exits 0 BY DESIGN. Measured
+# 2026-09-22: init-secrets finished 4.2 s in, compose tore down the brokers and SIGKILLed
+# the aggregator 3.4 s later, and the Pis then spent 28 min loading before dying on
+# "Name or service not known". --exit-code-from implies the same flag and breaks the same way.
 #
 # Every weight frame between a pi and the aggregator is Ascon-sealed; each pi classifies its
 # own farm's stream with the weights it got back; benign -> TLS -> cloud-receiver, malicious

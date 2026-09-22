@@ -56,7 +56,9 @@ Readings never traverse the laptop (each Pi has its own broker); weights cross o
 Ascon frames; benign readings cross only over TLS; malicious readings stop at the Pi.
 
 ```bash
-docker compose up --build --abort-on-container-exit          # defaults: ROUNDS=2 EPOCHS=1 SEQ_CAP=5000
+docker compose up -d --build        # defaults: ROUNDS=2 EPOCHS=1 SEQ_CAP=5000
+docker compose logs -f pi-1 pi-2    # the two interesting logs
+docker compose down -v              # when the run is done
 ROUNDS=5 SEQ_CAP=20000 MESSAGES=600 docker compose up --build
 ```
 

@@ -251,6 +251,55 @@ def corpus_client_masks(c: dict, n_clients: int, alpha: float, seed: int):  # ty
     return masks, [{CLASS_NAMES[int(k)]: v for k, v in h.items()} for h in histograms]
 
 
+def build_farms(  # type: ignore[no-untyped-def]
+    train_names: list[str],
+    corpora: dict,  # type: ignore[type-arg]
+    n_clients: int,
+    alpha: float,
+    seed: int,
+    allocation: str,
+) -> tuple[list[str], list[dict[str, np.ndarray]], dict[str, object]]:
+    """The K farms as ``(client_ids, [{corpus: row_mask}], histograms)``.
+
+    Two ways to lay the federation out, and the choice is an architectural claim, not a knob:
+
+    ``per-corpus`` gives each farm exactly one corpus (CICIoT2023 -> two farms, CICIoMT2024 ->
+    one, at K = 3). That models a *cross-domain consortium* -- parties in different sectors who
+    cannot share data federating together. It is kept as a labelled ablation because it is what
+    the 2026-09-22 run measured, and the cost it carries is worth reporting (see
+    ``results/phase9_multi_dataset.md``).
+
+    ``mixed`` gives every farm a Dirichlet share of *every* training corpus. That models the
+    deployment this project actually builds: the federation is domain-coherent (all clients are
+    farms), and the extra corpus is there to widen each farm's attack vocabulary rather than to
+    define a client. Client heterogeneity still comes from the within-corpus block Dirichlet, so
+    the farms remain non-IID; each corpus is partitioned under its own derived seed so the two
+    draws are independent. Unlike ``per-corpus`` this imposes no K >= (number of corpora) floor.
+    """
+    histograms: dict[str, object] = {}
+    if allocation == "mixed":
+        farms: list[dict[str, np.ndarray]] = [{} for _ in range(n_clients)]
+        for idx, name in enumerate(train_names):
+            masks, hist = corpus_client_masks(corpora[name], n_clients, alpha, seed * 1000 + idx)
+            for farm, mask in zip(farms, masks, strict=True):
+                farm[name] = mask
+            if hist is not None:
+                histograms[name] = hist
+        return [f"farm-{i}" for i in range(n_clients)], farms, histograms
+
+    n_per_corpus = allocate_clients(train_names, corpora, n_clients)
+    client_ids: list[str] = []
+    per_corpus_farms: list[dict[str, np.ndarray]] = []
+    for name in train_names:
+        masks, hist = corpus_client_masks(corpora[name], n_per_corpus[name], alpha, seed)
+        for i, mask in enumerate(masks):
+            client_ids.append(f"{name}:{i}")
+            per_corpus_farms.append({name: mask})
+        if hist is not None:
+            histograms[name] = hist
+    return client_ids, per_corpus_farms, histograms
+
+
 # ------------------------------------------------------------------------ step 3-4: one run
 
 
@@ -351,6 +400,7 @@ def run_experiment(  # type: ignore[no-untyped-def]
     local_epochs: int,
     sequence_cap: int,
     scaling: str,
+    allocation: str,
     pooled: bool,
     verbose: bool,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
@@ -360,23 +410,19 @@ def run_experiment(  # type: ignore[no-untyped-def]
     K = cfg.federated.n_clients
     alpha = cfg.federated.dirichlet_alpha
 
-    # ---- Farms: K clients over the training corpora, Dirichlet within a corpus ------------
-    n_per_corpus = allocate_clients(train_names, corpora, K)
-    farms: list[tuple[str, int, np.ndarray]] = []  # (corpus, index within corpus, row mask)
-    histograms: dict[str, object] = {}
-    for name in train_names:
-        masks, hist = corpus_client_masks(corpora[name], n_per_corpus[name], alpha, seed)
-        farms.extend((name, i, m) for i, m in enumerate(masks))
-        if hist is not None:
-            histograms[name] = hist
-    client_ids = [f"{name}:{i}" for name, i, _ in farms]
+    # ---- Farms: K clients over the training corpora (see build_farms for the two layouts) --
+    client_ids, farms, histograms = build_farms(train_names, corpora, K, alpha, seed, allocation)
 
     # ---- Standardisation from client sufficient statistics only (Eqs. 23-24) --------------
     # Stats are over every candidate column (scaling is per column, so selecting afterwards
-    # is the same as scaling the selected columns); only count/mean/M2 leave a farm.
+    # is the same as scaling the selected columns); only count/mean/M2 leave a farm. A mixed
+    # farm contributes one set of statistics per corpus it holds, so a corpus's scaler is
+    # still built from exactly that corpus's rows however the farms were laid out.
     farm_stats = {
-        cid: local_sufficient_stats(corpora[n]["x_tr"][m])
-        for cid, (n, _, m) in zip(client_ids, farms, strict=True)
+        (cid, name): local_sufficient_stats(corpora[name]["x_tr"][mask])
+        for cid, farm in zip(client_ids, farms, strict=True)
+        for name, mask in farm.items()
+        if mask.any()
     }
     stats: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     if scaling == "global":
@@ -384,11 +430,7 @@ def run_experiment(  # type: ignore[no-untyped-def]
         stats = dict.fromkeys({*train_names, *test_names}, g)
     else:
         for name in {*train_names, *test_names}:
-            own = [
-                farm_stats[cid]
-                for cid, (n, _, _) in zip(client_ids, farms, strict=True)
-                if n == name
-            ]
+            own = [s for (_, held), s in farm_stats.items() if held == name]
             if not own:  # a held-out corpus: its own training-split statistics, label-free
                 own = [local_sufficient_stats(corpora[name]["x_tr"])]
             stats[name] = combine_stats(own)
@@ -406,19 +448,37 @@ def run_experiment(  # type: ignore[no-untyped-def]
 
     # ---- Per-farm windows, built inside each farm's own rows -----------------------------
     client_seqs, client_labels, counts_raw = [], [], []
-    for cid, (name, _, mask) in zip(client_ids, farms, strict=True):
-        c = corpora[name]
-        seg = contiguity_segments(c["s_tr"][mask], c["i_tr"][mask])
-        seqs, labels = build_windows(take(name, scaled_train[name][mask]), c["y_tr"][mask], seg, W)
+    for cid, farm in zip(client_ids, farms, strict=True):
+        # Windows are built inside each corpus's own rows and only then concatenated: a window
+        # may never span a corpus boundary, any more than it may span a contiguity break.
+        parts_x, parts_y, rows, mix = [], [], 0, []
+        for name, mask in farm.items():
+            if not mask.any():
+                continue
+            c = corpora[name]
+            seg = contiguity_segments(c["s_tr"][mask], c["i_tr"][mask])
+            part_x, part_y = build_windows(
+                take(name, scaled_train[name][mask]), c["y_tr"][mask], seg, W
+            )
+            if len(part_x):
+                parts_x.append(part_x)
+                parts_y.append(part_y)
+                mix.append(f"{name} {len(part_x):,}")
+            rows += int(mask.sum())
+        if not parts_x:
+            raise SystemExit(
+                f"farm {cid} drew no windows; lower federated.n_clients or raise dirichlet_alpha"
+            )
+        seqs, labels = np.concatenate(parts_x), np.concatenate(parts_y)
         counts_raw.append(len(seqs))
         seqs, labels = cap_sequences(seqs, labels, sequence_cap, seed)
         client_seqs.append(seqs)
         client_labels.append(labels)
         present = len(np.unique(labels))
         print(
-            f"  [{label} | seed {seed}] farm {cid:<14} {int(mask.sum()):>9,} rows | "
+            f"  [{label} | seed {seed}] farm {cid:<14} {rows:>9,} rows | "
             f"{counts_raw[-1]:>9,} sequences -> {len(seqs):>7,} kept | "
-            f"{present}/{len(CLASS_NAMES)} classes"
+            f"{present}/{len(CLASS_NAMES)} classes | {' + '.join(mix)}"
         )
     del scaled_train
 
@@ -456,6 +516,7 @@ def run_experiment(  # type: ignore[no-untyped-def]
         "train_corpora": train_names,
         "clients": client_ids,
         "client_histograms_blocks": histograms,
+        "client_allocation": allocation,
         "scaler_stats_used": scaling,
         "selected_columns": columns,
         "sequence_counts_uncapped": counts_raw,
@@ -550,6 +611,22 @@ def main() -> None:
         help="per-corpus = each corpus its own scaler from its farms' statistics (default); "
         "global = one federated scaler over every farm (III-F4, the ablation)",
     )
+    parser.add_argument(
+        "--client-allocation",
+        choices=("mixed", "per-corpus"),
+        default="mixed",
+        help="mixed = every farm draws a Dirichlet share of EVERY training corpus (default): "
+        "a domain-coherent federation where the extra corpus widens each farm's attack "
+        "vocabulary; per-corpus = one corpus per farm, which models a cross-domain "
+        "consortium and is kept as the labelled ablation (see results/phase9_multi_dataset.md)",
+    )
+    parser.add_argument(
+        "--run-name",
+        default="",
+        help="override the manifest/progress basename (default: derived from the config's "
+        "run_name plus the scaling and allocation flags). Use it for a smoke run so it cannot "
+        "overwrite a finished experiment's manifest",
+    )
     parser.add_argument("--verbose", action="store_true", help="print every round's macro-F1")
     args = parser.parse_args()
 
@@ -583,7 +660,14 @@ def main() -> None:
         f"cap {args.sequence_cap:,}/client | scaling {args.scaling} | seeds {cfg.evaluation.seeds}"
         + ("" if args.skip_pooled else f" | + {POOLED} at {args.rounds * args.local_epochs} epochs")
     )
-    tag = f"phase9_{cfg.run_name}" + ("" if args.scaling == "global" else "_percorpus")
+    # The manifest path is derived from the run name, so two runs that differ only in their
+    # flags would overwrite each other's results. The layout is part of the name for that
+    # reason, and --run-name exists so a smoke run cannot clobber a finished experiment.
+    tag = args.run_name or (
+        f"phase9_{cfg.run_name}"
+        + ("" if args.scaling == "global" else "_percorpus")
+        + ("_mixed" if args.client_allocation == "mixed" else "")
+    )
     progress = Path(cfg.output_dir) / f"{tag}_progress.json"
     results: dict[str, dict[str, object]] = {label: {"per_seed": []} for label, _, _ in experiments}
     if not args.skip_pooled:
@@ -605,6 +689,7 @@ def main() -> None:
                 local_epochs=args.local_epochs,
                 sequence_cap=args.sequence_cap,
                 scaling=args.scaling,
+                allocation=args.client_allocation,
                 pooled=(label == "in_distribution" and not args.skip_pooled),
                 verbose=args.verbose,
             )
