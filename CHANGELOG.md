@@ -24,7 +24,7 @@ memory. Start at [`results/README.md`](results/README.md).
 | 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green -- the suite has **zero skips** for the first time in this project | `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` green ✅ |
 | 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → Ascon/alert. G1 held throughout (0 malicious-verdict messages reached the cloud) | Full pipeline run producing a manifest ✅ |
 | 8 | Ascon-protected bidirectional weight exchange on physical hardware | **Steps 1–2 DONE; software twin DONE; 3–5 pending hardware.** Sealed weight channel + networked nodes (gated), and the whole topology as software: MQTT sensor contract, Pi runtime, TLS cloud receiver, ESP32/Wokwi sketch, Docker Compose. Headless end-to-end run: G1 held on the wire (cloud accepted == benign verdicts, 0 malicious). Plans: `docs/plans/phase8-hardware-federation.md`, `docs/plans/phase8-software-twin.md` | Two Pis + simulated third client complete R rounds with every weight frame Ascon-sealed both ways; tamper/replay frames rejected; hardware global model == in-process FedAvg bit-for-bit; local GRU routes on its own verdict with 0 malicious payloads on the cloud path |
-| 9 | Multi-dataset generalisation (CICIoT2023 + CICIoMT2024; Edge-IIoTset registered, not trained on) | **Second design COMPLETE (2026-09-22), mixed result.** Per-corpus scaling fixed the in-distribution collapse (CICIoT2023 0.603 → **0.7742 ± 0.0119** federated, pooled twin **0.8390 ± 0.0035** = Phase 3's single-corpus number) and the driver reproduces Phase 4 (0.8407 ± 0.0150 vs 0.8308). **Leave-one-dataset-out failed: 0.0858 ± 0.0347 on held-out CICIoT2023 (FPR 0.95), 0.1380 ± 0.0485 present-only on held-out CICIoMT2024 (FPR 0.82)** — no transfer to an unseen testbed, reported as a negative result. Manifest `artifacts/manifest_phase9_generalised_percorpus.json`. Prior status: **second design running (2026-09-22).** The first full run (2026-09-21, all three corpora, global scaler, 13 features) gave in-distribution 0.60 / 0.56 / 0.12 and leave-one-dataset-out ≈ 0 -- per-corpus feature scales, and an Edge-IIoTset whose reconstructed windows are near-constant. Decided: Edge-IIoTset `not_for_training`, all 16 features back, per-corpus standardisation, K = 3 across corpora (Dirichlet within one), a pooled-centralised twin on the same windows, LODO over the two corpora, at Phase 4's budget. Plan §5: `docs/plans/phase9-multi-dataset.md` | Each corpus characterised and reconciled with the registry; per-corpus R3 gate green; leave-one-dataset-out results over ≥ 3 seeds |
+| 9 | Multi-dataset generalisation (CICIoT2023 + CICIoMT2024; Edge-IIoTset registered, not trained on) | **Third design COMPLETE (2026-09-23).** Mixed farms (every farm draws from every corpus) raised in-distribution CICIoT2023 **0.7742 → 0.8211** and CICIoMT2024 present-only **0.8034 → 0.8714**; adding the second corpus now costs 0.020 against the single-corpus ceiling rather than 0.066. Leave-one-dataset-out unchanged and still failing (0.0853 / 0.0763) — reported as a negative result. Manifest `artifacts/manifest_phase9_generalised_percorpus_mixed.json`. Prior: **second design COMPLETE (2026-09-22), mixed result.** Per-corpus scaling fixed the in-distribution collapse (CICIoT2023 0.603 → **0.7742 ± 0.0119** federated, pooled twin **0.8390 ± 0.0035** = Phase 3's single-corpus number) and the driver reproduces Phase 4 (0.8407 ± 0.0150 vs 0.8308). **Leave-one-dataset-out failed: 0.0858 ± 0.0347 on held-out CICIoT2023 (FPR 0.95), 0.1380 ± 0.0485 present-only on held-out CICIoMT2024 (FPR 0.82)** — no transfer to an unseen testbed, reported as a negative result. Manifest `artifacts/manifest_phase9_generalised_percorpus.json`. Prior status: **second design running (2026-09-22).** The first full run (2026-09-21, all three corpora, global scaler, 13 features) gave in-distribution 0.60 / 0.56 / 0.12 and leave-one-dataset-out ≈ 0 -- per-corpus feature scales, and an Edge-IIoTset whose reconstructed windows are near-constant. Decided: Edge-IIoTset `not_for_training`, all 16 features back, per-corpus standardisation, K = 3 across corpora (Dirichlet within one), a pooled-centralised twin on the same windows, LODO over the two corpora, at Phase 4's budget. Plan §5: `docs/plans/phase9-multi-dataset.md` | Each corpus characterised and reconciled with the registry; per-corpus R3 gate green; leave-one-dataset-out results over ≥ 3 seeds |
 
 Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
 parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
@@ -32,6 +32,71 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 (see the 2026-09-12 Phase 6 entry below), `data/characterize.py` (Phase 1), and
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
+
+## 2026-09-23
+
+### Phase 9 third design: a farm models a deployment site, not a corpus
+
+The user objected to the second run's client layout: allocating K = 3 as two CICIoT2023 farms
+plus one CICIoMT2024 farm does not model a real deployment, because detection for a medical
+setting federates over medical sites and one for agriculture over farms. A client split that
+encodes which corpus a client came from is a cross-domain consortium, which this project is not
+building. The run's own numbers agreed — on the CICIoT2023 test set, one corpus federated scored
+0.8407 and both corpora pooled scored 0.8390, but both corpora split corpus-per-client scored
+only 0.7742, so the second corpus as *data* cost nothing while the second corpus as its own
+*client* cost 0.066.
+
+- **`run_phase9.py --client-allocation mixed`** (now the default): every farm draws a Dirichlet
+  share of every training corpus, each corpus partitioned under its own derived seed
+  (`seed * 1000 + corpus_index`) so the draws are independent. All three farms hold 8/8 families
+  where the CICIoMT2024-only farm held 6/8. `per-corpus` is kept as the labelled cross-domain
+  ablation. `build_farms` returns one representation for both layouts (`{corpus: row_mask}` per
+  farm) so the rest of the pipeline is layout-agnostic; windows are built inside each corpus's
+  own rows and only then concatenated, and per-corpus scaling is unchanged because a mixed farm
+  contributes one set of sufficient statistics per corpus it holds.
+- **`--run-name`, and the layout and scaling flags folded into the derived manifest name.** A
+  smoke run overwrote the 8.82 h result's manifest, which was recovered from git; each
+  configuration now writes to its own file.
+- **`--local-only`**: trains each farm on its own data alone, compute-matched to the federated
+  run at R x E epochs and scored on the same test sets, so the per-client gain answers whether a
+  farm is better off federating (III-I1 baseline 4, gap G4). Phase 4 measured this on one corpus
+  (+0.1023 / +0.1565 / +0.0721 per client, 82.4 % of the local-to-centralised gap recovered);
+  the mixed layout had no such baseline until now.
+
+Results, 3 seeds at Phase 4's budget, manifest
+`artifacts/manifest_phase9_generalised_percorpus_mixed.json`:
+
+| experiment | test corpus | per-corpus farms | mixed farms |
+| --- | --- | --- | --- |
+| in_distribution | CICIoT2023 | 0.7742 ± 0.0119 | **0.8211 ± 0.0153** |
+| in_distribution | CICIoMT2024 (present) | 0.8034 ± 0.0207 | **0.8714 ± 0.0118** |
+| pooled_centralised | CICIoT2023 | 0.8390 ± 0.0035 | 0.8476 ± 0.0048 |
+| lodo/ciciot2023 | CICIoT2023 **held out** | 0.0858 ± 0.0347 | 0.0853 ± 0.0288 |
+| lodo/ciciomt2024 | CICIoMT2024 **held out** | 0.1380 ± 0.0485 | 0.0763 ± 0.0251 |
+| lodo/ciciomt2024 | CICIoT2023 (ceiling) | 0.8407 ± 0.0150 | 0.8443 ± 0.0003 |
+
+Adding the second corpus cost 0.066 against the single-corpus ceiling and now costs 0.020, so
+about 70 % of the penalty was the layout. The price of federating rather than pooling fell from
+0.065 to 0.027. Leave-one-dataset-out did not move and was not expected to: the layout governs
+how clients are built, not whether window statistics transfer across testbeds. At seed 0 the
+single-corpus LODO folds reproduce the second run to four decimals, because with one training
+corpus both layouts construct the same three Dirichlet farms.
+
+### Edge-IIoTset: the corpus is clean, our reconstruction was not
+
+Re-reading `artifacts/phase1_characterization_report_edge_iiotset.json` while scoping a possible
+domain-specific rebuild contradicted the figure this project dropped it on. The 81 % duplication
+was a property of **our packet-field reconstruction** of CICIoT2023's 16 window features, not of
+the corpus: the raw file has **815 exact duplicates in 2,219,201 records (0.04 %)**, an imbalance
+ratio of 1614 against CICIoT2023's 5751, and 63 native columns including ten MQTT fields and
+three Modbus TCP fields — the protocols farm automation runs on. Its 14 attack types cover what
+CICIoT2023's 8 families cover and add ransomware, which neither other corpus has. CICIoMT2024 by
+contrast is network-layer only: floods, scans and ARP spoofing, with no malware, no web attacks
+and no brute force, so it cannot stand alone as a domain corpus.
+
+No decision taken: the `not_for_training` registration stands, and the reason string remains
+accurate about the reconstruction. Recorded because a domain-specific rebuild on Edge-IIoTset's
+*native* schema is now a live option, gated on a half-day centralised check.
 
 ## 2026-09-22
 

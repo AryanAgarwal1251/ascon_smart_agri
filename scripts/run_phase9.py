@@ -402,6 +402,7 @@ def run_experiment(  # type: ignore[no-untyped-def]
     scaling: str,
     allocation: str,
     pooled: bool,
+    with_local_only: bool,
     verbose: bool,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
     """One federated run (and, if asked, the pooled-centralised twin on the same windows)."""
@@ -511,12 +512,42 @@ def run_experiment(  # type: ignore[no-untyped-def]
     print(
         f"  [{label} | seed {seed}] F={len(columns)} {columns} | federated {time.time() - t0:.0f}s"
     )
+    # ---- Local-only baseline: what each farm gets by DECLINING to federate -----------------
+    # Compute-matched to the federated run (R x E local passes), scored on the same test sets,
+    # so the difference is federation and nothing else. This is the number that says whether a
+    # farm is better off joining: III-I1 baseline 4, and gap G4.
+    local_only: list[dict[str, object]] = []
+    if with_local_only:
+        t2 = time.time()
+        client_seeds = np.random.SeedSequence(seed).generate_state(len(client_ids))
+        for idx, cid in enumerate(client_ids):
+            solo = train_centralized(
+                client_seqs[idx],
+                client_labels[idx],
+                hidden_size=cfg.model.hidden_size,
+                n_classes=cfg.model.n_classes,
+                epochs=rounds * local_epochs,
+                seed=int(client_seeds[idx]),
+                verbose=verbose,
+            )
+            solo_scores = {n: score(solo, x, y) for n, (x, y) in test_sets.items()}
+            local_only.append({"client": cid, "scores": solo_scores})
+            for name, sc in solo_scores.items():
+                gain = float(scores[name]["macro_f1"]) - float(sc["macro_f1"])  # type: ignore[arg-type]
+                print(
+                    f"  [{label} | seed {seed}] local-only {cid:<10} test={name:<13} "
+                    f"macro-F1 {sc['macro_f1']:.4f} | federated {scores[name]['macro_f1']:.4f} "
+                    f"| gain {gain:+.4f}"
+                )
+        print(f"  [{label} | seed {seed}] local-only baseline | {time.time() - t2:.0f}s")
+
     federated: dict[str, object] = {
         "seed": seed,
         "train_corpora": train_names,
         "clients": client_ids,
         "client_histograms_blocks": histograms,
         "client_allocation": allocation,
+        "local_only_per_client": local_only,
         "scaler_stats_used": scaling,
         "selected_columns": columns,
         "sequence_counts_uncapped": counts_raw,
@@ -621,6 +652,14 @@ def main() -> None:
         "consortium and is kept as the labelled ablation (see results/phase9_multi_dataset.md)",
     )
     parser.add_argument(
+        "--local-only",
+        action="store_true",
+        help="also train each farm on its OWN data alone, compute-matched to the federated run "
+        "(R x E epochs) and scored on the same test sets. The per-client gain is what says "
+        "whether a farm is better off federating (III-I1 baseline 4, gap G4). Adds ~K x the "
+        "cost of one federated run",
+    )
+    parser.add_argument(
         "--run-name",
         default="",
         help="override the manifest/progress basename (default: derived from the config's "
@@ -690,6 +729,7 @@ def main() -> None:
                 sequence_cap=args.sequence_cap,
                 scaling=args.scaling,
                 allocation=args.client_allocation,
+                with_local_only=(label == "in_distribution" and args.local_only),
                 pooled=(label == "in_distribution" and not args.skip_pooled),
                 verbose=args.verbose,
             )

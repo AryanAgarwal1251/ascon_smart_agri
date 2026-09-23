@@ -132,6 +132,50 @@ than tuned away. What can honestly be claimed from Phase 9 is: the detector gene
 distribution 0.774) — it does **not** transfer to an unseen testbed. Cross-testbed transfer would
 need domain adaptation or corpus-invariant features, neither of which is in this project's scope.
 
+## The third run (2026-09-23): the farm layout was wrong, and fixing it recovered most of the loss
+
+The corpus-per-client layout of the second run does not model a deployment. A real federation is
+domain-coherent: detection for a medical setting federates over medical sites, one for agriculture
+over farms. Allocating K = 3 as two CICIoT2023 farms plus one CICIoMT2024 farm encodes *which
+corpus a client came from* into the client structure, which is a consortium this project is not
+building. It also cost accuracy, because that third farm held only 6 of the 8 families — no Mirai,
+no BruteForce — and FedAvg averaged that gap into the global model every round.
+
+`--client-allocation mixed` (now the default) gives every farm a Dirichlet share of *every*
+training corpus, each corpus partitioned under its own derived seed so the draws are independent.
+All three farms then hold 8/8 families. `per-corpus` is kept as the labelled cross-domain ablation.
+Windows are still built inside each corpus's own rows and only then concatenated — a window may
+never span a corpus boundary — and per-corpus scaling is unchanged, since a mixed farm contributes
+one set of sufficient statistics per corpus it holds.
+
+Same budget as the second run (R = 20, E = 3, 400k per farm, 3 seeds); manifest
+`artifacts/manifest_phase9_generalised_percorpus_mixed.json`.
+
+| experiment | test corpus | per-corpus farms (2nd run) | mixed farms (3rd run) |
+| --- | --- | --- | --- |
+| in_distribution | CICIoT2023 | 0.7742 ± 0.0119 | **0.8211 ± 0.0153** |
+| in_distribution | CICIoMT2024 (present) | 0.8034 ± 0.0207 | **0.8714 ± 0.0118** |
+| pooled_centralised | CICIoT2023 | 0.8390 ± 0.0035 | 0.8476 ± 0.0048 |
+| pooled_centralised | CICIoMT2024 (present) | 0.9009 ± 0.0052 | 0.9011 ± 0.0017 |
+| lodo/ciciot2023 | CICIoT2023 **held out** | 0.0858 ± 0.0347 | 0.0853 ± 0.0288 |
+| lodo/ciciomt2024 | CICIoMT2024 **held out** | 0.1380 ± 0.0485 | 0.0763 ± 0.0251 |
+| lodo/ciciomt2024 | CICIoT2023 (ceiling) | 0.8407 ± 0.0150 | 0.8443 ± 0.0003 |
+
+Two numbers carry the result. **Adding the second corpus used to cost 0.066** against the
+single-corpus ceiling (0.8407 → 0.7742); **it now costs 0.020** (0.8443 → 0.8211), so roughly 70 %
+of the penalty was the layout rather than the corpus. And **the price of federating rather than
+pooling fell from 0.065 to 0.027**, because farms holding the same families pull the global model
+in the same direction instead of against each other.
+
+Leave-one-dataset-out did not move, and was not expected to: the layout governs how clients are
+built, not whether window statistics transfer between testbeds. The negative result stands exactly
+as the second run reported it.
+
+A consistency check worth recording: at seed 0 the single-corpus LODO folds reproduce the second
+run to four decimals (0.1244 and 0.0552 in both), because with one training corpus the mixed and
+per-corpus layouts construct the same three Dirichlet farms. Seeds 1 and 2 differ, since mixed mode
+derives its Dirichlet seed as `seed * 1000 + corpus_index`; same procedure, different draw.
+
 ## Decisions flagged, not silently made
 
 - **Per-corpus scaler vs III-F4's single scaler.** The paper's federated scaler exists so that
