@@ -29,6 +29,23 @@ budget, recorded alongside the curve so a reader can see how thoroughly each poi
 A curve measured at a reduced budget still locates a knee -- the ranking of candidate F values
 is what matters, not the absolute macro-F1 at each point -- but it is not a headline result and
 must not be quoted as one.
+
+MEASURE ONCE, THEN PIN (user-approved, 2026-09-29). Choosing F is a single Phase 2 decision for
+the whole project, not a per-run one. The intended workflow is:
+
+    1. run ONE sweep -- ``run_phase3.py --knee-sweep`` is the cheap place, since no federation is
+       needed to score a candidate;
+    2. read the knee off the curve the run prints and stores in its manifest;
+    3. set ``features.selected_f`` in the config to it, permanently.
+
+Every driver then inherits that F through the config, and the sweep never needs to run again.
+**Only ``run_phase3.py`` and ``run_phase4.py`` take ``--knee-sweep``, and that is deliberate.**
+``run_phase3_complete.py``, ``run_phase7.py`` and ``train_federated_model.py`` call
+``FeatureSelector.fit`` without an evaluator on purpose: each driver draws its own inner split,
+so letting them all sweep independently could select a *different* F per driver and leave the
+project internally inconsistent -- the checkpoint trained at one F, the end-to-end run scored at
+another. That is a worse failure than not measuring at all, because it is invisible in any single
+run's output. Do not "fix" the three unwired drivers by adding the flag to them.
 """
 
 from __future__ import annotations

@@ -94,6 +94,14 @@ pattern in "Conventions" still governs any *new* stub you add.
   records, never from the JSON payload, never synthesised. The runtime demo shows architectural
   correctness only — see the docstring in `telemetry/provenance.py`.
 - **Keys never in version control** (III-J3); demo keys labelled as such.
+- **Stage 4's knee is measured ONCE, then pinned in the config.** `--knee-sweep` exists only on
+  `run_phase3.py` and `run_phase4.py`; `run_phase3_complete.py`, `run_phase7.py` and
+  `train_federated_model.py` deliberately call `FeatureSelector.fit` **without** an evaluator.
+  Each driver draws its own inner validation split, so letting them all sweep independently
+  could select a different F per driver — checkpoint trained at one F, end-to-end run scored at
+  another — which no single run's output would reveal. Run one sweep, read the knee, set
+  `features.selected_f` to it, and let every driver inherit it. **Do not add `--knee-sweep` to
+  the other three drivers.** (`eval/knee_sweep.py`; user-approved 2026-09-29.)
 
 ## Out of scope — stub with a comment, never implement
 

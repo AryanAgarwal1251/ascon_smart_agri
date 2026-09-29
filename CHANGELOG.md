@@ -33,6 +33,24 @@ them describe a scaffolding stage this repository has long since left.
 
 ## 2026-09-29
 
+### Recorded the measure-once-then-pin rule for Stage 4's knee (Phase 2)
+
+Follow-up to the entry below, which added `--knee-sweep` to the Phase 3 and Phase 4 drivers only
+and left `run_phase3_complete.py`, `run_phase7.py` and `train_federated_model.py` calling
+`FeatureSelector.fit` without an evaluator. That asymmetry looks like an oversight and would
+invite a future change to "finish the job" by adding the flag everywhere. It is a decision, and
+the user confirmed it, so it is now written down in `CLAUDE.md`'s invariants and in
+`eval/knee_sweep.py`'s module docstring rather than living only in a conversation.
+
+The reasoning: choosing F is a single Phase 2 decision for the whole project. Each driver draws
+its own inner validation split, so if they all swept independently they could select a
+**different F each**, leaving the checkpoint trained at one cardinality and the end-to-end run
+scored at another — an inconsistency invisible in any one run's output, and a worse failure than
+simply not measuring. The workflow instead is: run one sweep (Phase 3 is the cheap place, no
+federation needed to score a candidate), read the knee, set `features.selected_f` to it
+permanently, and let every driver inherit it through the config. Documentation only; no code
+changed.
+
 ### Stage 4's knee sweep can finally run: F is measurable instead of asserted (Phase 2)
 
 Section III-C's Stage 4 picks F at "the knee of the validation macro-F1 curve". The seam for
