@@ -111,3 +111,15 @@ to report. Fixed to mix `(run seed, client id, round index)` via `numpy.random.S
 The full Section III-I3 ablation sweep (α ∈ {0.1, 0.5, 100}, E ∈ {1,3,5}, weighted vs.
 unweighted, R up to 20) is not run — one configuration alone costs multiple hours, and it is
 deferred as separate, larger follow-on work rather than attempted piecemeal.
+
+**The numbers on this page predate a metric repair (2026-09-29).** Baseline 4 (local-only) used
+to report only macro-F1, balanced accuracy and MCC, because the per-client confusion matrix was
+never retained — so the G4 bracket's lower bound was missing the accuracy and FPR columns that
+baselines 3 and 5 both carried. All three rows now share one headline set
+(`scripts/run_phase4.py`, `local_only_summary()`, covered by `tests/test_phase4_reporting.py`).
+The macro-F1 figures above are **unaffected** — nothing about training or evaluation changed,
+only which of the already-computed metrics were kept — but the committed manifest still lacks the
+two new fields, and regenerating it needs the raw corpus. When it is regenerated, read the
+local-only FPR next to its macro-F1 and not alone: a client the partition left with no data
+predicts constant-benign, so it raises no alarms and its FPR is a genuine 0.0 — the best possible
+value from the least useful model.

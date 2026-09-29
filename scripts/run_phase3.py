@@ -26,6 +26,7 @@ from ascon_smart_agri.data.scaling import apply_scaler, fit_scaler
 from ascon_smart_agri.data.split import make_blocks, stratified_block_split
 from ascon_smart_agri.data.subsample import stratified_capped_subsample
 from ascon_smart_agri.data.taxonomy import BENIGN_CLASS_INDEX, CLASS_NAMES, to_class_index
+from ascon_smart_agri.eval.knee_sweep import make_knee_evaluator
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
 from ascon_smart_agri.eval.metrics import binary_metrics, multiclass_metrics
 from ascon_smart_agri.eval.report import format_seed_summary, mean_std, near_ceiling_note
@@ -47,6 +48,31 @@ def main() -> None:
         type=int,
         default=0,
         help="cap training sequences (0 = use all); the cap is a seeded, stratified draw",
+    )
+    parser.add_argument(
+        "--knee-sweep",
+        action="store_true",
+        help=(
+            "run Stage 4 for real (Section III-C): score each candidate F by validation "
+            "macro-F1 on a split carved from the TRAINING blocks and take the knee. Off by "
+            "default -- it costs one training run per candidate and may select an F other than "
+            "the configured one, which moves every downstream number off the committed "
+            "manifests. This is the cheap driver to measure the knee in: no federation is "
+            "needed to score a candidate."
+        ),
+    )
+    parser.add_argument(
+        "--knee-epochs",
+        type=int,
+        default=1,
+        help="epochs per Stage-4 candidate (default 1); the curve locates the knee, it is "
+        "not a headline result",
+    )
+    parser.add_argument(
+        "--knee-max-sequences",
+        type=int,
+        default=0,
+        help="cap inner-training sequences per Stage-4 candidate; 0 = no cap",
     )
     args = parser.parse_args()
 
@@ -70,6 +96,30 @@ def main() -> None:
     test_frame = deduped.loc[block_ids.isin(split.test_blocks)]
     print(f"[data] train {len(train_frame):,} rows | test {len(test_frame):,} rows")
 
+    # Stage 4's injected evaluator (Section III-C). None => Stage 4 falls back to the configured
+    # F and records an empty curve, which is what every run before this flag existed did.
+    evaluator = None
+    knee_provenance: dict[str, object] = {"ran": False}
+    if args.knee_sweep:
+        evaluator, knee_provenance = make_knee_evaluator(
+            train_frame,
+            block_ids.loc[train_frame.index],
+            window=cfg.sequence.window,
+            class_names=list(CLASS_NAMES),
+            n_classes=cfg.model.n_classes,
+            epochs=args.knee_epochs,
+            hidden_size=cfg.model.hidden_size,
+            validation_fraction=cfg.data.test_fraction,
+            seed=cfg.data.seed,
+            max_train_sequences=args.knee_max_sequences or None,
+        )
+        knee_provenance["ran"] = True
+        print(
+            f"[features] Stage 4 sweep ON: {knee_provenance['inner_train_rows']:,} inner-train "
+            f"/ {knee_provenance['validation_rows']:,} validation rows, "
+            f"{args.knee_epochs} epoch(s) per candidate"
+        )
+
     selector = FeatureSelector()
     selection = selector.fit(
         train_frame.drop(columns=["label"]),
@@ -77,6 +127,7 @@ def main() -> None:
         tau=cfg.features.correlation_tau,
         f=cfg.features.selected_f,
         f_sweep=cfg.features.f_sweep,
+        evaluator=evaluator,
         rf_n_estimators=cfg.features.rf_n_estimators,
         rrf_k=cfg.features.rrf_k,
         sample_size=cfg.features.selection_sample_size,
@@ -84,6 +135,23 @@ def main() -> None:
     )
     columns = selection.selected_columns
     print(f"[features] F={len(columns)} of F0={len(selection.fused_ranking)}")
+    selection_report: dict[str, object] = {
+        "f0": len(selection.fused_ranking),
+        "selected_f": selection.selected_f,
+        "configured_f": cfg.features.selected_f,
+        "f_sweep_scores": {str(k): v for k, v in selection.f_sweep_scores.items()},
+        "knee_sweep": knee_provenance,
+    }
+    if args.knee_sweep:
+        curve = " | ".join(f"F={k}: {v:.4f}" for k, v in sorted(selection.f_sweep_scores.items()))
+        print(f"[features] validation macro-F1 curve -- {curve}")
+        if selection.selected_f != cfg.features.selected_f:
+            # Loud, not silent: this moves every downstream number off the committed manifests.
+            print(
+                f"[features] *** KNEE IS F={selection.selected_f}, NOT THE CONFIGURED "
+                f"F={cfg.features.selected_f} *** set features.selected_f to it in the config "
+                f"before quoting any result from this feature set"
+            )
 
     def prepare(frame_part, scaler=None):  # type: ignore[no-untyped-def]
         """Frame -> (sequences, labels, scaler). Non-finite rows are DROPPED, never imputed."""
@@ -212,6 +280,9 @@ def main() -> None:
             "summary": summary,
             "per_seed": per_seed,
             "selected_columns": columns,
+            # Stage 4's curve and how it was measured (Section III-C). ``knee_sweep.ran:
+            # false`` means F came from the config, not from a measured knee.
+            "feature_selection": selection_report,
             "n_train_sequences": len(x_train),
             "n_test_sequences": len(x_test),
             "epochs": args.epochs,

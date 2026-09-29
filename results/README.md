@@ -9,7 +9,7 @@ stated rather than smoothed over.
 
 **Status: all seven phases complete**, verified by the gate scripts committed alongside the
 code (`scripts/check_phase3_gate.py`, `scripts/check_phase4_gate.py`), not by narrative alone.
-Current test suite: **357 passed, 0 skipped**, all lint/type/dead-code gates green.
+Current test suite: **376 passed, 0 skipped**, all lint/type/dead-code gates green.
 
 > **Implementation deviation from the design paper (user-approved, 2026-09-20).** Ascon-AEAD128
 > was moved off the gateway→cloud telemetry channel (now plaintext) and onto the
@@ -23,9 +23,9 @@ Current test suite: **357 passed, 0 skipped**, all lint/type/dead-code gates gre
 | # | Phase | Status | Headline result |
 | - | --- | --- | --- |
 | 1 | [Characterisation](phase1_characterisation.md) | ✅ Done | 46,776,700 records (raw), matches paper's ~46.7M |
-| 2 | [Leakage control + feature selection](phase2_leakage_and_feature_selection.md) | ✅ Done | R3 gate passes on real data; F0=31 → F=16 |
+| 2 | [Leakage control + feature selection](phase2_leakage_and_feature_selection.md) | ✅ Done — one measurement outstanding | R3 gate passes on real data; F0=31 → F=16, but 16 is **configured, not yet a measured knee** |
 | 3 | [Centralised GRU](phase3_centralised_gru.md) | ✅ Done — hard gate closed | macro-F1 0.8297 ± 0.0013 at W=16; recurrence earns its place |
-| 4 | [Federated learning](phase4_federated_learning.md) | ✅ Done — gate closed | Federated 0.8308 recovers 82.4% of the gap; weight transport now Ascon-encrypted (+192 B/round) |
+| 4 | [Federated learning](phase4_federated_learning.md) | ✅ Done — gate closed | Federated 0.8308 recovers 82.4% of the gap; weight transport now Ascon-encrypted (+192 B/round); baseline 4 now reports the full headline set |
 | 5 | [Telemetry + provenance](phase5_telemetry_and_provenance.md) | ✅ Done | G6 verified: 0 leaked into training index across 200+ checks |
 | 6 | [Ascon + alerting](phase6_ascon_and_alerting.md) | ✅ Done — zero skips | Ascon now guards the weight channel (⊥ on tamper); G1 routing split retained on the plaintext cloud path |
 | 7 | [End-to-end integration](phase7_end_to_end_integration.md) | ✅ Done | Real model, real pipeline, real routing — G1 holds; cloud leg now plaintext |

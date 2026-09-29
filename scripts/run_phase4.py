@@ -34,6 +34,7 @@ import builtins
 import functools
 import json
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -46,7 +47,9 @@ from ascon_smart_agri.data.split import make_blocks, stratified_block_split
 from ascon_smart_agri.data.subsample import stratified_capped_subsample
 from ascon_smart_agri.data.taxonomy import CLASS_NAMES, to_class_index
 from ascon_smart_agri.eval.baselines import centralized_gru, local_only_grus, run_federation
+from ascon_smart_agri.eval.knee_sweep import make_knee_evaluator
 from ascon_smart_agri.eval.manifest import RunManifest, collect_environment
+from ascon_smart_agri.eval.metrics import MulticlassMetrics
 from ascon_smart_agri.eval.report import client_to_global_gap, mean_std
 from ascon_smart_agri.features.selection import FeatureSelector
 from ascon_smart_agri.federated.partition import (
@@ -64,22 +67,44 @@ from ascon_smart_agri.sequences.windowing import build_windows, contiguity_segme
 print = functools.partial(builtins.print, flush=True)
 
 # FPR is in the headline set deliberately (III-I2), not reported as an afterthought.
+# All three baselines report the same set: the G4 bracket is only readable if its lower bound
+# is measured on the same metrics as the two bounds it is compared against.
 HEADLINE = ("macro_f1", "balanced_accuracy", "mcc", "accuracy", "false_positive_rate")
-# local_only's per-seed dict only carries the mean-over-clients fields computed for it below;
-# accuracy and false_positive_rate are not (yet) among them.
-LOCAL_ONLY_HEADLINE = ("macro_f1", "balanced_accuracy", "mcc")
 
 
-def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped-def]
+def build_pipeline(  # type: ignore[no-untyped-def]
+    cfg,
+    cache: str,
+    save_cache: str,
+    *,
+    knee_sweep: bool = False,
+    knee_epochs: int = 1,
+    knee_max_sequences: int | None = None,
+    device: str = "cpu",
+):
     """Phases 1-2: subsample -> dedup -> block split -> feature selection.
 
     Returns UNSCALED train/test features plus the per-row block ids the Dirichlet partition
     needs. Standardisation is deliberately not done here -- it is the federated step of
     Section III-F4 and happens after the partition, from client sufficient statistics only.
+
+    ``knee_sweep`` runs Stage 4 for real (Section III-C): each candidate F is scored by training
+    a detector on the training blocks' inner split and evaluating validation macro-F1, and F is
+    taken at the knee. It is **off by default** because it both costs a training run per
+    candidate and can select an F other than the configured one, which would silently move every
+    downstream number away from the committed manifests. Turn it on deliberately, to measure
+    whether the configured F really is the knee.
     """
     if cache and Path(cache).exists():
         blob = np.load(cache, allow_pickle=False)
         print(f"[data] loaded cache {cache}")
+        if knee_sweep:
+            # Silently ignoring it would let someone believe they had measured the knee when
+            # they had only reloaded columns chosen by an earlier run.
+            print(
+                "[features] WARNING: --knee-sweep ignored -- the cache already holds selected "
+                "columns. Re-run without --cache to measure the Stage 4 curve."
+            )
         return (
             blob["Xtr"],
             blob["ytr"],
@@ -92,6 +117,9 @@ def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped
             blob["ite"],
             [str(c) for c in blob["cols"]],
             {},
+            # A cache is columns already chosen; Stage 4 did not run in THIS process, and
+            # saying so beats implying the configured F was measured.
+            {"from_cache": True, "knee_sweep": {"ran": False}},
         )
 
     frame, per_class_counts = stratified_capped_subsample(
@@ -109,6 +137,31 @@ def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped
     train_frame = deduped.loc[block_ids.isin(split.train_blocks)]
     test_frame = deduped.loc[block_ids.isin(split.test_blocks)]
 
+    # Stage 4's injected evaluator (Section III-C). None => Stage 4 falls back to the configured
+    # F and records an empty curve, which is what every run before this flag existed did.
+    evaluator = None
+    knee_provenance: dict[str, object] = {"ran": False}
+    if knee_sweep:
+        evaluator, knee_provenance = make_knee_evaluator(
+            train_frame,
+            block_ids.loc[train_frame.index],
+            window=cfg.sequence.window,
+            class_names=list(CLASS_NAMES),
+            n_classes=cfg.model.n_classes,
+            epochs=knee_epochs,
+            hidden_size=cfg.model.hidden_size,
+            validation_fraction=cfg.data.test_fraction,
+            seed=cfg.data.seed,
+            device=device,
+            max_train_sequences=knee_max_sequences,
+        )
+        knee_provenance["ran"] = True
+        print(
+            f"[features] Stage 4 sweep ON: {knee_provenance['inner_train_rows']:,} inner-train "
+            f"/ {knee_provenance['validation_rows']:,} validation rows, "
+            f"{knee_epochs} epoch(s) per candidate"
+        )
+
     selector = FeatureSelector()
     selection = selector.fit(
         train_frame.drop(columns=["label"]),
@@ -116,12 +169,30 @@ def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped
         tau=cfg.features.correlation_tau,
         f=cfg.features.selected_f,
         f_sweep=cfg.features.f_sweep,
+        evaluator=evaluator,
         rf_n_estimators=cfg.features.rf_n_estimators,
         rrf_k=cfg.features.rrf_k,
         sample_size=cfg.features.selection_sample_size,
         seed=cfg.data.seed,
     )
     columns = selection.selected_columns
+    selection_report: dict[str, object] = {
+        "f0": len(selection.fused_ranking),
+        "selected_f": selection.selected_f,
+        "configured_f": cfg.features.selected_f,
+        "f_sweep_scores": {str(k): v for k, v in selection.f_sweep_scores.items()},
+        "knee_sweep": knee_provenance,
+    }
+    if knee_sweep:
+        curve = " | ".join(f"F={k}: {v:.4f}" for k, v in sorted(selection.f_sweep_scores.items()))
+        print(f"[features] validation macro-F1 curve -- {curve}")
+        if selection.selected_f != cfg.features.selected_f:
+            # Loud, not silent: this moves every downstream number off the committed manifests.
+            print(
+                f"[features] *** KNEE IS F={selection.selected_f}, NOT THE CONFIGURED "
+                f"F={cfg.features.selected_f} *** results from this run are not comparable to "
+                f"manifests produced at F={cfg.features.selected_f}"
+            )
 
     def prepare(part):  # type: ignore[no-untyped-def]
         """Select columns and drop non-finite rows. Deliberately does NOT scale.
@@ -174,6 +245,7 @@ def build_pipeline(cfg, cache: str, save_cache: str):  # type: ignore[no-untyped
         idx_te,
         columns,
         per_class_counts,
+        selection_report,
     )
 
 
@@ -190,6 +262,49 @@ def binary_fpr(confusion: np.ndarray, benign_index: int = 0) -> float:
     false_positive = matrix[benign_index].sum() - true_negative
     denominator = false_positive + true_negative
     return float(false_positive / denominator) if denominator > 0 else float("nan")
+
+
+def local_only_summary(
+    locals_: Sequence[MulticlassMetrics],
+    *,
+    seed: int,
+    empty_clients: Sequence[int],
+    benign_index: int,
+    federated_macro_f1: float,
+) -> dict[str, object]:
+    """Collapse the K local-only GRUs into baseline 4, the G4 lower bound (Section III-I1).
+
+    The lower bound is the MEAN over clients. **Every client counts, including one the
+    Dirichlet partition left with nothing:** excluding it would make the lower bound look
+    better than declining to federate actually is.
+
+    Every metric in :data:`HEADLINE` is produced here, so baseline 4 is reported on the same
+    footing as baselines 3 and 5 -- the bracket is only readable if all three rows carry the
+    same columns.
+
+    **``false_positive_rate`` must be read with ``macro_f1``, never alone.** A client that got
+    no data predicts constant-benign, so it raises no alarms and its Eq. (31) FPR is a genuine
+    0.0 -- the best possible value, from the least useful model. Averaged in, such a client
+    pulls this FPR down while pulling macro-F1 down too. Both figures are true; the pair is the
+    finding, which is exactly why Section III-I2 forbids reading any single metric on its own.
+    """
+    return {
+        "seed": seed,
+        "macro_f1": float(np.mean([m.macro_f1 for m in locals_])),
+        "balanced_accuracy": float(np.mean([m.balanced_accuracy for m in locals_])),
+        "mcc": float(np.mean([m.mcc for m in locals_])),
+        "accuracy": float(np.mean([m.accuracy for m in locals_])),
+        "false_positive_rate": float(
+            np.mean([binary_fpr(m.confusion, benign_index) for m in locals_])
+        ),
+        "per_client_macro_f1": [m.macro_f1 for m in locals_],
+        "clients_without_data": len(empty_clients),
+        # Section III-I2's client-to-global gap: positive => federation helped that client
+        # relative to going it alone.
+        "client_to_global_gap": client_to_global_gap(
+            {str(i): m.macro_f1 for i, m in enumerate(locals_)}, federated_macro_f1
+        ),
+    }
 
 
 def federated_scaler(client_rows: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
@@ -233,6 +348,30 @@ def main() -> None:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--cache", default="")
     parser.add_argument("--save-cache", default="")
+    parser.add_argument(
+        "--knee-sweep",
+        action="store_true",
+        help=(
+            "run Stage 4 for real (Section III-C): score each candidate F by validation "
+            "macro-F1 on a split carved from the TRAINING blocks and take the knee. Off by "
+            "default -- it costs one training run per candidate and may select an F other than "
+            "the configured one, which moves every downstream number off the committed "
+            "manifests. Ignored when --cache supplies already-selected columns."
+        ),
+    )
+    parser.add_argument(
+        "--knee-epochs",
+        type=int,
+        default=1,
+        help="epochs per Stage-4 candidate (default 1); the curve locates the knee, it is "
+        "not a headline result",
+    )
+    parser.add_argument(
+        "--knee-max-sequences",
+        type=int,
+        default=0,
+        help="cap inner-training sequences per Stage-4 candidate; 0 = no cap",
+    )
     args = parser.parse_args()
 
     cfg = load_run_config(args.config)
@@ -252,8 +391,27 @@ def main() -> None:
     central_epochs = args.central_epochs or local_passes
     started = time.time()
 
-    (x_tr, y_tr, src_tr, idx_tr, blk_tr, x_te, y_te, src_te, idx_te, columns, per_class_counts) = (
-        build_pipeline(cfg, args.cache, args.save_cache)
+    (
+        x_tr,
+        y_tr,
+        src_tr,
+        idx_tr,
+        blk_tr,
+        x_te,
+        y_te,
+        src_te,
+        idx_te,
+        columns,
+        per_class_counts,
+        selection_report,
+    ) = build_pipeline(
+        cfg,
+        args.cache,
+        args.save_cache,
+        knee_sweep=args.knee_sweep,
+        knee_epochs=args.knee_epochs,
+        knee_max_sequences=args.knee_max_sequences or None,
+        device=args.device,
     )
 
     # The shared global test set: one population for every baseline (Section III-B3). The
@@ -426,6 +584,10 @@ def main() -> None:
                     "mcc": m.mcc,
                     "accuracy": m.accuracy,
                     "per_class_f1": m.per_class_f1,
+                    "confusion": m.confusion.tolist(),
+                    # Eq. (31), from the matrix beside it -- the same derivation baselines 3
+                    # and 5 use above, so the bracket's three rows stay comparable.
+                    "false_positive_rate": binary_fpr(m.confusion, names.index("Benign")),
                     "had_no_data": client_id in empty_clients,
                 }
                 for client_id, m in enumerate(locals_)
@@ -439,23 +601,14 @@ def main() -> None:
                 "bytes_per_round": run.bytes_per_round,
             }
         )
-        # The lower bound is the MEAN over clients that could train at all.
         results.setdefault("local_only", []).append(
-            {
-                "seed": seed,
-                # Every client counts, including one that got nothing: excluding it would
-                # make the lower bound look better than declining to federate actually is.
-                "macro_f1": float(np.mean([m.macro_f1 for m in locals_])),
-                "balanced_accuracy": float(np.mean([m.balanced_accuracy for m in locals_])),
-                "mcc": float(np.mean([m.mcc for m in locals_])),
-                "per_client_macro_f1": [m.macro_f1 for m in locals_],
-                "clients_without_data": len(empty_clients),
-                # Section III-I2's client-to-global gap: positive => federation helped that
-                # client relative to going it alone.
-                "client_to_global_gap": client_to_global_gap(
-                    {str(i): m.macro_f1 for i, m in enumerate(locals_)}, run.metrics.macro_f1
-                ),
-            }
+            local_only_summary(
+                locals_,
+                seed=seed,
+                empty_clients=empty_clients,
+                benign_index=names.index("Benign"),
+                federated_macro_f1=run.metrics.macro_f1,
+            )
         )
 
     # ---- Report --------------------------------------------------------------------------
@@ -471,7 +624,7 @@ def main() -> None:
     for name in ("centralized", "local_only", "federated"):
         summary[name] = {}
         line = []
-        for metric in HEADLINE if name != "local_only" else LOCAL_ONLY_HEADLINE:
+        for metric in HEADLINE:
             values = [float(r[metric]) for r in results[name]]  # type: ignore[arg-type]
             mean_value, std_value = mean_std(values)
             summary[name][f"{metric}_mean"] = mean_value
@@ -547,6 +700,10 @@ def main() -> None:
             "n_clients": n_clients,
             "window": cfg.sequence.window,
             "selected_columns": columns,
+            # Stage 4's curve and how it was measured (Section III-C). ``knee_sweep.ran: false``
+            # means F came from the config, not from a measured knee -- recorded either way so a
+            # reader never has to guess which.
+            "feature_selection": selection_report,
             "elapsed_seconds": round(time.time() - started, 1),
         },
     )

@@ -17,43 +17,111 @@ memory. Start at [`results/README.md`](results/README.md).
 | # | Phase | Status | Exit criterion |
 | - | --- | --- | --- |
 | 1 | Characterisation report | Done, on both a subsampled/pre-split Kaggle mirror and the official UNB raw corpus (see 2026-09-13 entries) | Real columns/types, nulls, zero-variance, exact duplicate count, label vocab + counts, correlation matrix produced |
-| 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done** (Stage 4's knee sweep is wired but inert until Phase 3 supplies a detector — see the 2026-09-14 entry): subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data | `tests/test_leakage.py` green on real data ✅ |
+| 2 | Leakage-controlled preprocessing + four-stage feature selection | **Done, with one measurement outstanding.** subsample -> dedup -> split -> four-stage selection all run end-to-end on the real corpus; R3 gate passes on real data. **Stage 4's knee sweep is now runnable** (`--knee-sweep` on the Phase 3 and Phase 4 drivers, `eval/knee_sweep.py`, 2026-09-29 entry) but **has not yet been run on the real corpus**, so `F=16` is still a *configured* value, not a measured knee; the committed manifests carry `f_sweep_scores: {}` and say so | `tests/test_leakage.py` green on real data ✅; `tests/test_knee_sweep.py` green ✅ |
 | 3 | Centralised GRU + full evaluation | **DONE — gate CLOSED** (**hard gate**), verified by `scripts/check_phase3_gate.py` (exit 0). Baselines 1-3 of III-I1 reported over 3 seeds at W ∈ {1,16}; GRU macro-F1 **0.8297 ± 0.0013** at W=16 vs random forest 0.6855 and MLP 0.6070. Ablation answered: recurrence **earned its place** (+0.2322, 51× seed std) | Full evaluation protocol (macro-F1, per-class F1, balanced accuracy, MCC, confusion matrix, FPR; ≥3 seeds) reported **for baselines 1-3 of Section III-I1** ✅ |
-| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0). Two independent runs were merged; the reported figures are the **compute-matched** run (α=0.5, R=20, E=3, W=16, 60 local passes for every baseline): federated global macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040**, recovering **82.4 %** of the gap; client-to-global gap positive for all three clients (+0.10 / +0.16 / +0.07). FPR **0.2975 ± 0.0512** — read it first. The earlier minimal-gate run is kept at `artifacts/manifest_phase4_minimal_gate.json`; its bracket is inverted because its baselines were not compute-matched. **2026-09-20 deviation:** the weight transport is now Ascon-encrypted on both legs of every round (+192 B/round, K=3); detection numbers unchanged (lossless). **Not done:** the α/E/aggregation ablation sweep of Section III-I3; regenerating the committed manifest with the crypto path (needs the raw corpus) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py`, `test_federated_weight_crypto.py` green ✅; gate checker exit 0 ✅ |
+| 4 | Three-client federated simulation, weighted FedAvg | **DONE — gate CLOSED**, verified by `scripts/check_phase4_gate.py` (exit 0). Two independent runs were merged; the reported figures are the **compute-matched** run (α=0.5, R=20, E=3, W=16, 60 local passes for every baseline): federated global macro-F1 **0.8308 ± 0.0150**, bracketed by local-only **0.7205 ± 0.0750** and centralised **0.8543 ± 0.0040**, recovering **82.4 %** of the gap; client-to-global gap positive for all three clients (+0.10 / +0.16 / +0.07). FPR **0.2975 ± 0.0512** — read it first. The earlier minimal-gate run is kept at `artifacts/manifest_phase4_minimal_gate.json`; its bracket is inverted because its baselines were not compute-matched. **2026-09-20 deviation:** the weight transport is now Ascon-encrypted on both legs of every round (+192 B/round, K=3); detection numbers unchanged (lossless). **2026-09-29:** baseline 4 (local-only) now reports the **full** headline set including accuracy and FPR, so all three rows of the G4 bracket carry the same columns. **Not done:** the α/E/aggregation ablation sweep of Section III-I3; regenerating the committed manifest with the crypto path *and* with the repaired local-only metrics (needs the raw corpus) | `test_fedavg_weighting.py`, `test_scaler_equivalence.py`, `test_federated_weight_crypto.py`, `test_phase4_reporting.py` green ✅; gate checker exit 0 ✅ |
 | 5 | Telemetry simulation + feature-provenance adapter | **Done.** `telemetry/simulate.py` and `telemetry/provenance.py` implemented; G6 boundary verified on real data (200+ provenance refs checked, zero leaked into the training index) | Provenance adapter enforces G6 boundary ✅ |
 | 6 | Ascon integration + alerting path | **Done.** `test_ascon_kat.py`, `test_ascon_tamper.py`, `test_nonce_collision.py`, `test_path_disjointness.py` all green. **2026-09-20 deviation:** Ascon now protects the client↔aggregator weight channel (`federated/crypto.py`), not the gateway→cloud telemetry channel (now plaintext); the G1 routing split is retained. | above + `test_federated_weight_crypto.py` green ✅ |
 | 7 | End-to-end integration | **Done.** A federated global model was trained and saved for the first time in this project (macro-F1 0.8338, later 0.8507 on the fixed path, bit-for-bit identical to Phase 4's seed-0 result), and the full runtime pipeline ran for real: telemetry → held-out network features (G6) → streaming windows → the real model → Eq. (5) → routing → cloud/alert. G1 held throughout (0 malicious-verdict messages reached the cloud). **2026-09-20 deviation:** the runtime cloud leg is now plaintext (Ascon moved to the training-plane weight transport); routing counts and macro-F1 unchanged | Full pipeline run producing a manifest ✅ |
 
-Most modules under `src/ascon_smart_agri/` are still typed stubs: they `del` their unused
-parameters and raise `NotImplementedError("Phase N: ... not implemented yet.")`. The exceptions
-are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of its phase gate
-(see the 2026-09-12 Phase 6 entry below), `data/characterize.py` (Phase 1), and
-`data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
--- see the 2026-09-14 and 2026-09-13 entries below.
+Every module under `src/ascon_smart_agri/` is now implemented: no `NotImplementedError`
+stub remains anywhere in `src/`. All seven phases are complete and their exit criteria met —
+the Phase 3 and Phase 4 gate checkers (`scripts/check_phase3_gate.py`,
+`scripts/check_phase4_gate.py`) both exit 0, and the full suite is **376 passed, 0 skipped**.
+The order in which each module arrived is recorded in the dated entries below; the earliest of
+them describe a scaffolding stage this repository has long since left.
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-## 2026-09-16
+## 2026-09-29
 
-### Phase 4 local-only baseline now reports balanced accuracy and MCC, not macro-F1 alone
+### Stage 4's knee sweep can finally run: F is measurable instead of asserted (Phase 2)
 
-`scripts/run_phase4.py` computed `balanced_accuracy` and `mcc` per local-only client all along
-(`local_only_per_client` in the manifest already had them), but the per-seed `local_only` entry
-and its seed-level summary tracked only `macro_f1` -- so `baseline_4_local_only.mean` in
-`phase4_results.json` reported macro-F1 alone for the lower bound of the G4 bracket while
-`baseline_3_centralized` and `baseline_5_federated_global` reported macro-F1, balanced accuracy,
-MCC, and accuracy. Added the mean-over-clients `balanced_accuracy` and `mcc` to the per-seed
-`results["local_only"]` dict and a new `LOCAL_ONLY_HEADLINE` tuple so the seed-level
-mean +/- std summary picks them up the same way the other two baselines' `HEADLINE` does;
-`scripts/summarize_phase4.py` needed no change since it copies `summary["local_only"]` wholesale
-into `baseline_4_local_only.mean`. Re-running `run_phase4.py` (and `summarize_phase4.py`) will
-regenerate the manifest and results file with the new fields; the committed artifacts have not
-been regenerated in this change. `false_positive_rate` for local-only is a separate, not yet
-implemented gap (the confusion matrix is not currently retained per client) -- flagged, not
-fixed here.
-=======
-=======
->>>>>>> Stashed changes
+Section III-C's Stage 4 picks F at "the knee of the validation macro-F1 curve". The seam for
+that existed from the start — `FeatureSelector.fit` takes an optional `evaluator` callable,
+dependency-injected to resolve the paper's own circular dependency (Stage 4 needs a detector;
+the detector is Phase 3, gated behind Phase 2) — but **no driver ever passed one.** Every run
+ever committed therefore recorded `f_sweep_scores: {}` and fell back to the configured
+`features.selected_f`, so the project's `F=16` was a **configured default, not a measured
+knee**, while `results/phase2` described the curve as deliberately empty. Phase 3 closed weeks
+ago, so the reason the sweep was inert had expired; nobody had gone back to close the loop.
+
+- **New `src/ascon_smart_agri/eval/knee_sweep.py`** supplies the injected side of that seam:
+  `make_knee_evaluator` returns `(evaluator, provenance)`, where `evaluator` maps a candidate
+  column list to its validation macro-F1 by training a GRU on those columns and scoring it. It
+  lives under `eval/` precisely because it may import the model, which `features/selection.py`
+  must not; the two still never import each other.
+- **The leakage contract is the important part.** Choosing F is a modelling decision, so
+  scoring a candidate against the held-out test set would be leakage of exactly the kind gate R3
+  exists to prevent. The validation set is carved from the **training blocks only** via an inner
+  `stratified_block_split` (seed offset by a constant so the inner draw is not correlated with
+  the outer train/test draw), and each candidate's scaler is fitted on inner-train rows alone.
+  The test set is **not a parameter of the module** and cannot be reached from it;
+  `tests/test_knee_sweep.py` pins that structurally, including a test that fails if a future
+  change adds a test-set parameter.
+- **Wired into the Phase 3 and Phase 4 drivers** behind `--knee-sweep`, with `--knee-epochs`
+  (default 1) and `--knee-max-sequences`. Phase 3 is the cheap place to measure it: no
+  federation is needed to score a candidate.
+- **Off by default, deliberately.** The sweep costs one training run per candidate, and it can
+  select an F other than the configured one, which would silently move every downstream number
+  off the committed manifests. Default-off keeps existing runs reproducible; when the sweep does
+  pick a different F the driver says so loudly rather than quietly reconfiguring the project.
+- **The curve is recorded in the manifest** under `results.feature_selection`, together with how
+  it was measured (inner split sizes, epoch budget, seed) — and, when the sweep did *not* run,
+  an explicit `knee_sweep.ran: false`, so a reader never has to guess whether F was measured.
+- **Still outstanding:** the sweep has **not been run on the real corpus** — the raw CICIoT2023
+  distribution is not present in this environment (`data/` does not exist). Until it is,
+  `F=16` remains configured rather than measured. The wiring was verified end to end on a
+  synthetic corpus, which exercises the code path but says nothing about where the real knee is.
+
+### Baseline 4 reports the full headline metric set, so the G4 bracket is readable (Phase 4)
+
+Section III-I2 makes FPR (Eq. 31) first-class and forbids reporting accuracy alone. Baselines 3
+and 5 reported macro-F1, balanced accuracy, MCC, accuracy and FPR; **baseline 4 (local-only, the
+G4 lower bound) reported only the first three**, because the per-client dict never retained the
+confusion matrix that FPR is derived from — so the bracket's lower bound was missing two of the
+five columns the bounds above it carried. The 2026-09-16 entry below closed half of this gap
+(balanced accuracy and MCC); this closes the rest.
+
+- `scripts/run_phase4.py`'s per-client entries now carry `confusion` and `false_positive_rate`,
+  derived exactly as baselines 3 and 5 derive theirs. `LOCAL_ONLY_HEADLINE` is gone: all three
+  baselines now share one `HEADLINE`, which is the point — a bracket whose rows carry different
+  columns is not a bracket.
+- The mean-over-clients aggregation moved out of an inline dict literal into
+  `local_only_summary()`, so the thing that was wrong is now a callable unit with a test.
+  `tests/test_phase4_reporting.py` covers it.
+- **One subtlety, documented rather than smoothed over:** a client the Dirichlet partition left
+  with no data predicts constant-benign, so it raises no alarms and its FPR is a genuine `0.0` —
+  the best possible value, from the least useful model. That is not a bug or a sentinel and is
+  deliberately not special-cased; it is pinned by a test so nobody "fixes" it into something
+  misleading. It is also precisely why III-I2 forbids reading any single metric alone.
+- `summarize_phase4.py` needed no change (it reads `macro_f1` per client and copies
+  `summary["local_only"]` wholesale). The committed Phase 4 manifest **predates this change** and
+  still lacks the two fields; regenerating it needs the raw corpus.
+
+### Resolved merge-conflict markers committed into this file, and corrected the stale scaffolding claim
+
+Two documentation defects, both introduced while the repository moved past the stage its own
+front matter described. No code, test, config or artifact changed by *this* entry, which left
+the suite at the 357 passed / 0 skipped it stood at beforehand (the two entries above this one
+add 19 tests, taking it to 376).
+
+- **Unresolved conflict markers were committed to `CHANGELOG.md`.** Commit `d32e57d` ("added
+  ascon to weight encryption") landed nine `<<<<<<< Updated upstream` / `=======` /
+  `>>>>>>> Stashed changes` lines into this file, nested two deep, straddling the 2026-09-16
+  and 2026-09-20 entries. Both entries survived intact inside the markers and **both are
+  retained here** — nothing was dropped in the resolution; the two were simply reordered into
+  this file's newest-first convention (2026-09-20 above 2026-09-16), which the conflict had
+  inverted. A repository-wide sweep confirmed `CHANGELOG.md` was the only affected file. The two
+  stashes the markers came from (`stash@{0}`, `stash@{1}`) are left alone.
+- **The status paragraph above the entries claimed the repository was still stubs.** It read
+  "Most modules under `src/ascon_smart_agri/` are still typed stubs", contradicting the
+  phase-status table four lines above it, which marks all seven phases done. `CLAUDE.md` carried
+  the same claim more strongly ("The repo is currently **scaffolding** — every module under
+  `src/` is a typed stub"), which is the first thing an agent reads and the most misleading
+  place for it to be wrong. Both now state what is actually true and point at the gate checkers
+  and the test count as the evidence. The **stub pattern itself** remains documented in
+  `CLAUDE.md`'s conventions section, since it still describes how a stub is written should a new
+  one be added.
+
 ## 2026-09-20
 
 ### Moved Ascon from the telemetry channel to the federated weight channel (user-approved deviation)
@@ -108,10 +176,25 @@ docstring noting `ad_fields` is now unencrypted routing metadata); `configs/defa
 New `tests/test_federated_weight_crypto.py` (AD round-trip/anti-ambiguity + protect/unprotect
 tamper-rejection); `test_router.py`, `test_cloud_sink.py`, `test_path_disjointness.py`,
 `test_federated.py`, `test_config.py` updated. **Full suite: 357 passed, 0 skipped.**
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+
+## 2026-09-16
+
+### Phase 4 local-only baseline now reports balanced accuracy and MCC, not macro-F1 alone
+
+`scripts/run_phase4.py` computed `balanced_accuracy` and `mcc` per local-only client all along
+(`local_only_per_client` in the manifest already had them), but the per-seed `local_only` entry
+and its seed-level summary tracked only `macro_f1` -- so `baseline_4_local_only.mean` in
+`phase4_results.json` reported macro-F1 alone for the lower bound of the G4 bracket while
+`baseline_3_centralized` and `baseline_5_federated_global` reported macro-F1, balanced accuracy,
+MCC, and accuracy. Added the mean-over-clients `balanced_accuracy` and `mcc` to the per-seed
+`results["local_only"]` dict and a new `LOCAL_ONLY_HEADLINE` tuple so the seed-level
+mean +/- std summary picks them up the same way the other two baselines' `HEADLINE` does;
+`scripts/summarize_phase4.py` needed no change since it copies `summary["local_only"]` wholesale
+into `baseline_4_local_only.mean`. Re-running `run_phase4.py` (and `summarize_phase4.py`) will
+regenerate the manifest and results file with the new fields; the committed artifacts have not
+been regenerated in this change. `false_positive_rate` for local-only is a separate, not yet
+implemented gap (the confusion matrix is not currently retained per client) -- flagged, not
+fixed here.
 
 ## 2026-09-15
 

@@ -79,8 +79,20 @@ training set) built on adjacency that never existed** — caught before Phase 3 
 
 ## What this phase does not claim
 
-Stage 4 (the cardinality sweep) needs a trained detector to score candidate F values against —
-a circular dependency, since Phase 3 (the detector) is gated behind Phase 2. Resolved by
-dependency injection: `FeatureSelector.fit()` accepts an optional `evaluator` callable; without
-one (true throughout Phase 2), Stage 4 falls back to the configured F=16 and records an *empty*
-sweep curve rather than fabricating one.
+**F=16 is a configured value, not a measured knee.** Stage 4 (the cardinality sweep) needs a
+trained detector to score candidate F values against — a circular dependency, since Phase 3 (the
+detector) is gated behind Phase 2. That was resolved by dependency injection:
+`FeatureSelector.fit()` accepts an optional `evaluator` callable; without one, Stage 4 falls back
+to the configured F=16 and records an *empty* sweep curve rather than fabricating one. Every
+committed manifest carries `f_sweep_scores: {}` for exactly that reason.
+
+**As of 2026-09-29 the sweep is runnable, but has not been run on the real corpus.**
+`eval/knee_sweep.py` supplies the evaluator, and `--knee-sweep` on the Phase 3 or Phase 4 driver
+injects it (Phase 3 is the cheaper path — no federation is needed to score a candidate). It is
+off by default because it costs a training run per candidate and may select an F other than 16,
+which would move every downstream number off the committed manifests. What is still missing is
+the run itself: the raw CICIoT2023 distribution is not present in this environment, so the curve
+has been exercised end to end only on a synthetic corpus. **Until it is run on real data, no
+claim is made that 16 is the knee — only that 16 is what the config specifies.** The sweep's
+validation split is carved from the training blocks alone, so measuring the knee will not
+compromise the R3 gate (`tests/test_knee_sweep.py` pins that structurally).
