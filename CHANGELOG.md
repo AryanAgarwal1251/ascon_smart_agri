@@ -33,6 +33,22 @@ them describe a scaffolding stage this repository has long since left.
 
 ## 2026-09-29
 
+### Added a hardware deployment plan (ESP32 sensor nodes + Raspberry Pi 5 gateways) — plan only
+
+Added [`docs/plans/hardware-deployment.md`](docs/plans/hardware-deployment.md), a step-by-step
+plan (phases H0–H8) for running the finished system on physical hardware: three Pi 5 gateways
+acting as federated clients and live detectors, each fed by ESP32 agricultural sensor nodes over
+MQTT, plus an aggregator exchanging Ascon-encrypted weights. No code, config or test changed.
+
+The plan flags three conflicts with the current rules instead of working around them (golden
+rule 1): physical hardware is listed as out of scope, CICIoT2023 is the only permitted dataset,
+and Section III-H / G6 explicitly declines to claim live detection. The plan's phase H0 requires
+a user-approved design-paper addendum before any hardware code is written. Other points it
+records: the Pi 5 GPU has no PyTorch backend, so training runs on the CPU; the repo's
+`requires-python = ">=3.12,<3.13"` pin points to Ubuntu 24.04 rather than stock Raspberry Pi OS;
+and Edge-IIoTset's features come from TShark, which makes a feature extractor that matches the
+dataset feasible on the Pi, with a parity test as its gate.
+
 ### Recorded the measure-once-then-pin rule for Stage 4's knee (Phase 2)
 
 Follow-up to the entry below, which added `--knee-sweep` to the Phase 3 and Phase 4 drivers only
