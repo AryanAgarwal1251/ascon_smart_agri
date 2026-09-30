@@ -51,11 +51,15 @@ def test_registry_lists_the_three_corpora() -> None:
         get_dataset("bot-iot")
 
 
-def test_training_corpora_exclude_edge_iiotset_with_a_recorded_reason() -> None:
-    # Decided 2026-09-22 on the first full Phase 9 run: the corpus stays registered (so it
-    # can be characterised) but is not trained on, and the exclusion carries its reason.
-    assert TRAINING_CORPORA == ("ciciot2023", "ciciomt2024")
+def test_training_corpora_are_ciciot2023_alone_each_exclusion_carrying_its_reason() -> None:
+    # Edge-IIoTset excluded 2026-09-22, CICIoMT2024 2026-10-01. Both stay registered so they
+    # remain characterisable and usable as ablations via an explicit --corpora flag; what the
+    # exclusion removes is their standing as a silent default. Every exclusion must carry a
+    # reason string, so the registry cannot disagree with docs/dataset-selection.md without
+    # this test failing.
+    assert TRAINING_CORPORA == ("ciciot2023",)
     assert EDGE_IIOTSET.not_for_training
+    assert get_dataset("ciciomt2024").not_for_training
     assert all(not get_dataset(n).not_for_training for n in TRAINING_CORPORA)
 
 

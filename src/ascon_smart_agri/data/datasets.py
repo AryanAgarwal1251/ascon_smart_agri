@@ -32,7 +32,9 @@ Three corpora are registered:
   FPR 0.93 on its own test split -- while being the only corpus that cannot supply
   ``Header_Length``, ``IAT`` and ``Time_To_Live``, Phase 2's top-ranked features. It stays
   in the registry so ``asa characterize --dataset edge_iiotset`` and the placeholder check
-  keep working; :data:`TRAINING_CORPORA` is what the Phase 9 driver trains on.
+  keep working; :data:`TRAINING_CORPORA` is what the Phase 9 driver trains on. As of
+  2026-10-01 that is **CICIoT2023 alone** -- CICIoMT2024 was excluded too; see
+  ``docs/dataset-selection.md`` for the measurements behind both exclusions.
 
 **Every column alias and leaf label below for the two new corpora was written from the
 published documentation, not from the files.** The first thing to do when a corpus arrives is
@@ -239,6 +241,15 @@ CICIOMT2024: Final = DatasetSpec(
     # Verified against the real header: "Duration" holds the TTL (values 64/128), exactly as
     # in the Kaggle-era CICIoT2023 layout this CSV format comes from.
     column_aliases={"Duration": "Time_To_Live"},
+    not_for_training=(
+        "Medical IoT testbed, against an agriculture deployment domain; it supplies no attack "
+        "family CICIoT2023 lacks (6 of 8 -- no Mirai, no BruteForce) and measurably degrades "
+        "the model: CICIoT2023 test macro-F1 0.8443 alone vs 0.8211 mixed into every farm and "
+        "0.7742 allocated as its own farm "
+        "(artifacts/manifest_phase9_generalised_percorpus_mixed.json). Excluded 2026-10-01; "
+        "rationale in docs/dataset-selection.md. Still registered, characterisable, and usable "
+        "as the cross-domain ablation via an explicit --corpora flag."
+    ),
     notes=(
         "Same DPKT extractor as CICIoT2023. Real CSV header = 45 columns: the 39 canonical "
         "(TTL as 'Duration') + Srate, Drate, Magnitue, Radius, Covariance, Weight (unmapped, "

@@ -4,10 +4,16 @@
 # which makes a run with this config the ablation "what does restricting to the intersection
 # cost on CICIoT2023?" against the same run with default.yaml.
 #
-# Intersection as of 2026-09-22, over the TRAINING corpora (data/datasets.py:TRAINING_CORPORA
-# = CICIoT2023 + CICIoMT2024): both supply all 39 canonical columns (CICIoMT2024 via the
-# `Duration -> Time_To_Live` alias), so the candidate set is the full vocabulary and all 16
-# Phase 2 features are available. `Drate` is zero-variance in both and is not canonical.
+# As of 2026-10-01 TRAINING_CORPORA is CICIoT2023 ALONE, so the candidate set is simply that
+# corpus's full 39-column vocabulary and all 16 Phase 2 features are available -- this config
+# and default.yaml now select over the same columns. It is kept because the cross-corpus
+# ablation still runs through it: `--corpora ciciot2023,ciciomt2024` reinstates the two-corpus
+# intersection without editing the registry. `Drate` is zero-variance in both corpora and is
+# not canonical.
+#
+# Until 2026-10-01 TRAINING_CORPORA was CICIoT2023 + CICIoMT2024; both supply all 39 canonical
+# columns (CICIoMT2024 via the `Duration -> Time_To_Live` alias), so the candidate set was the
+# full vocabulary then too.
 #
 # History: the 2026-09-21 run included Edge-IIoTset, whose packet windows supply only 18 of
 # these; the intersection was then 17 candidates (no Header_Length, IAT, Time_To_Live, and

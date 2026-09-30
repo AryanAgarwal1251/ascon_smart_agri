@@ -35,6 +35,39 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The registry now matches the documented decision, and the architecture has a diagram
+
+**CICIoMT2024 is registered `not_for_training`.** The decision had been documented in
+`docs/dataset-selection.md` while `TRAINING_CORPORA` still evaluated to
+`("ciciot2023", "ciciomt2024")` -- and that tuple is the **default value** of
+`run_phase9.py --corpora`, so any run started without an explicit flag would have trained on the
+rejected corpus silently. The registry and the document now agree, and `tests/test_datasets.py`
+asserts `TRAINING_CORPORA == ("ciciot2023",)` with every exclusion required to carry a reason
+string, so they cannot drift apart again without a test failing.
+
+Nothing was deleted. Both excluded corpora stay registered, characterisable
+(`asa characterize --dataset ...`), and usable as ablations by naming them explicitly
+(`--corpora ciciot2023,ciciomt2024`); `run_phase9.py` skips the leave-one-dataset-out folds
+automatically when only one corpus is in play. `configs/generalised.yaml` records that its
+candidate set is now the same as `default.yaml`'s, and why it is kept anyway.
+
+**`docs/architecture-diagram.md`** (new) puts in one place what was previously spread across
+plan prose, a Wokwi JSON file and the twin's compose file:
+
+- the logical topology, with the cryptography named on each hop -- Ascon-AEAD128 both ways on
+  the weight channel, plain TLS on the Pi -> cloud hop, plain MQTT farm-locally, and nothing at
+  all on the malicious path because it never leaves the Pi;
+- the **two planes** and the G6 boundary drawn explicitly, including which cache split supplies
+  training rows (1,237,911) versus what the model classifies at runtime (311,565 held-out), and
+  the statement that the ESP32 payload is never parsed into features;
+- the **physical wiring**, read from `firmware/esp32_sensor/diagram.json` rather than
+  transcribed: DHT22 data on GPIO 15, soil moisture on GPIO 34 (ADC1, because ADC2 is unusable
+  while Wi-Fi is active), with wire colours and the capacitive-sensor requirement;
+- the **twin mapping**, so each container is traceable to the hardware it stands in for, with
+  the reminder that container timings are never Pi timings;
+- the free tool list, which is Docker for the twin and Arduino IDE plus three libraries for the
+  boards.
+
 ### Results write-ups for the twin and for Edge-IIoTset, and the R = 20 twin run
 
 Two `results/` documents, in the folder's existing shape (what the architecture requires /
