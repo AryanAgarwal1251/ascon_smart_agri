@@ -9,7 +9,7 @@ stated rather than smoothed over.
 
 **Status: all seven phases complete**, verified by the gate scripts committed alongside the
 code (`scripts/check_phase3_gate.py`, `scripts/check_phase4_gate.py`), not by narrative alone.
-Current test suite: **344 passed, 0 skipped**, all lint/type/dead-code gates green.
+Current test suite: **438 passed, 0 skipped**, all lint/type/dead-code gates green.
 
 | # | Phase | Status | Headline result |
 | - | --- | --- | --- |
@@ -21,6 +21,8 @@ Current test suite: **344 passed, 0 skipped**, all lint/type/dead-code gates gre
 | 6 | [Ascon + alerting](phase6_ascon_and_alerting.md) | ✅ Done — zero skips | G1 holds: 0 malicious-verdict payloads ever reached the cloud |
 | 7 | [End-to-end integration](phase7_end_to_end_integration.md) | ✅ Done | Real model, real pipeline, real routing — G1 holds in the assembled loop |
 | 9 | [Multi-dataset generalisation](phase9_multi_dataset.md) | 🔄 Second run in progress | First run: LODO ≈ 0 was a scale artefact, not a finding; second design (CICIoT2023 + CICIoMT2024, per-corpus scaling) running |
+| 8 | [Phase 8 software twin](phase8_software_twin.md) | ✅ Software verified; hardware pending | 0 sealed frames rejected either direction; G1 held across 491 malicious readings, 0 reached the cloud |
+| — | [Edge-IIoTset on its native schema](agri_native_edge_iiotset.md) | ✅ Measured, deliberately not shipped | macro-F1 0.9822 ± 0.0043 — the earlier 0.12 was our translation, not the corpus |
 
 ## How to read each phase file
 

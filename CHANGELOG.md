@@ -33,6 +33,35 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
+## 2026-10-01
+
+### Results write-ups for the twin and for Edge-IIoTset, and the R = 20 twin run
+
+Two `results/` documents, in the folder's existing shape (what the architecture requires /
+what we achieved / decisions flagged / honest gaps), so the paper is written from traceable
+figures rather than from memory:
+
+- **`results/phase8_software_twin.md`** — the containerised verification: 0 sealed frames
+  rejected in either direction at 407,752 B up / 407,758 B down per round, and G1 holding
+  across 491 malicious readings with 793 benign delivered and 0 malicious reaching the cloud,
+  cross-checked against the receiver's own count. It also records the two *invalid* attempts
+  and the rule behind the passing configuration, since a security property (no malicious
+  reading reaches the cloud) and a delivery property (every benign reading arrives) fail for
+  different reasons and only the first is a G1 claim.
+- **`results/agri_native_edge_iiotset.md`** — the 0.9822 result, why the 8-class 0.7453 must
+  not be quoted (DoS and Mirai are absent, so an 8-class macro average is capped near 6/8),
+  the 26-column feature rule, the three classes excluded by measured degeneracy, and the two
+  reasons the corpus is still not in the product model. The decisive one is that its unique
+  contribution is **a single attack type**: against CICIoT2023's 34 leaf classes, only
+  Ransomware is genuinely new — `Backdoor_Malware`, `MITM-ArpSpoofing`, `SqlInjection`, `XSS`,
+  `Uploading_Attack`, `DictionaryBruteForce` and `Recon-*` are all already present. An earlier
+  claim in this changelog that Backdoor and MITM were unique to Edge-IIoTset was wrong.
+
+**A twin run at the demo's R = 20 is in progress** (120 sealed frames rather than 12), launched
+alongside the K sweep at `SEQ_CAP=10000` — the crypto claim scales with rounds, not with
+sequences, so the smaller cap costs nothing and leaves CPU for the sweep. `results/README.md`
+gains rows for both documents and its test count is corrected to 438.
+
 ## 2026-09-30
 
 ### K sweep re-run for the paper, and K = 3 restated as a constraint rather than a result
