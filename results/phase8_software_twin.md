@@ -39,9 +39,26 @@ services exited 0.**
 Every client update and every global-state download was an AEAD frame under a per-client,
 per-direction key. Nothing opened to bottom, and nothing was applied that did.
 
-The measured per-round figure is what the hardware phase needs for its bandwidth budget:
-plan §7 estimated ~270 KB per client per round; the realised figure is ~408 KB, comfortably
-inside ordinary Wi-Fi either way.
+**Reading those byte counts correctly matters.** The 407,752 B the aggregator logs is the
+**aggregate over all three clients in one direction**, not one client's cost. Per client per
+round it is 135,942 B up and 135,943 B down — **271,883 B both ways**, which matches plan §7's
+~270 KB estimate almost exactly, and reconciles with Phase 4's independently measured
+815,136 B per round (3 clients × 2 directions). Bandwidth is not a constraint for the hardware
+phase: ordinary Wi-Fi carries this comfortably.
+
+### At the demo's round count: R = 20
+
+The verification above used R = 2. Repeated at the demo's **R = 20** (2026-10-01,
+`SEQ_CAP=10000` — the crypto claim scales with rounds, not with sequences):
+
+| | Result |
+| --- | --- |
+| Rounds completed | **20 / 20** |
+| Sealed frames | **120** (3 clients × 20 rounds × 2 directions) + scaler round |
+| **Frames rejected** | **0** |
+| Per client, whole run | 2,718,833 B up / 2,718,867 B down in 457–459 s |
+
+Twelve sealed frames not opening to bottom is a smoke test; **120 is evidence**.
 
 ### The runtime plane, and G1
 
@@ -102,8 +119,7 @@ different reasons, and only the first is a G1 claim.
   but that is a design property, not a measurement.
 - **Wokwi's free gateway reaches the public internet, not a LAN**, so an end-to-end
   Wokwi-ESP32 → real-Pi-broker path has not been exercised.
-- **The verified run used R = 2 rounds.** A run at the demo's R = 20 — 120 sealed frames rather
-  than 12 — was launched on 2026-10-01 and its result belongs in this file when it lands.
+- **No physical hardware has run any of this.** Everything above is containers on one laptop.
 
 ## What moving to hardware requires
 
