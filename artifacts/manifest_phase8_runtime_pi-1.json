@@ -122,48 +122,48 @@
     "farm": "farm1",
     "source": "mqtt",
     "checkpoint": "artifacts/phase8_client_pi-1_model.safetensors",
-    "received": 180,
+    "received": 688,
     "buffering": 45,
-    "benign_verdicts": 105,
-    "malicious_verdicts": 30,
-    "cloud_sent": 105,
+    "benign_verdicts": 470,
+    "malicious_verdicts": 173,
+    "cloud_sent": 470,
     "cloud_failed": 0,
     "cloud_last_error": null,
-    "alerts": 30,
+    "alerts": 173,
     "scenario_agreement": {
       "benign": [
-        86,
-        95
+        448,
+        509
       ],
       "attack": [
-        21,
-        40
+        112,
+        134
       ]
     },
     "dropped_by_source": [],
     "stage_latency": {
       "provenance": {
-        "median_us": 106.66650000956679,
-        "mean_us": 124.71250555571423,
-        "n": 180
+        "median_us": 89.27049998419534,
+        "mean_us": 152.35905377351648,
+        "n": 688
       },
       "window": {
-        "median_us": 149.45799999566134,
-        "mean_us": 179.12569444457438,
-        "n": 180
+        "median_us": 151.333499957218,
+        "mean_us": 314.3790232513765,
+        "n": 688
       },
       "inference": {
-        "median_us": 40208.75000000501,
-        "mean_us": 43014.52596296237,
-        "n": 135
+        "median_us": 34915.41599987613,
+        "mean_us": 36228.62585225668,
+        "n": 643
       },
       "routing": {
-        "median_us": 4729.542000006859,
-        "mean_us": 4822.31111851903,
-        "n": 135
+        "median_us": 4989.042000033805,
+        "mean_us": 6562.870255050103,
+        "n": 643
       }
     },
-    "elapsed_seconds": 211.3,
+    "elapsed_seconds": 635.7,
     "platform": "docker-arm64-simulation",
     "declared_limitation": "architectural correctness only; held-out records, not live capture"
   }

@@ -148,7 +148,7 @@
         },
         "bytes_up": 1480,
         "bytes_down": 1462,
-        "seconds": 6.126789086000002,
+        "seconds": 18.175983675999987,
         "rejections": 0
       },
       {
@@ -160,7 +160,7 @@
         },
         "bytes_up": 407752,
         "bytes_down": 407758,
-        "seconds": 9.222822921000002,
+        "seconds": 18.756277341999976,
         "rejections": 0
       },
       {
@@ -172,13 +172,13 @@
         },
         "bytes_up": 407752,
         "bytes_down": 407758,
-        "seconds": 7.0147747940000045,
+        "seconds": 8.548615920999964,
         "rejections": 0
       }
     ],
     "rejections": [],
     "checkpoint": "artifacts/phase8_twin_global_model.safetensors",
-    "elapsed_seconds": 24.6,
+    "elapsed_seconds": 554.8,
     "n_parameters": 33800,
     "torch_threads": 8
   }

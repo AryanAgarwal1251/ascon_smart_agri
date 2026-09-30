@@ -33,6 +33,159 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 `data/subsample.py`/`data/dedup.py`/`data/split.py`/`features/selection.py` (Phase 2, complete)
 -- see the 2026-09-14 and 2026-09-13 entries below.
 
+## 2026-09-30
+
+### K sweep re-run for the paper, and K = 3 restated as a constraint rather than a result
+
+The user asked why K = 3 was being treated as fixed. It is an inherited assumption, not a
+measurement: `artifacts/k_threshold_analysis.json` carried the note "K is fixed at 3 by
+assumption A1 / objective O3", Phase 4 used it because the paper did, and the hardware spec
+gives it (two Pis plus one laptop-simulated client). Cancelling the empirical sweep earlier on
+the grounds that "K = 3 is fixed" was circular — that sweep is precisely what tests the
+assumption. The user's call: **hardware stays K = 3, but the results are reported over a K
+sweep**, which is the stronger paper claim.
+
+- **`scripts/run_k_sweep.py` re-launched over K in {3, 5, 10, 20, 30, 40, 50} x 3 seeds** at
+  Phase 4's budget on `artifacts/phase4_cache.npz`. That cache is CICIoT2023 with the 16
+  canonical features, which after today's corpus decision is exactly the headline design, so
+  the sweep now measures the shipped model rather than a superseded configuration.
+- **K = 40 added to the documented set.** The old set jumped 30 -> 50, straddling both the
+  pigeonhole ceiling (42, set by BruteForce having only 42 blocks) and the predicted knee
+  (K* = 48) without sampling either side. A point just below the ceiling is where the rare-class
+  starvation should first appear.
+- **Partial results are now written after every (K, seed) point** to
+  `artifacts/k_sweep_results_progress.json`. The script previously wrote only on completion, so
+  an interruption in a ~20 h run discarded everything; the first launch was in fact killed
+  mid-run and its single completed point (K=3, seed=0, macro-F1 0.8507, 0 empty clients,
+  3,560 s) survived only in a copied log.
+- **The manifest note was corrected** to state that K = 3 is the hardware configuration chosen
+  by budget, and because K = 2 federation is degenerate, rather than an optimum.
+
+### Smart agriculture fixed as the domain, and Edge-IIoTset re-measured on its own schema
+
+The user fixed **smart agriculture as the deployment domain**. Under the standing
+domain-coherence principle that decides which corpora are admissible, not just how the project
+is described: CICIoMT2024 is a *medical* testbed, and Edge-IIoTset is the only registered corpus
+captured on agricultural equipment (soil-moisture, temperature, pH and water-level sensors over
+MQTT, plus Modbus TCP).
+
+`scripts/run_agri_native.py` (new) is the half-day centralised check the 2026-09-23 entry
+scoped. It trains the GRU on Edge-IIoTset's **native** columns rather than on reconstructed
+CICIoT2023 window features. Manifest `artifacts/manifest_agri_native.json`, 3 seeds, 20 epochs,
+38.7 min.
+
+**Result: macro-F1 0.9822 ± 0.0043 over the 12 viable native classes** (balanced accuracy
+0.9882, MCC 0.9853, FPR 0.0017). Per class, everything ≥ 0.944, including the three families no
+other registered corpus contains: **Ransomware 0.9440, Backdoor 0.9877, MITM 1.0000**. The
+2026-09-21 figure of 0.12 measured our translation into the canonical 16-feature language, not
+this corpus — that is now settled by measurement rather than by re-reading a report.
+
+The 8-class `family` taxonomy scores 0.7453 and **must not be quoted**: Edge-IIoTset contains no
+`DoS` and no `Mirai`, so both score 0.0000 in an 8-class macro average while the six families
+present score 0.9882–0.9997. The mapping also collapses Ransomware, Backdoor, SQL_injection,
+Uploading and XSS into one `WebBased` class, discarding exactly the coverage the corpus is
+wanted for, which is why the native taxonomy is the reported one.
+
+What the check had to establish first, and what it found:
+
+- **The feature set is 26 behavioural columns**, not 63: the spec's `drop_columns`, minus 4
+  zero-variance columns, minus 5 text columns, minus 9 identifiers (`tcp.seq`, `tcp.ack`,
+  `tcp.ack_raw`, `tcp.checksum`, `icmp.checksum`, `icmp.seq_le`, `icmp.transmit_timestamp`,
+  `udp.stream`, `mbtcp.trans_id` — transport nonces and capture-local counters). What remains is
+  8 MQTT fields, 2 Modbus TCP fields, and TCP/DNS/ARP/ICMP/HTTP flags, lengths and timings.
+- **Two text columns are worse than the known placeholder artefact.** All five carry the
+  documented `"0"`/`"0.0"` provenance collision, but a whole-file census also showed
+  `http.request.version` holding injected attack payloads
+  (`-al&_PHPLIB[libdir]=http://cirt.net/rfiinc.txt?? HTTP/1.1`) and `dns.qry.name.len` holding
+  DNS names rather than lengths — a column shift in the corpus build. Encoding either lets the
+  model read the class off the payload. A numeric-only set excludes the artefact structurally.
+- **Three classes cannot be expressed at all and are excluded by measurement, not by hand.**
+  `--min-distinct-windows` (default 500) drops any class contributing fewer distinct windows:
+  **DDoS_UDP contributes exactly 1, DDoS_ICMP 38, Fingerprinting 347.** Verified on raw strings:
+  every one of the 26 features is literally zero for every UDP and ICMP flood packet, so those
+  two classes are not even separable from each other. Their only distinguishing content lived in
+  the dropped nonces. `frame.time` cannot rescue them either — the corpus build stripped month
+  and day (`' 2021 11:44:10.081753000 '`), and DDoS_UDP timestamps do not parse at all.
+- **R3 moved to window granularity, because the corpus is packet-granularity.** Row-level dedup
+  deletes the repetition that *is* a flood; the record the model consumes is a 16-packet window.
+  The gate now dedups windows and drops any test window whose content appears in train —
+  ~10,400 per seed, real leakage that would otherwise have inflated the score. `--dedup-level`
+  keeps the row-wise rule as an ablation.
+
+**Stated limit:** 434,553 rows hold only **1,791 distinct packets** (99.6% duplicate). No
+identical window spans the split, but train and test draw on the same packet vocabulary and
+differ only in ordering. 0.9822 is within-corpus class separation, not cross-testbed
+generalisation, and no leave-one-dataset-out check is possible because the feature language
+differs from the other two corpora. Edge-IIoTset's `not_for_training` registration still stands
+and is unchanged by this entry; re-registering it is a separate decision.
+
+**Architecture consequence.** The three corpora cannot form one model. Edge-IIoTset's value is
+in `mqtt.*`/`mbtcp.*` fields absent from CICIoT2023's extractor output, and FedAvg requires an
+identical input width across clients, so a 26-input GRU cannot be averaged with a 16-input one.
+Forcing the translation is what produced 0.12. The two models are therefore separate.
+
+### Phase 8 software twin: sealed federation and G1 verified under load, in containers
+
+`docker compose up` on the full topology (aggregator, 2 Mosquitto brokers, TLS cloud receiver,
+pi-1, pi-2, sim-3, 2 sensor farms). All services exited 0.
+
+- **Sealed federation:** scaler round + 2 weight rounds across 3 clients, **0 frames rejected**
+  in either direction. Wire cost **407,752 B up / 407,758 B down per round**; scaler round
+  1,480 B / 1,462 B. These are the per-round figures the hardware phase needs.
+- **G1 under load:** pi-1 received 688 readings (470 benign → cloud, 0 failed; **173 malicious →
+  173 local alerts**); pi-2 received 686 (323 benign → cloud, 0 failed; **318 malicious → 318
+  alerts**). Cloud receiver **accepted 793 = 470 + 323, rejected 0**, and **0 malicious readings
+  reached the cloud**.
+
+**Bill of materials added** as `docs/plans/phase8-hardware-federation.md` §7a, so procurement
+is version-controlled rather than reconstructed from the plan prose: 2x Pi 5 8GB, 6x ESP32
+DevKitC V4, 6x DHT22 (GPIO 15) and 6x capacitive soil sensors (GPIO 34) with the pins taken from
+`firmware/esp32_sensor/diagram.json`, plus power, storage and the LAN. Three purchasing-time
+constraints are called out: Pi OS Bookworm is unusable (Python 3.11 against a >= 3.12 floor),
+soil sensors must be capacitive rather than resistive, and bandwidth is a non-issue at the
+measured 407 KB per client per round.
+
+**The first attempt of this run was not a valid test and is recorded so it is not repeated.**
+With the default `MESSAGES=240`, each Pi saw only **1** malicious reading, because the sensors
+begin publishing while the Pis are still federating (~160 s) and MQTT QoS 0 drops anything
+published before subscription — G1 "passed" on a single event. Raising `MESSAGES` to 800 without
+raising `CLOUD_SECONDS` then produced a second false alarm: 190 benign sends "failed" only
+because the receiver's 600 s budget expired mid-run while the Pis kept sending. Both the attack
+window and the receiver window must cover the Pi's *post-federation* listening period; the
+passing configuration is `MESSAGES=800 ATTACK_AFTER=400 CLOUD_SECONDS=2400`.
+
+### Every farm is better off federating: the mixed-layout federation-gain baseline
+
+The `--local-only` flag added on 2026-09-23 had no numbers attached to it. It does now. The run
+finished 2026-09-23 22:00 after **12.3 hours** (44,172 s) and sat uncommitted for a week;
+manifest `artifacts/manifest_phase9_federation_gain_mixed.json`, log
+`artifacts/phase9_federation_gain_mixed.log`. This is Section III-I1's **baseline 4** (gap G4)
+for the mixed-farm layout — Phase 4 measured it on one corpus, and the mixed layout had no such
+baseline until now.
+
+Each farm was trained on its own data alone, compute-matched to the federated run at R × E = 60
+local passes, and scored on both corpora's test splits. 3 seeds, present-only macro-F1:
+
+| farm | local-only CICIoT2023 | federated | gain | local-only CICIoMT2024 | federated | gain |
+| --- | --- | --- | --- | --- | --- | --- |
+| farm-0 | 0.6873 | 0.8211 | **+0.1338** | 0.7146 | 0.8714 | **+0.1568** |
+| farm-1 | 0.7422 | 0.8211 | **+0.0789** | 0.7167 | 0.8714 | **+0.1547** |
+| farm-2 | 0.7695 | 0.8211 | **+0.0516** | 0.6744 | 0.8714 | **+0.1970** |
+
+Federated global: **0.8211 ± 0.0153** on CICIoT2023 (FPR 0.3269 ± 0.0873) and
+**0.8714 ± 0.0118** present-only on CICIoMT2024 (FPR 0.0143 ± 0.0005).
+
+The gain is positive for all three farms on both corpora on every seed, so the mixed layout now
+has the per-client justification the corpus-per-client layout never earned. It is a stronger
+result than Phase 4's single-corpus version (+0.1023 / +0.1565 / +0.0721) in one specific way:
+the gain holds across two testbeds at once, which is what a farm operator actually buys by
+joining. The spread across farms tracks the Dirichlet draw as expected — farm-0 holds the most
+lopsided CICIoT2023 share and gains most there, farm-2 the weakest CICIoMT2024 share and gains
+most there.
+
+Read the CICIoT2023 FPR of 0.33 first, as in Phase 4: macro-F1 is carried by the attack families
+and the Benign class stays the weak one (per-class F1 0.6843).
+
 ## 2026-09-23
 
 ### Phase 9 third design: a farm models a deployment site, not a corpus

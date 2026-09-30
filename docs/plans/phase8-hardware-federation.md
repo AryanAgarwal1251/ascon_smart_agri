@@ -136,6 +136,53 @@ but the model, which keeps the two-plane separation already tested in Phase 7.
 - Pi 5 / 8 GB preferred; Pi 4 works, slower. Bandwidth per round (~270 KB per client) is
   trivial over Wi-Fi.
 
+## 7a. Bill of materials (what to actually buy)
+
+Derived from §2's node roles and the real firmware wiring in `firmware/esp32_sensor/`
+(`diagram.json` pins, `libraries.txt`). K = 3 is the hardware target: two Pis plus the
+laptop-simulated third client, so **only two Raspberry Pis are needed**.
+
+### Core compute
+
+| Item | Qty | Why |
+| --- | --- | --- |
+| Raspberry Pi 5, 8 GB | 2 | One per farm: local GRU, Mosquitto broker, runtime pipeline. Pi 4 works (§7) but is 10–20× slower than the laptop. |
+| ESP32 DevKitC V4 | 6 | 3 per farm (`soil01–03`, `soil04–06`) — the board `diagram.json` targets. |
+| Laptop | 1 (existing) | Aggregator + TLS cloud receiver + the simulated third client. No third Pi. |
+
+### Per sensor node (x6)
+
+| Item | Qty | Wiring |
+| --- | --- | --- |
+| DHT22 temperature/humidity | 6 | data -> **GPIO 15** |
+| Capacitive soil-moisture sensor (v1.2/v2.0) | 6 | analogue out -> **GPIO 34** |
+| 10 kOhm resistor | 6 | DHT22 pull-up; omit if buying breakout modules, which include it |
+| Half-size breadboard | 6 | |
+| Jumper wires M-M / M-F | 1 pack | |
+| USB cable (micro-USB or USB-C) | 6 | match the board revision before ordering |
+
+### Power, storage, network
+
+| Item | Qty | Why |
+| --- | --- | --- |
+| microSD 32 GB+ A2 | 2 | Pi boot |
+| Official Pi 5 PSU (27 W USB-C) | 2 | Pi 4 needs 15 W instead |
+| Active cooler / heatsink | 2 | on-device training thermally throttles without it |
+| Wi-Fi router or access point | 1 | everything must share one LAN: ESP32s -> Pi brokers, Pis -> laptop aggregator |
+| Ethernet cable | 2 | optional; puts the Pi->laptop weight channel on wire and leaves Wi-Fi to the ESP32s |
+| Powered USB hub | 1 | optional, for flashing six ESP32s |
+
+### Three constraints that affect what you buy
+
+1. **Not Raspberry Pi OS Bookworm.** It ships Python 3.11 and this stack cannot install on it:
+   numpy >= 2.4 and scipy >= 1.16 both declare `requires-python >= 3.12`. Flash **Pi OS Trixie
+   or Ubuntu 24.04 (aarch64)** — §7's hard floor, restated here because it is a purchasing-time
+   decision, not a setup-time one.
+2. **Capacitive soil sensors, not resistive.** Resistive probes corrode within weeks in wet
+   soil. GPIO 34 is on ADC1, which is correct: ADC2 is unusable while Wi-Fi is active on ESP32.
+3. **Bandwidth is not a constraint.** The containerised twin measured 407,752 B up / 407,758 B
+   down per client per round (§7 budgets ~270 KB). Ordinary Wi-Fi is sufficient.
+
 ## 8. Attack scenarios from the ESP32s — assumption to confirm
 
 (The other open assumption — whether telemetry Ascon is kept — was settled on 2026-09-19:

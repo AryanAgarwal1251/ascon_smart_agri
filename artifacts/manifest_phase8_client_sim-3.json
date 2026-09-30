@@ -139,11 +139,11 @@
     "bytes_up": 272330,
     "bytes_down": 272328,
     "round_seconds": [
-      0.2,
-      2.56,
-      2.54
+      1.92,
+      3.63,
+      3.54
     ],
-    "elapsed_seconds": 16.8,
+    "elapsed_seconds": 534.9,
     "checkpoint": "artifacts/phase8_client_sim-3_model.safetensors",
     "scaler": "artifacts/phase8_client_sim-3_scaler.npz",
     "platform": "docker-arm64-simulation"

@@ -218,6 +218,16 @@ def main() -> None:
                 f" | {empty} empty clients | {time.time() - t0:.0f}s"
             )
 
+            # A ~20 h sweep must not lose everything to one interruption: rewrite the partial
+            # record set after every (K, seed) point, so a kill leaves usable results.
+            progress = Path(args.out).with_name(Path(args.out).stem + "_progress.json")
+            progress.parent.mkdir(parents=True, exist_ok=True)
+            progress.write_text(
+                json.dumps({"k_values": k_values, "per_run": records}, indent=2, default=str)
+                + "\n",
+                encoding="utf-8",
+            )
+
             del client_seqs, client_labels, scaled_tr, seq_te, lab_te
 
     print("\n" + "=" * 78)
@@ -254,7 +264,12 @@ def main() -> None:
 
     versions, hardware = collect_environment()
     results = {
-        "note": "Not a paper ablation; K is fixed at 3 by assumption A1 / objective O3.",
+        "note": (
+            "K = 3 is the HARDWARE configuration (two Pis plus one laptop-simulated "
+            "client), chosen by budget and because K = 2 federation is degenerate -- "
+            "not by measurement. This sweep is what tests the scalability claim, and "
+            "the user asked for it on 2026-09-30 as a research-paper result."
+        ),
         "baseline_5_only": True,
         "centralized_upper_bound_from_phase4": {"macro_f1_mean": 0.8543, "macro_f1_std": 0.0040},
         "k_values": k_values,
