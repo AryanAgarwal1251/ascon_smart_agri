@@ -35,6 +35,40 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### G1 written up: the threat, the structural enforcement, and how strongly it was tested
+
+`docs/g1-path-disjointness.md` (new) collects the project's central safety guarantee in one
+place -- why a malicious reading must never reach the cloud, why the guarantee is enforced in the
+object graph rather than by a coding rule, the four layers it is tested at, and the measured
+results.
+
+The enforcement argument: only `VerdictRouter` ever holds the cloud transport, and `AlertSink`
+takes **no constructor parameters at all**, so there is no code path from a malicious verdict to
+the cloud because the object handling malicious verdicts has nothing to reach it with. Breaking
+G1 requires changing a constructor signature, which three tests fail on immediately.
+
+The subtlety in the behavioural test is recorded explicitly: asserting `received_count == 0` is
+not enough, because a system that transmits malicious payloads and has the receiver reject them
+would also satisfy it. `rejected_count == 0` is what distinguishes "structurally unreachable"
+from "sent and refused".
+
+**The most useful finding is methodological, and it is a negative one.** The first containerised
+run reported `G1: ... True` on **one** malicious reading, because the sensors publish before the
+Pis finish federating and MQTT QoS 0 discards anything published before a subscription exists.
+The assertion passed and nothing was learned: a guarantee about a class of events is only tested
+as strongly as the number of events that occurred. Moving the attack window inside the Pis'
+post-federation listening period took the count 1 -> 491 -> 4,239.
+
+The document also separates two properties that fail for different reasons and are easy to
+confuse -- the security property (no malicious reading reaches the cloud) and the delivery
+property (every benign reading arrives) -- and states plainly what G1 does **not** cover: verdict
+correctness. A misclassified attack goes to the cloud and G1 is still satisfied, which is why FPR
+is reported first in every evaluation.
+
+Results table, oldest to newest: Phase 7 end-to-end 55 malicious, 2026-09-19 loopback 119, the
+vacuous twin attempt 1, then 491, then **4,239 malicious with 0 reaching the cloud and all 8,924
+benign delivered**, cross-checked against the receiver's own independent count.
+
 ### A start-to-finish walkthrough of the software twin
 
 `docs/software-twin-walkthrough.md` (new), written to be read by someone who has not seen the
