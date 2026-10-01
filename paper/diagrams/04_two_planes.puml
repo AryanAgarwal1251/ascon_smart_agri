@@ -1,0 +1,51 @@
+@startuml two_planes
+' The training plane and the runtime plane, and the boundary between them.
+' render at 2x so the raster export is print-resolution at column width
+scale 2
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam ArrowColor #52514e
+skinparam rectangle {
+  BackgroundColor #ffffff
+  BorderColor #52514e
+}
+skinparam NoteBackgroundColor #fdf6ec
+skinparam NoteBorderColor #eb6834
+
+title Two planes, and the feature-provenance boundary
+
+rectangle "TRAINING PLANE  (periodic)" as TP #eef4fc {
+  rectangle "Corpus training split\n1,237,904 rows" as TR
+  rectangle "Dirichlet partition\nalpha = 0.5, K farms" as DP
+  rectangle "Local GRU per farm" as LG
+  rectangle "Master GRU\nweighted FedAvg" as MG
+}
+
+rectangle "RUNTIME PLANE  (continuous)" as RP #eef9f4 {
+  rectangle "Sensor JSON\n(application payload)" as JS
+  rectangle "Feature-provenance\nadapter" as FPA
+  rectangle "Held-out split\n311,563 rows\nnever trained on" as HO
+  rectangle "Window buffer\nW = 16 per device" as WB
+  rectangle "Verdict" as V
+}
+
+TR --> DP
+DP --> LG
+LG <--> MG : Ascon-sealed\nboth directions
+MG --> LG
+
+JS --> FPA : paired by stream index
+HO --> FPA : supplies the feature vector
+FPA --> WB
+WB --> V
+LG ..> V : the weights it\nreceived back
+
+note bottom of FPA
+  <b>The boundary.</b> The GRU never sees the sensor JSON.
+  It classifies a held-out flow-derived record.
+  This demonstrates architectural correctness,
+  <b>not</b> detection on live farm traffic.
+end note
+
+@enduml

@@ -25,6 +25,7 @@
 \usepackage{xcolor}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
+\graphicspath{{figures/}{diagrams/}}
 
 % --- draft aids -------------------------------------------------------
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
@@ -207,14 +208,19 @@ Two further gaps are ours, both found by measurement rather than by reading:
 \section{Threat Model and System Architecture}\label{sec:threat}
 \todo{write: three channels, adversary capability per channel, what is in and out of scope.}
 
-\begin{figure}[t]\centering
-\figbox{5.0cm}{Fig.~1 --- system architecture: ESP32 sensors $\rightarrow$ farm gateway
-$\rightarrow$ aggregator (Ascon-sealed, bidirectional) and cloud (TLS); malicious path terminates
-locally}
-\caption{System architecture, with the cryptographic protection named on each hop. Ascon-AEAD128
+\begin{figure*}[t]\centering
+\includegraphics[width=0.96\textwidth]{01_deployment.png}
+\caption{Deployment view, with the cryptographic protection named on each hop. Ascon-AEAD128
 seals the parameter exchange in both directions; the gateway-to-cloud hop is TLS; the
 malicious-verdict path has no network endpoint at all.}
 \label{fig:arch}
+\end{figure*}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{04_two_planes.png}
+\caption{The training plane, the runtime plane, and the feature-provenance boundary between
+them. The detector never consumes the application payload.}
+\label{fig:planes}
 \end{figure}
 
 %=======================================================================
@@ -317,6 +323,13 @@ within $5\times10^{-12}$ at every client count tested.
 \end{algorithmic}
 \end{algorithm}
 
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{02_sealed_round.png}
+\caption{One sealed federated round. Keys are per client and per direction; the associated data
+binds client, round, direction and schema version.}
+\label{fig:round}
+\end{figure}
+
 \subsection{The sealed weight channel}\label{sec:channel}
 Each frame carries associated data
 \begin{equation}
@@ -334,6 +347,12 @@ B = 2K\big(|\theta| s + h\big),
 \end{equation}
 which predicts 811{,}200 bytes per round at $K=3$ against 815{,}136 measured, the
 0.5\% excess being safetensors framing.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{03_verdict_routing.png}
+\caption{The runtime path of a single reading. The malicious branch has no network endpoint.}
+\label{fig:routing}
+\end{figure}
 
 \subsection{Verdict routing with disjoint paths}\label{sec:routing}
 The verdict selects the path:
@@ -364,10 +383,31 @@ read from a committed run manifest rather than transcribed.}
 %=======================================================================
 \section{Results}
 
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{baselines.pdf}
+\caption{Centralised baselines at an identical budget and split. Recurrence is worth $+0.2322$
+macro-F1 against the otherwise-matched multilayer perceptron.}
+\label{fig:baselines}
+\end{figure}
+
 \subsection{Centralised baselines and the value of recurrence}
 \todo{table: random forest 0.6855, MLP 0.6070, GRU 0.8297 $\pm$ 0.0013 at $W\!=\!16$, three
 seeds, identical split and budget. Recurrence is worth $+0.2322$, fifty-one times the seed
 standard deviation.}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{federation_bracket.pdf}
+\caption{The three-way comparison. The federated model sits inside the bracket its two baselines
+define, recovering 82.4\% of the gap.}
+\label{fig:bracket}
+\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{per_client_gain.pdf}
+\caption{What each farm gains by federating rather than training alone, on both corpora. Every
+bar is positive on every seed.}
+\label{fig:gain}
+\end{figure}
 
 \subsection{Federated performance and per-client gain}\label{sec:fedresults}
 \todo{bracket table and Fig.~6--7. Federated $0.8308 \pm 0.0150$ between local-only
@@ -418,17 +458,39 @@ than macro-F1 does. No client was ever empty, at any $K$ including 50, so the me
 dilution of the rare class rather than its absence.
 
 \begin{figure}[t]\centering
-\figbox{5.2cm}{Fig.~8 --- macro-F1 and rarest-class F1 against $K$, twin axes, with the
-pigeonhole bound $K^{\dagger}\!=\!42$ marked}
-\caption{Aggregate macro-F1 degrades gently with client count while the rarest class collapses.
-The second descent begins at the pigeonhole bound of Eq.~\eqref{eq:pigeonhole}.}
+\includegraphics[width=\columnwidth]{ksweep_f1.pdf}
+\caption{Aggregate macro-F1 degrades gently with client count while the weakest class collapses.
+Both series are F1 on a single axis, which is the point: the aggregate conceals the rare-class
+fall. The second descent begins at the pigeonhole bound of Eq.~\eqref{eq:pigeonhole}.}
 \label{fig:ksweep}
+\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{communication.pdf}
+\caption{Per-round traffic against client count. Plotted separately from
+Fig.~\ref{fig:ksweep} because bytes and F1 do not share a scale.}
+\label{fig:comm}
+\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{convergence.pdf}
+\caption{Per-round macro-F1 at three client counts, seed 0. Higher client counts converge no more
+slowly; they converge lower.}
+\label{fig:convergence}
 \end{figure}
 
 \subsection{Cryptographic and communication overhead}
 \todo{table: per-round bytes measured against Eq.~\eqref{eq:bytes}; seal/open latency; and the
 observation that communication grows linearly to 13.59\,MB per round at $K=50$,
 so the benefit degrades before the communication break-even is reached.}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{feature_overlap.pdf}
+\caption{Cross-corpus overlap of each selected feature's 1st--99th percentile range. Three
+features share a column name while denoting different quantities; \texttt{IAT} medians differ by
+a factor of $2.4\times10^{11}$.}
+\label{fig:overlap}
+\end{figure}
 
 \subsection{Dataset selection as a result}\label{sec:semantics}
 \todo{write from docs/dataset-selection.md and docs/generalisation-plan.md: the three corpora,

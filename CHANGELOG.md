@@ -35,6 +35,46 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Figures and architecture diagrams, generated rather than drawn
+
+Seven plots and four PlantUML diagrams, all committed, and `main.tex` now includes all eleven --
+no placeholder boxes remain.
+
+**`scripts/make_figures.py`** reads every figure straight from a committed manifest, so running it
+is the check that the paper's prose and its plots agree. Charts follow the project's
+visualisation guidance, and one planned figure had to be redesigned because of it: the client-count
+figure was specified as macro-F1 and rarest-class F1 on **twin axes**, which is the most common
+charting error. Both series are F1 on $[0,1]$, so they now share one axis -- and that is the point
+of the figure, since the aggregate concealing the rare-class collapse is only legible on a common
+scale. Traffic-per-round, which genuinely does not share that scale, became its own figure.
+
+The three-colour palette was **run through the validator rather than eyeballed**: all checks pass
+on the all-pairs colour-vision and normal-vision floors, with one documented warning (the aqua slot
+sits below 3:1 contrast on the light surface), relieved by direct labels and by the data appearing
+in Table I. Every series also carries a distinct marker and line style, because an IEEE paper is
+frequently read in greyscale and colour must never carry identity alone.
+
+Rendering and looking at the output caught a defect the validator cannot see: in the first
+client-count plot the "pigeonhole bound 42" annotation collided with the weakest-class endpoint
+label in the lower-right corner. Moved and re-rendered.
+
+**`paper/diagrams/`** holds four PlantUML diagrams -- deployment, one sealed federated round, the
+runtime verdict path, and the two planes with the feature-provenance boundary -- as `.puml` source
+plus rendered `.png` and `.svg`. **`scripts/plantuml_links.py`** compresses a diagram's source into
+a plantuml.com URL (raw DEFLATE plus PlantUML's own base64 variant, whose alphabet differs from
+standard base64 -- an ordinary `b64encode` yields a link that silently fails), so a diagram can be
+edited and re-rendered with nothing installed. Overleaf cannot run PlantUML, which is why the PNGs
+are committed.
+
+Two traps are recorded in `paper/diagrams/README.md` because both cost time: **a PlantUML
+directive cannot carry a trailing `'` comment on the same line** -- `scale 2 ' note` produces a
+small error image rather than failing loudly, and at a glance a 640x210 PNG looks like a diagram --
+and the PlantUML server does not serve PDF, answering `302`, while EPS is useless to pdfLaTeX. The
+committed PNGs render at 347--711 dpi at IEEE column widths, so no conversion is needed.
+
+`matplotlib` is added to the `dev` extra with a note that nothing under `src/` imports it, so a
+Raspberry Pi runtime install does not pull it in.
+
 ### An Overleaf-ready IEEE paper skeleton, with the measured sections already written
 
 `paper/main.tex` (new, 508 lines), `paper/references.bib`, `paper/figures/`, `paper/README.md`.

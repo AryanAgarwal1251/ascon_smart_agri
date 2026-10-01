@@ -58,6 +58,9 @@ dev = [
     "pre-commit>=3.7",
     "pandas-stubs",
     "types-PyYAML",
+    # Figure generation for the paper (scripts/make_figures.py). Dev-only: nothing under src/
+    # imports it, so a runtime install on a Raspberry Pi does not pull it in.
+    "matplotlib>=3.8",
 ]
 
 [project.scripts]

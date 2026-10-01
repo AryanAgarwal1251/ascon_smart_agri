@@ -1,0 +1,92 @@
+@startuml deployment
+' Deployment view: what runs where, and what protects each hop.
+' Render: see paper/diagrams/README.md
+
+' render at 2x so the raster export is print-resolution at column width
+scale 2
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam ArrowColor #52514e
+skinparam NoteBackgroundColor #fdf6ec
+skinparam NoteBorderColor #eb6834
+
+skinparam node {
+  BackgroundColor #ffffff
+  BorderColor #52514e
+}
+skinparam component {
+  BackgroundColor #eef4fc
+  BorderColor #2a78d6
+}
+skinparam database {
+  BackgroundColor #eef9f4
+  BorderColor #1baf7a
+}
+
+title Deployment: two farms, one aggregator, one cloud endpoint
+
+node "Farm 1 field" as F1 {
+  component "ESP32 soil01" as S1
+  component "ESP32 soil02" as S2
+  component "ESP32 soil03" as S3
+}
+
+node "Farm 1 gateway\n(Raspberry Pi)" as G1 {
+  component "MQTT broker" as B1
+  component "Local GRU detector" as D1
+  component "Verdict router" as R1
+  component "Alert sink" as A1
+}
+
+node "Farm 2 field" as F2 {
+  component "ESP32 soil04..06" as S4
+}
+
+node "Farm 2 gateway\n(Raspberry Pi)" as G2 {
+  component "MQTT broker" as B2
+  component "Local GRU detector" as D2
+  component "Verdict router" as R2
+  component "Alert sink" as A2
+}
+
+node "Laptop" as L {
+  component "Aggregator\n(master GRU)" as AGG
+  component "Simulated client 3" as SIM
+  component "Cloud receiver" as CLOUD
+}
+
+S1 --> B1 : MQTT (plain)\nfarm-local
+S2 --> B1
+S3 --> B1
+S4 --> B2 : MQTT (plain)\nfarm-local
+
+B1 --> D1
+B2 --> D2
+D1 --> R1 : verdict
+D2 --> R2 : verdict
+
+R1 --> A1 : <b>malicious</b>\nterminates here
+R2 --> A2 : <b>malicious</b>\nterminates here
+
+R1 --> CLOUD : <b>benign only</b>\nTLS
+R2 --> CLOUD : <b>benign only</b>\nTLS
+
+D1 <--> AGG : <b>Ascon-AEAD128</b>\nsealed both directions
+D2 <--> AGG : <b>Ascon-AEAD128</b>\nsealed both directions
+SIM <--> AGG : <b>Ascon-AEAD128</b>
+
+note right of A1
+  The alert sink holds <b>no</b> transport.
+  There is no code path from a malicious
+  verdict to any network endpoint.
+end note
+
+note bottom of AGG
+  Weighted FedAvg over sequence counts.
+  A frame that opens to the bottom element
+  is never applied.
+end note
+
+@enduml
