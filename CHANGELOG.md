@@ -35,6 +35,48 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The client-count sweep completed: 21 points, and the prediction was right after all
+
+`artifacts/k_sweep_results.json` and `manifest_ksweep_default.json`. K in {3,5,10,20,30,40,50}
+x 3 seeds at Phase 4's budget on the CICIoT2023 cache, 21.2 hours.
+
+| K | macro-F1 | FPR | rarest-class F1 | seq/client | MB/round | empty clients |
+| - | --- | --- | --- | --- | --- | --- |
+| **3** | **0.8367 +- 0.0107** | 0.2988 | **0.642** | 399,424 | 0.82 | 0 |
+| 5 | 0.7835 +- 0.0340 | 0.3366 | 0.564 | 238,361 | 1.36 | 0 |
+| 10 | 0.7974 +- 0.0195 | 0.2144 | 0.557 | 118,012 | 2.72 | 0 |
+| 20 | 0.7866 +- 0.0260 | 0.1765 | 0.531 | 58,618 | 5.43 | 0 |
+| 30 | 0.7863 +- 0.0001 | 0.3149 | 0.513 | 38,979 | 8.15 | 0 |
+| 40 | 0.7778 +- 0.0091 | 0.3184 | 0.466 | 29,215 | 10.87 | 0 |
+| **50** | **0.7577 +- 0.0134** | **0.3882** | **0.386** | 23,355 | 13.59 | 0 |
+
+**An earlier reading in this changelog called the curve a plateau that contradicted the analytical
+prediction. The final two K values correct that.** The curve has three phases: one step down from
+K = 3 to K = 5 as per-client data falls below the 400k sequence cap (399,424 -> 238,361); a genuine
+plateau from K = 5 to K = 30, where 6x more clients costs 0.004 and K = 30's seed spread is
++- 0.0001; and then a **second descent from K = 40 to K = 50** (0.7863 -> 0.7778 -> 0.7577). That
+descent begins immediately after the pigeonhole ceiling of 42 and is steepest at K = 50, which is
+where the analytical knee of K* ~ 48 sits. The prediction was not wrong; reading the curve at
+K <= 40 was premature.
+
+**The rarest class declines monotonically at every step and never recovers:** 0.642, 0.564, 0.557,
+0.531, 0.513, 0.466, 0.386 -- **-0.256 absolute, a 40 % relative fall**, while macro-F1 moves only
+-0.079 because the common classes (Mirai at 0.998 throughout) hold the average up. **Reporting
+macro-F1 alone would have hidden a 40 % collapse in the hardest class**, which is an
+evaluation-methodology finding in its own right and belongs in the paper beside the
+vacuous-verification one.
+
+**Zero empty clients at every K, including 50**, so this is dilution rather than literal
+starvation: the rare class is never absent from a client, it is ground down. FPR is worst at K = 50
+(0.3882) and tracks the rare-class collapse more honestly than macro-F1 does. Communication scales
+linearly from 0.82 to **13.59 MB per round** (16.6x), and since accuracy is already 0.079 down at
+K = 50, the federation benefit degrades before the predicted communication break-even at K ~ 51 is
+even reached.
+
+**For the hardware configuration this is a clean result: K = 3 is the sweep's best point**, 0.8367
+against the centralised ceiling of 0.8543 -- 0.018 below it -- with the best rare-class F1 of any
+client count. The two-Pi budget constraint turns out to be the accuracy-optimal choice.
+
 ### Paper rewrite begins: audit of the old draft, and a bibliography built from scratch
 
 The user asked to write the paper properly from the beginning -- reviewing the existing draft and
