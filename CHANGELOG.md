@@ -35,6 +35,40 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The submitted review paper supplies the authors and 25 references; verification finds two wrong citations
+
+The user provided the submitted review-and-design paper. Its author block is now in `main.tex`
+(Abhishek Jadli, Aryan Agarwal, Advait Amit Malviya, Vijayprabhakaran K; VIT Chennai), and its
+reference list [1]-[25] is merged into `paper/references.bib` alongside the twelve entries added
+from the generalisation literature review. **37 entries**, comfortably past the 25 the user asked
+for.
+
+**Twelve of the inherited entries were incomplete** -- missing authors, volume, or a resolvable
+venue -- which is not a submittable state. Verification so far has closed five of them and
+surfaced **two citations that do not say what the review paper claims**:
+
+- **Ref [19]** is cited as confirming "the standardised variant is usable over MQTT". It does not.
+  Oztuerk et al., *Applied Sciences* 15(19) art. 10641, build a **chaos-based Ascon variant**,
+  deriving keys and nonces from a Zaslavsky chaotic map and claiming higher security than standard
+  Ascon, tested on Raspberry Pi 3B with ROS 2 robots. It is good evidence that Ascon runs on
+  Pi-class hardware -- which we can use -- but it is not evidence about standardised
+  Ascon-AEAD128 over MQTT. The sentence must be rewritten.
+- **Ref [18]** is cited as a 2024 preprint. It is a **published journal article**: El-Hajj and
+  Gebremariam, *Network* (MDPI) 4(3):260-294, 2024. Its actual numbers are more useful than the
+  review paper's summary -- Ascon has lower execution time than AES-GCM and needs about 1 KB more
+  RAM and Flash where AES-GCM needs 8 KB more RAM and 5.6 KB more Flash, at equivalent security.
+
+Also completed: **[10]**, the paper the review calls closest prior work, is Okey, Dadkhah,
+Rodriguez and Kleinschmidt -- a federated ensemble over CNN, GRU and LSTM with wFedAvg and
+wFedProx, reaching 98.25 % accuracy on CICIoT2023 and 93.36 / 95.66 % with LSTM-GRU on
+CICIoT2023 / FLNET2023; **[11]** is Khraisat, Alazab and Alazab, *Discover Internet of Things* 5
+art. 72; **[20]** is Fathy and Ali, *Sensors* 23(4) art. 2091.
+
+Every entry now carries a `% CLAIM:` line stating what we attribute to it and a `% VERIFY:` line
+naming what is still unchecked, so no citation can reach submission on trust alone. Eleven are
+checked at source; two remain `**INCOMPLETE**` (a 2025 IEEE item with no authors or venue, and an
+Industry 4.0 patent filing with no jurisdiction or number).
+
 ### Figures and architecture diagrams, generated rather than drawn
 
 Seven plots and four PlantUML diagrams, all committed, and `main.tex` now includes all eleven --

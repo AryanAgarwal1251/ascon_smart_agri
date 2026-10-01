@@ -1,169 +1,20 @@
 % Bibliography for the ascon_smart_agri paper.
 %
-% RULE: an entry lands here only after its details were checked against the publisher or
-% an authoritative page, and after the claim we attribute to it was confirmed in the text or
-% abstract. Entries whose claim is confirmed but whose full bibliographic record still needs a
-% check carry a "% VERIFY:" line saying what is outstanding. Nothing is copied from the old
-% design draft, whose inline citations are all broken "[URL](#page-0)" conversion artefacts.
+% PROVENANCE. Entries [S1-S20 / refs 1-25] come from the submitted review-and-design paper
+% ("Federated GRU Intrusion Detection with Ascon-Authenticated Telemetry for Smart Agriculture
+% IoT: Domain Analysis, Literature Review, and System Design"). Entries below the second rule
+% were added for the empirical paper and were read at source.
+%
+% RULE: a "% CLAIM:" line records what we attribute to the entry. A "% VERIFY:" line records
+% what is still unconfirmed. Twelve of the inherited entries are incomplete in the source paper
+% -- missing authors, volume, or a resolvable venue -- and are marked accordingly; none may go
+% to submission in that state.
 
-% ---------------------------------------------------------------------------
-% Ascon: the primitive, its standardisation, and the reference implementation
-% ---------------------------------------------------------------------------
+% =====================================================================
+% PART 1 -- inherited from the review paper (refs [1]-[25])
+% =====================================================================
 
-@article{dobraunig2021ascon,
-  author  = {Dobraunig, Christoph and Eichlseder, Maria and Mendel, Florian and Schl{\"a}ffer, Martin},
-  title   = {Ascon v1.2: Lightweight Authenticated Encryption and Hashing},
-  journal = {Journal of Cryptology},
-  volume  = {34},
-  number  = {3},
-  pages   = {33},
-  year    = {2021},
-  doi     = {10.1007/s00145-021-09398-9},
-  note    = {Article 33, published 22 June 2021; open access}
-}
-% CHECKED: title, four authors, Journal of Cryptology 34(3) art. 33, 2021, DOI.
-% CLAIM WE MAKE: this is the design-and-security specification of the Ascon family, by its
-% designers. Use it wherever the paper explains how Ascon works.
-
-@techreport{nist2025sp800232,
-  author      = {Turan, Meltem S{\"o}nmez and Chang, Donghoon and Kang, Jinkeon and Kelsey, John},
-  title       = {Ascon-Based Lightweight Cryptography Standards for Constrained Devices:
-                 Authenticated Encryption, Hash, and Extendable Output Functions},
-  institution = {National Institute of Standards and Technology},
-  type        = {NIST Special Publication},
-  number      = {800-232},
-  year        = {2025},
-  month       = aug,
-  url         = {https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-232.pdf}
-}
-% CHECKED: title, four authors, SP number, final publication 13 August 2025.
-% CLAIM WE MAKE: Ascon-AEAD128 -- the exact variant this system uses -- is a NIST standard.
-% SP 800-232 also standardises Ascon-Hash256, Ascon-XOF128 and Ascon-CXOF128, which we do not use.
-% VERIFY: quote the key/nonce/tag sizes from the document itself rather than from secondary pages.
-
-@misc{asconc,
-  author       = {Dobraunig, Christoph and Eichlseder, Maria and Mendel, Florian and Schl{\"a}ffer, Martin},
-  title        = {Ascon-c: Reference, optimized and masked {C} implementations of Ascon},
-  howpublished = {\url{https://github.com/ascon/ascon-c}},
-  year         = {2025}
-}
-% CLAIM WE MAKE: our known-answer-test vectors come from the official C reference
-% implementation; provenance recorded in tests/kat/PROVENANCE.md and in each run manifest.
-
-% ---------------------------------------------------------------------------
-% Cross-dataset generalisation: the finding our negative result replicates
-% ---------------------------------------------------------------------------
-
-@misc{layeghy2022generalisability,
-  author       = {Layeghy, Siamak and Portmann, Marius},
-  title        = {On Generalisability of Machine Learning-based Network Intrusion Detection Systems},
-  howpublished = {arXiv:2205.04112},
-  year         = {2022},
-  url          = {https://arxiv.org/abs/2205.04112}
-}
-% CLAIM WE MAKE, read from the paper: four NIDS corpora converted to ONE standardised 43-feature
-% NetFlow schema; within-dataset 76-99% F1; cross-dataset 56.28% average decay for supervised
-% models, sometimes near 0% F1; "none of the considered models is able to generalise over all
-% studied datasets"; Extra Trees 94.83% UNSW-NB15->BoT-IoT against 4.90% reversed; SHAP attributes
-% within-dataset performance to shortcut features that do not transfer.
-% WHY IT MATTERS TO US: it removes feature-schema mismatch as an explanation, so our own
-% cross-corpus collapse is a replication rather than a defect.
-% VERIFY: author list and whether a peer-reviewed version superseded the preprint.
-
-@article{dataset_centric_fl_ids,
-  title   = {Dataset-centric evaluation of federated intrusion detection models in IoT networks},
-  journal = {Scientific Reports},
-  year    = {2025},
-  url     = {https://www.nature.com/articles/s41598-025-32567-w}
-}
-% CLAIM WE MAKE, read from the article: federated IDS over Edge-IIoTset, CIC-IoT2023 and
-% TII-SSRC-23; in-domain 96.5 / 95.2 / 93.0 % macro-F1; up to 30 percentage-point macro-F1 loss
-% cross-dataset; combined multi-dataset federated training reaches ~90% macro-F1 across corpora;
-% FedNova cuts communication 15-25% against FedAvg; Transformer beats LSTM by 1-2 points.
-% WHY IT MATTERS TO US: it is the closest published work, and it recommends exactly the
-% mixed-farm design we built independently.
-% VERIFY: author list, volume and article number.
-
-@misc{galal2026provenance,
-  author       = {Galal, Mostafa M.},
-  title        = {Provenance, Not Behaviour: A Serialisation Artifact in {Edge-IIoTset} and a
-                  Leakage-Free Benchmark for Precision-Agriculture Intrusion Detection},
-  howpublished = {arXiv:2608.15761},
-  year         = {2026},
-  url          = {https://arxiv.org/abs/2608.15761}
-}
-% CLAIM WE MAKE, read from the abstract: four of the seven columns Edge-IIoTset's official
-% preprocessing recipe tells researchers to one-hot encode separate attack from normal with
-% accuracy 1.0000 on their own, through the placeholder spelling "0" against "0.0"; five of six
-% standard classifiers reach 1.0000 +/- 0.0000; under a corrected protocol the strongest model
-% settles at 0.9503 +/- 0.0011. The paper rebuilds the benchmark from raw captures as AgriEdge:
-% 1,276,122 rows, five devices with full attribution, no column separating classes above 0.0288.
-% A leave-one-device-out sweep puts the generalisation boundary at the perception/actuation layer,
-% where random forest falls 0.9988 -> 0.5083 balanced accuracy; non-IID federated partitioning
-% costs at most 0.0037 macro-F1.
-% WHY IT MATTERS TO US: (i) it is the source for the placeholder artefact our characterisation
-% checks for, and (ii) leave-one-device-out is the generalisation test we should be running.
-
-@misc{di_nids,
-  title        = {{DI-NIDS}: Domain Invariant Network Intrusion Detection System},
-  howpublished = {arXiv:2210.08252},
-  year         = {2022},
-  url          = {https://arxiv.org/abs/2210.08252}
-}
-% CLAIM WE MAKE, read from the abstract: adversarial domain adaptation extracts domain-invariant
-% features, then a One-Class SVM detects on them; superior cross-domain performance on
-% NFv2-CIC-2018 and NFv2-UNSW-NB15.
-% VERIFY: authors; the abstract does not give numeric comparisons, so do not quote any.
-
-@misc{nids_dataset_survey,
-  title        = {Network Intrusion Datasets: A Survey, Limitations, and Recommendations},
-  howpublished = {arXiv:2502.06688},
-  year         = {2025},
-  url          = {https://arxiv.org/abs/2502.06688}
-}
-% CLAIM WE MAKE: a review of 89 public NIDS datasets across 13 properties, listing weak
-% cross-dataset generalisation alongside temporal leakage and splitting errors as standing
-% failure modes.
-% VERIFY: authors, and the "up to 76% F1 drop" figure -- that came from a search summary, not
-% from the paper text. Do not cite the number until it is read in situ.
-
-@misc{iiot_cross_domain_failure,
-  title        = {Cross-Domain Generalization Failure in Lightweight Intrusion Detection Models
-                  for {IIoT} Networks},
-  howpublished = {arXiv:2607.00553},
-  year         = {2026},
-  url          = {https://arxiv.org/abs/2607.00553}
-}
-% VERIFY: the PDF did not extract. Authors, datasets and numbers all outstanding. Cite only as
-% corroborating evidence that the failure is documented for IIoT, with no figures, until read.
-
-% ---------------------------------------------------------------------------
-% Standardised feature sets (context for why schema alignment does not rescue transfer)
-% ---------------------------------------------------------------------------
-
-@misc{sarhan2021standardfeature,
-  author       = {Sarhan, Mohanad and Layeghy, Siamak and Portmann, Marius},
-  title        = {Towards a Standard Feature Set for Network Intrusion Detection System Datasets},
-  howpublished = {arXiv:2101.11315; Mobile Networks and Applications},
-  year         = {2021},
-  url          = {https://arxiv.org/abs/2101.11315}
-}
-% CLAIM WE MAKE: NetFlow feature sets of 12 and 43 features, applied to convert UNSW-NB15,
-% BoT-IoT, ToN-IoT and CSE-CIC-IDS2018 into NF-*-v2 variants with a common schema.
-% VERIFY: author list against the published version.
-
-@misc{sarhan2020netflowdatasets,
-  author       = {Sarhan, Mohanad and Layeghy, Siamak and Moustafa, Nour and Portmann, Marius},
-  title        = {{NetFlow} Datasets for Machine Learning-based Network Intrusion Detection Systems},
-  howpublished = {arXiv:2011.09144},
-  year         = {2020},
-  url          = {https://arxiv.org/abs/2011.09144}
-}
-% VERIFY: author list.
-
-% ---------------------------------------------------------------------------
-% Corpora
-% ---------------------------------------------------------------------------
+% ---- Thread A: benchmark data and sequence-based detection ----------
 
 @article{neto2023ciciot,
   author  = {Neto, Euclides Carlos Pinto and Dadkhah, Sajjad and Ferreira, Raphael and
@@ -173,22 +24,371 @@
   journal = {Sensors},
   volume  = {23},
   number  = {13},
+  pages   = {5941},
+  year    = {2023},
+  doi     = {10.3390/s23135941}
+}
+% CLAIM: the corpus this work trains on; 105-device testbed, ~46.7M records, 46-47 flow
+% features, one benign and 33 attack classes in seven families; imbalance ratio ~5751.
+
+% ---- Thread B: federated learning -----------------------------------
+
+@inproceedings{mcmahan2017fedavg,
+  author    = {McMahan, Brendan and Moore, Eider and Ramage, Daniel and Hampson, Seth and
+               Ag{\"u}era y Arcas, Blaise},
+  title     = {Communication-Efficient Learning of Deep Networks from Decentralized Data},
+  booktitle = {Proc. 20th Int. Conf. Artificial Intelligence and Statistics (AISTATS)},
+  pages     = {1273--1282},
+  year      = {2017}
+}
+% CLAIM: the reference aggregation rule; our Eq. (fedavg) is its sample-weighted form.
+
+@inproceedings{li2020fedprox,
+  author    = {Li, Tian and Sahu, Anit Kumar and Zaheer, Manzil and Sanjabi, Maziar and
+               Talwalkar, Ameet and Smith, Virginia},
+  title     = {Federated Optimization in Heterogeneous Networks},
+  booktitle = {Proc. Machine Learning and Systems (MLSys)},
+  volume    = {2},
+  pages     = {429--450},
+  year      = {2020}
+}
+% CLAIM: proximal term constraining client drift under statistical heterogeneity; our
+% documented fallback if FedAvg diverges.
+
+@article{nguyen2021flsurvey,
+  author  = {Nguyen, Dinh C. and Ding, Ming and Pathirana, Pubudu N. and Seneviratne, Aruna and
+             Li, Jun and Poor, H. Vincent},
+  title   = {Federated Learning for {Internet} of {Things}: A Comprehensive Survey},
+  journal = {IEEE Communications Surveys \& Tutorials},
+  volume  = {23},
+  number  = {3},
+  pages   = {1622--1658},
+  year    = {2021}
+}
+
+@article{hernandezramos2025fedidsreview,
+  author  = {Hern{\'a}ndez-Ramos, Jos{\'e} L. and Parizi, Reza M. and Dehghantanha, Ali and
+             Pouriyeh, Seyedamin and Mothukuri, Viraaji and Choo, Kim-Kwang Raymond},
+  title   = {Intrusion Detection Based on Federated Learning: A Systematic Review},
+  journal = {ACM Computing Surveys},
+  volume  = {57},
+  number  = {12},
+  pages   = {1--65},
+  year    = {2025}
+}
+% CLAIM: umbrella reference; source of the limitations behind the unbounded-privacy-claim,
+% partition-specification, missing-lower-bound and verdict-routing gaps.
+
+@inproceedings{belarbi2023federated,
+  author    = {Belarbi, Othmane and Spyridopoulos, Theodoros and Anthi, Eirini and
+               Mavromatis, Ioannis and Carnelli, Pietro and Khan, Aftab},
+  title     = {Federated Deep Learning for Intrusion Detection in {IoT} Networks},
+  booktitle = {Proc. IEEE Global Communications Conference (GLOBECOM)},
+  year      = {2023}
+}
+% VERIFY: full author list against the published version.
+
+@article{ruzafa2021ppfl,
+  author  = {Ruzafa-Alc{\'a}zar, Pedro and Fern{\'a}ndez-Saura, Pablo and
+             M{\'a}rmol-Campos, Enrique and Gonz{\'a}lez-Vidal, Aurora and
+             Hern{\'a}ndez-Ramos, Jos{\'e} L. and Bernal-Bernabe, Jorge and
+             Skarmeta, Antonio F.},
+  title   = {Intrusion Detection Based on Privacy-Preserving Federated Learning for the
+             Industrial {IoT}},
+  journal = {IEEE Transactions on Industrial Informatics},
+  volume  = {19},
+  number  = {2},
+  pages   = {1145--1154},
   year    = {2023}
 }
-% CLAIM WE MAKE: the corpus this system trains on; 105 devices, 34 attack classes.
-% VERIFY: full author list, article number, and the device/class counts from the paper itself.
+% VERIFY: the review paper gives 2021; IEEE TII 19(2) is 2023. Resolve before submission.
 
-@article{dadkhah2024ciciomt,
-  author  = {Dadkhah, Sajjad and Neto, Euclides Carlos Pinto and Ferreira, Raphael and
-             Molokwu, Reginald Chukwuka and Sadeghi, Somayeh and Ghorbani, Ali A.},
-  title   = {{CICIoMT2024}: A Benchmark Dataset for Multi-Protocol Security Assessment in
-             {IoMT}},
-  journal = {Internet of Things},
-  volume  = {28},
+@article{karunamurthy2025optimal,
+  author  = {Karunamurthy, A. and Vijayan, K. and Kshirsagar, Pravin R.},
+  title   = {An Optimal Federated Learning-Based Intrusion Detection for {IoT} Environment},
+  journal = {Scientific Reports},
+  volume  = {15},
+  pages   = {8696},
+  year    = {2025}
+}
+% VERIFY: full author list ("et al." in the source).
+
+@article{abdelaziz2025tabtransformer,
+  author  = {Abd Elaziz, Mohamed and Fares, Esraa and Dahou, Abdelghani and Shrahili, Mansour},
+  title   = {Federated Learning Framework for {IoT} Intrusion Detection Using Tab Transformer
+             and Nature-Inspired Hyperparameter Optimization},
+  journal = {Frontiers in Big Data},
+  year    = {2025}
+}
+% VERIFY: volume and article number.
+
+@inproceedings{okey2024cnngru,
+  author    = {Okey, Ogobuchi Daniel and Dadkhah, Sajjad and
+               Rodriguez, Demostenes Zegarra and Kleinschmidt, Jo{\~a}o Henrique},
+  title     = {Enhancing {IoT} Intrusion Detection with Federated Learning-Based {CNN-GRU}
+               and {LSTM-GRU} Ensembles},
+  booktitle = {Proc. IEEE Conference},
+  year      = {2024},
+  url       = {https://ieeexplore.ieee.org/document/10639159}
+}
+% CHECKED: authors identified. Federated ensemble IDS over CNN, GRU and LSTM with two
+% aggregation functions, wFedAvg and wFedProx, evaluated on CICIoT2023 and FLNET2023.
+% CNN-GRU reaches 98.25% accuracy on CICIoT2023; LSTM-GRU reaches 93.36% on CICIoT2023 and
+% 95.66% on FLNET2023.
+% CLAIM: closest prior work to the detection layer -- validates GRU plus weighted FedAvg on
+% our dataset; stops at the label.
+% VERIFY: the exact conference name and DOI still need the IEEE record (the landing page did
+% not render); do not submit with "Proc. IEEE Conference".
+
+@article{khraisat2025discoveriot,
+  author  = {Khraisat, Ansam and Alazab, Ammar and Alazab, Moutaz},
+  title   = {Federated Learning for Intrusion Detection in {IoT} Environments: A
+             Privacy-Preserving Strategy},
+  journal = {Discover Internet of Things},
+  volume  = {5},
+  pages   = {72},
+  year    = {2025},
+  doi     = {10.1007/s43926-025-00169-7}
+}
+% CHECKED: three authors, Discover IoT vol. 5 art. 72 (2025), DOI.
+% VERIFY: the given names are from a search summary; confirm initials at the publisher.
+
+@article{distributediot2025dp,
+  title   = {Federated Learning for Distributed {IoT} Security: A Privacy-Preserving Approach
+             to Intrusion Detection},
+  year    = {2025}
+}
+% CLAIM: tightening the privacy budget from eps=5 to eps=0.5 costs ~1.4 percentage points of
+% accuracy.
+% VERIFY: **INCOMPLETE** -- no authors and no venue beyond "IEEE".
+
+@article{bai2025ietinfsec,
+  author  = {Bai, Yu},
+  title   = {Enhancing {IoT} Security via Federated Learning: A Comprehensive Approach to
+             Intrusion Detection},
+  journal = {IET Information Security},
+  year    = {2025}
+}
+% CLAIM: the dissenting result -- benchmarking nine models, a tree ensemble beat GRU/LSTM on
+% tabular flow features; this is why the evaluation includes a random-forest baseline.
+% VERIFY: full author list ("Bai et al." in the source) and the first author's given name.
+
+% ---- Thread C: lightweight authenticated encryption -----------------
+
+@article{dobraunig2021ascon,
+  author  = {Dobraunig, Christoph and Eichlseder, Maria and Mendel, Florian and
+             Schl{\"a}ffer, Martin},
+  title   = {Ascon v1.2: Lightweight Authenticated Encryption and Hashing},
+  journal = {Journal of Cryptology},
+  volume  = {34},
+  number  = {3},
+  pages   = {33},
+  year    = {2021},
+  doi     = {10.1007/s00145-021-09398-9}
+}
+% CHECKED at source: title, four authors, J. Cryptology 34(3) art. 33, 2021, DOI. Open access.
+% CLAIM: the design and security specification of the Ascon family, by its designers.
+
+@techreport{nist2025sp800232,
+  author      = {Turan, Meltem S{\"o}nmez and Chang, Donghoon and Kang, Jinkeon and
+                 Kelsey, John},
+  title       = {Ascon-Based Lightweight Cryptography Standards for Constrained Devices:
+                 Authenticated Encryption, Hash, and Extendable Output Functions},
+  institution = {National Institute of Standards and Technology},
+  type        = {NIST Special Publication},
+  number      = {800-232},
+  year        = {2025},
+  month       = aug,
+  doi         = {10.6028/NIST.SP.800-232}
+}
+% CHECKED at source: title, four authors, final publication 13 August 2025.
+% CLAIM: standardises Ascon-AEAD128 -- the exact variant used here -- plus Ascon-Hash256,
+% Ascon-XOF128 and Ascon-CXOF128, which we do not use.
+
+@article{khan2024asconasic,
+  author  = {Khan, Safiullah and Lee, Wai-Kong and Hwang, Seong Oun},
+  title   = {Securing the {IoT} Ecosystem: {ASIC}-Based Hardware Realization of Ascon
+             Lightweight Cipher},
+  journal = {International Journal of Information Security},
   year    = {2024}
 }
-% CLAIM WE MAKE: the medical IoT corpus we characterised, trained on, and rejected.
-% VERIFY: full author list and article number.
+% VERIFY: volume, issue, pages.
+
+@inproceedings{khan2022asconperf,
+  author    = {Khan, Safiullah and Lee, Wai-Kong and Hwang, Seong Oun},
+  title     = {Evaluating the Performance of Ascon Lightweight Authenticated Encryption for
+               {AI}-Enabled {IoT} Devices},
+  booktitle = {Proc. TRON Symposium (TRONSHOW)},
+  pages     = {1--6},
+  year      = {2022}
+}
+
+@article{suleiman2026lweiot,
+  author  = {Suleiman, A.},
+  title   = {{LWE-IoT}: Evaluating Lightweight Encryption Schemes in {MQTT} and {CoAP} {IoT}
+             Protocols},
+  journal = {International Journal of Circuit Theory and Applications},
+  year    = {2026}
+}
+% CLAIM: compares Ascon, PRESENT, SIMON, SPECK and ChaCha20 over MQTT and CoAP on ESP32 nodes
+% across payload sizes -- the protocol-level measurement methodology closest to ours.
+% VERIFY: full author list ("Suleiman et al.") and the first author's given name.
+
+@article{elhajj2024asconindustry40,
+  author  = {El-Hajj, Mohammed and Gebremariam, Teklit Haftu},
+  title   = {Enhancing Resilience in Digital Twins: {ASCON}-Based Security Solutions for
+             {Industry} 4.0},
+  journal = {Network},
+  volume  = {4},
+  number  = {3},
+  pages   = {260--294},
+  year    = {2024},
+  doi     = {10.3390/network4030013}
+}
+% CHECKED: two authors, MDPI Network 4(3):260-294, July 2024, DOI.
+% >>> The review paper cites this as "preprint, 2024". It is a **published journal article**;
+% the preprint (doi:10.20944/preprints202407.0963.v1) is superseded. Cite the journal version.
+% CLAIM: practical MQTT validation comparing Ascon against AES-GCM -- Ascon has lower execution
+% time, needs about 1 KB additional RAM and Flash where AES-GCM needs about 8 KB RAM and 5.6 KB
+% Flash more, and draws less power at equivalent security. These are directly useful numbers
+% for our own constrained-device argument.
+
+@article{ozturk2025chaosascon,
+  author  = {{\"O}zt{\"u}rk, G{\"u}lyeter and {\c{C}}imen, Murat Erhan and
+             {\c{C}}avu{\c{s}}o{\u{g}}lu, {\"U}nal and Eldo{\u{g}}an, Osman and
+             Karayel, Durmu{\c{s}}},
+  title   = {Secure and Efficient Data Encryption for {Internet} of {Robotic} {Things} via
+             Chaos-Based Ascon},
+  journal = {Applied Sciences},
+  volume  = {15},
+  number  = {19},
+  pages   = {10641},
+  year    = {2025},
+  doi     = {10.3390/app151910641}
+}
+% CHECKED: five authors, Applied Sciences 15(19) art. 10641, October 2025, DOI.
+% >>> CITATION-ACCURACY PROBLEM. The review paper cites this as confirming "the standardised
+% variant is usable over MQTT". It does not. The paper integrates keys and nonces from a
+% Zaslavsky chaotic map to build a **chaos-based Ascon variant**, explicitly claiming higher
+% security than standard Ascon, and tests it on Raspberry Pi 3B with ROS 2 IoRT robots. It is
+% evidence that Ascon runs on Pi-class hardware -- which is directly useful to us -- but NOT
+% evidence about the standardised Ascon-AEAD128 over MQTT. The sentence must be rewritten.
+
+% ---- Thread D: agricultural and application-layer security ----------
+
+@article{fathy2023irrigation,
+  author  = {Fathy, Cherine and Ali, Hassan M.},
+  title   = {A Secure {IoT}-Based Irrigation System for Precision Agriculture Using the
+             Expeditious Cipher},
+  journal = {Sensors},
+  volume  = {23},
+  number  = {4},
+  pages   = {2091},
+  year    = {2023},
+  doi     = {10.3390/s23042091}
+}
+% CLAIM: protects published sensor data and the irrigation decisions returned to actuators,
+% reporting improvements over AES; establishes the Channel 2 threat scenario; uses a
+% non-standardised cipher and has no detection layer.
+% CHECKED: Fathy and Ali, Sensors 23(4) art. 2091, 13 February 2023, DOI.
+
+% ---- Patent landscape ------------------------------------------------
+
+@misc{patent_us12301597,
+  title        = {Network Edge Digital Twin for {IoT} Attack Detection},
+  howpublished = {U.S. Patent 12,301,597},
+  year         = {2025}
+}
+% CLAIM: trains a random forest on CICIoT2023 features at the network edge using a digital-twin
+% representation; training is centralised and there is no payload cryptography.
+% VERIFY: assignee and inventors.
+
+@misc{patent_vit_fl,
+  author       = {{Vellore Institute of Technology}},
+  title        = {Collaborative Training of Intrusion Detection Models Without Sharing Network
+                  Traffic Data},
+  howpublished = {Indian patent filing},
+  year         = {2026}
+}
+% VERIFY: application number.
+
+@misc{patent_mallareddy,
+  author       = {{Malla Reddy University}},
+  title        = {Privacy-Preserving Global Threat Detection and Threat-Intelligence
+                  Dissemination},
+  howpublished = {Indian patent filing},
+  year         = {2025}
+}
+% VERIFY: application number.
+
+@misc{patent_multilevel_fl,
+  title        = {Multi-Level Federated Learning for {Industry} 4.0},
+  howpublished = {Patent filing},
+  year         = {2023}
+}
+% VERIFY: **INCOMPLETE** -- no jurisdiction, number or assignee.
+
+% =====================================================================
+% PART 2 -- added for the empirical paper; each read at source
+% =====================================================================
+
+@misc{asconc,
+  author       = {Dobraunig, Christoph and Eichlseder, Maria and Mendel, Florian and
+                  Schl{\"a}ffer, Martin},
+  title        = {Ascon-c: Reference, Optimized and Masked {C} Implementations of Ascon},
+  howpublished = {\url{https://github.com/ascon/ascon-c}},
+  year         = {2025}
+}
+% CLAIM: source of the known-answer-test vectors gating our cryptographic integration;
+% provenance recorded in tests/kat/PROVENANCE.md and in every run manifest.
+
+@misc{layeghy2022generalisability,
+  author       = {Layeghy, Siamak and Portmann, Marius},
+  title        = {On Generalisability of Machine Learning-Based Network Intrusion Detection
+                  Systems},
+  howpublished = {arXiv:2205.04112},
+  year         = {2022},
+  url          = {https://arxiv.org/abs/2205.04112}
+}
+% CHECKED at source: four NIDS corpora converted to ONE standardised 43-feature NetFlow schema;
+% within-dataset 76-99% F1; cross-dataset 56.28% average decay, sometimes near 0%; "none of the
+% considered models is able to generalise over all studied datasets"; Extra Trees 94.83%
+% UNSW-NB15 -> BoT-IoT against 4.90% reversed; SHAP attributes within-dataset performance to
+% shortcut features that do not transfer.
+% WHY IT MATTERS: it removes feature-schema mismatch as an explanation, making our own
+% cross-corpus collapse a replication rather than a defect.
+
+@article{dataset_centric_fl_ids,
+  title   = {Dataset-Centric Evaluation of Federated Intrusion Detection Models in {IoT}
+             Networks},
+  journal = {Scientific Reports},
+  year    = {2025},
+  url     = {https://www.nature.com/articles/s41598-025-32567-w}
+}
+% CHECKED at source: federated IDS over Edge-IIoTset, CIC-IoT2023 and TII-SSRC-23; in-domain
+% 96.5 / 95.2 / 93.0 % macro-F1; up to 30 percentage points lost cross-dataset; combined
+% multi-dataset federated training reaches ~90% macro-F1 across corpora; FedNova cuts
+% communication 15-25% against FedAvg; Transformer beats LSTM by 1-2 points.
+% WHY IT MATTERS: the closest published work, and it recommends the mixed-farm design we
+% arrived at independently.
+% VERIFY: author list, volume, article number.
+
+@misc{galal2026provenance,
+  author       = {Galal, Mostafa M.},
+  title        = {Provenance, Not Behaviour: A Serialisation Artifact in {Edge-IIoTset} and a
+                  Leakage-Free Benchmark for Precision-Agriculture Intrusion Detection},
+  howpublished = {arXiv:2608.15761},
+  year         = {2026},
+  url          = {https://arxiv.org/abs/2608.15761}
+}
+% CHECKED at source (abstract): four of the seven columns Edge-IIoTset's official preprocessing
+% recipe one-hot encodes separate attack from normal with accuracy 1.0000 alone, through the
+% placeholder spelling "0" against "0.0"; five of six classifiers reach 1.0000 +/- 0.0000; under
+% a corrected protocol the strongest model settles at 0.9503 +/- 0.0011. Rebuilds the benchmark
+% from raw captures as AgriEdge: 1,276,122 rows, five devices with full attribution, no column
+% separating classes above 0.0288. Leave-one-device-out puts the generalisation boundary at the
+% perception/actuation layer, random forest 0.9988 -> 0.5083 balanced accuracy; non-IID
+% federated partitioning costs at most 0.0037 macro-F1.
 
 @article{ferrag2022edgeiiotset,
   author  = {Ferrag, Mohamed Amine and Friha, Othmane and Hamouda, Djallel and
@@ -199,30 +399,82 @@
   volume  = {10},
   year    = {2022}
 }
-% CLAIM WE MAKE: the agricultural/industrial corpus we characterised, trained on twice, and
-% rejected. Its placeholder artefact is documented by galal2026provenance, not by this paper.
+% CLAIM: the agricultural/industrial corpus characterised, trained on twice, and rejected here.
 % VERIFY: page range.
 
+@article{dadkhah2024ciciomt,
+  author  = {Dadkhah, Sajjad and Neto, Euclides Carlos Pinto and Ferreira, Raphael and
+             Molokwu, Reginald Chukwuka and Sadeghi, Somayeh and Ghorbani, Ali A.},
+  title   = {{CICIoMT2024}: A Benchmark Dataset for Multi-Protocol Security Assessment in
+             {IoMT}},
+  journal = {Internet of Things},
+  volume  = {28},
+  year    = {2024}
+}
+% CLAIM: the medical IoT corpus characterised, trained on, and rejected here.
+% VERIFY: article number.
+
 @misc{farmflow2024,
-  title        = {Farm-flow dataset: Intrusion detection in smart agriculture based on network
-                  flows},
+  title        = {Farm-Flow Dataset: Intrusion Detection in Smart Agriculture Based on Network
+                  Flows},
   journal      = {Computers and Electrical Engineering},
   year         = {2024},
-  url          = {https://doi.org/10.5281/zenodo.10964647}
+  doi          = {10.5281/zenodo.10964647}
 }
-% CLAIM WE MAKE: a real agricultural IoT testbed, over one million flow instances, 101 features,
-% eight attack types including MQTT Flood; publicly available on Zenodo; reported baselines
-% above 90% F1. NOT used in this work -- cited as the corpus that would enable a
-% leave-one-device-out generalisation claim.
-% VERIFY: authors, volume, article number, and the feature count from the paper.
+% CLAIM: a real agricultural IoT testbed; over one million flow instances, 101 features, eight
+% attack types including MQTT Flood; publicly available; reported baselines above 90% F1. NOT
+% used here -- cited as the corpus that would enable a leave-one-device-out claim.
+% VERIFY: authors, volume, article number.
 
 @misc{tiissrc23,
-  title        = {{TII-SSRC-23} Dataset: Typological Exploration of Diverse Traffic Patterns for
-                  Intrusion Detection},
+  title        = {{TII-SSRC-23} Dataset: Typological Exploration of Diverse Traffic Patterns
+                  for Intrusion Detection},
   howpublished = {arXiv:2310.10661},
   year         = {2023},
   url          = {https://arxiv.org/abs/2310.10661}
 }
-% CLAIM WE MAKE: 27.5 GB, PCAP and CSV, eight traffic types across 32 subtypes including Mirai.
-% NOT used -- cited when explaining why a further general-purpose corpus was not added.
+% CLAIM: 27.5 GB, PCAP and CSV, eight traffic types across 32 subtypes including Mirai. NOT
+% used -- cited when explaining why no further general-purpose corpus was added.
 % VERIFY: authors.
+
+@misc{sarhan2021standardfeature,
+  author       = {Sarhan, Mohanad and Layeghy, Siamak and Portmann, Marius},
+  title        = {Towards a Standard Feature Set for Network Intrusion Detection System
+                  Datasets},
+  howpublished = {arXiv:2101.11315; Mobile Networks and Applications},
+  year         = {2021},
+  url          = {https://arxiv.org/abs/2101.11315}
+}
+% CLAIM: NetFlow feature sets of 12 and 43 features used to convert four NIDS corpora into
+% NF-*-v2 variants sharing one schema.
+
+@misc{di_nids,
+  title        = {{DI-NIDS}: Domain Invariant Network Intrusion Detection System},
+  howpublished = {arXiv:2210.08252},
+  year         = {2022},
+  url          = {https://arxiv.org/abs/2210.08252}
+}
+% CHECKED at source (abstract): adversarial domain adaptation extracts domain-invariant
+% features, then a One-Class SVM detects on them; superior cross-domain performance on
+% NFv2-CIC-2018 and NFv2-UNSW-NB15. The abstract gives no numbers, so none are quoted.
+% VERIFY: authors.
+
+@misc{nids_dataset_survey,
+  title        = {Network Intrusion Datasets: A Survey, Limitations, and Recommendations},
+  howpublished = {arXiv:2502.06688},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2502.06688}
+}
+% CLAIM: reviews 89 public NIDS datasets across 13 properties, listing weak cross-dataset
+% generalisation alongside temporal leakage and splitting errors as standing failure modes.
+% VERIFY: authors. Do NOT cite the "up to 76% F1 drop" figure until it is read in the text.
+
+@misc{iiot_cross_domain_failure,
+  title        = {Cross-Domain Generalization Failure in Lightweight Intrusion Detection
+                  Models for {IIoT} Networks},
+  howpublished = {arXiv:2607.00553},
+  year         = {2026},
+  url          = {https://arxiv.org/abs/2607.00553}
+}
+% VERIFY: the PDF did not extract. Cite only as corroborating evidence that the failure is
+% documented for IIoT, with no figures, until read.
