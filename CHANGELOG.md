@@ -35,6 +35,44 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### An Overleaf-ready IEEE paper skeleton, with the measured sections already written
+
+`paper/main.tex` (new, 508 lines), `paper/references.bib`, `paper/figures/`, `paper/README.md`.
+Zip `paper/` and upload to Overleaf; pdfLaTeX plus BibTeX, and `IEEEtran` is preinstalled there.
+
+It is a working draft rather than an outline: everything that rests on a committed manifest is
+written, and everything still owed is marked. Written now --- the abstract with the real figures,
+the contribution list, the **Ascon section** the user asked for (sponge-based duplex construction
+from the designers' Journal of Cryptology paper, NIST SP 800-232 standardising the Ascon-AEAD128
+variant this system actually uses, and the trap that the standardised variant differs from
+pre-standard Ascon-128/128a in its IVs and endianness so a popular PyPI package is not
+interoperable), the eight **named** research gaps, nine equations, two algorithm floats, the
+client-count results table and its three-regime reading, and the whole software-in-the-loop
+section including the vacuous-pass analysis. Twenty-one `\todo` markers carry the rest, mostly
+narrative sections that depend on the citation audit.
+
+Three things were built to keep the draft honest:
+
+- a `\figbox` placeholder so a figure that does not exist yet renders as a labelled box and the
+  document always compiles --- no broken `\includegraphics` and no silent omission;
+- a `\verifycite` marker for any citation whose record or attributed claim is still unconfirmed,
+  so an unverified reference is visible in the PDF rather than buried in the `.bib`;
+- an automated check, run before committing, that every `\ref`/`\eqref` resolves (no dangling
+  references) and that every `\cite` key exists in the bibliography. Both pass.
+
+Two equations the audit said were owed are now written: the **weight-channel associated-data
+layout** (Eq. 'weightad'), which is the paper's central security construction and had no equation
+in the design draft, and the **pigeonhole bound** on client count from the rarest class's block
+count, which gives 42 and is exactly where the sweep's second descent begins. The bytes-per-round
+equation is stated with its measured discrepancy (811,200 predicted against 815,136 measured, the
+0.5 % being safetensors framing) rather than as a clean prediction.
+
+The naming decisions from the audit are applied throughout: gaps are named, not numbered, and the
+containerised validation is **software-in-the-loop**, defined precisely on first use --- production
+node software, unmodified, as separate OS processes on a real network at the target CPU
+architecture --- with "container timings are not gateway timings" in the same paragraph and
+hardware-in-the-loop named as future work.
+
 ### The client-count sweep completed: 21 points, and the prediction was right after all
 
 `artifacts/k_sweep_results.json` and `manifest_ksweep_default.json`. K in {3,5,10,20,30,40,50}
