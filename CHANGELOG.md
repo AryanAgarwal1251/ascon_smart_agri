@@ -35,6 +35,28 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The abstract rewritten to define the project rather than list its results
+
+The previous abstract opened on federated learning as a technique and reached the agricultural
+setting only by implication, so a reader met the method before the problem. It now opens where the
+project does: a smart farm is a cyber-physical system, a soil-moisture reading decides whether a
+pump starts, and a corrupted value wastes water rather than merely misleading a chart. From there
+it states the two requirements that arrive together, why federation answers the first, the
+exposure federation then introduces --- the parameters crossing the same untrusted network the
+detector protects --- and the unexamined question of what the verdict should do to the data path.
+
+Only then does it describe the system, and it now names what the associated data binds and why
+(a frame cannot be replayed, reflected or reattributed) rather than asserting that the channel is
+sealed. The results keep the per-client framing, since the figure an operator actually needs is
+whether *their* farm gains, and the client-count sweep is stated as the aggregate concealing the
+rare-class collapse rather than as two separate numbers. Both negative results and the
+provenance boundary stay in the abstract, where a reader meets them before the claims rather than
+after.
+
+It went through three lengths before settling: 564 words, then 434, now **335**. That is still
+above a strict 250-word venue limit, and if a conference is chosen it will need another pass ---
+but the detail it would lose is all restated in the introduction, so nothing is at risk.
+
 ### A hardware deployment section, and the citation audit begins
 
 **`main.tex` gains Section VII-C, "Hardware deployment"** (1,430 lines, 12 figures, 8 tables).

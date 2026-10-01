@@ -70,36 +70,35 @@ Chennai, India}
 
 %=======================================================================
 \begin{abstract}
-Federated learning is the standard answer to training an intrusion detector across sites
-that cannot pool their traffic, but the parameters it exchanges are themselves carried over
-the untrusted network the detector exists to protect, and the literature that studies those
-exchanges rarely says what the detector's verdict should then do to the data path. We present
-a smart-agriculture intrusion detection system in which a gated recurrent detector runs on each
-farm's edge gateway, every parameter vector crossing between a local detector and the
-aggregator is sealed with Ascon-AEAD128 in both directions under per-client per-direction keys,
-and the verdict selects between two structurally disjoint data paths: benign readings leave over
-TLS, malicious readings never leave at all.
-%
-On CICIoT2023 the centralised detector reaches macro-F1 $0.8297 \pm 0.0013$, and recurrence
-accounts for $+0.2322$ of that against an identical-budget multilayer perceptron. Federating
-three farms recovers 82.4\% of the gap between local-only training and pooling, and
-\emph{every} farm scores better federated than alone---$+0.1338$, $+0.0789$ and $+0.0516$
-macro-F1---including one whose partition was missing attack classes entirely, which rises from
-$0.6145$ to $0.8145$.
-%
-A 21-point sweep over client counts $K \in \{3,\dots,50\}$ shows the architecture degrades
-gracefully in aggregate ($-0.079$ macro-F1 at $K=50$) while the rarest class falls $0.642
-\rightarrow 0.386$, a 40\% relative collapse that macro-F1 alone conceals.
-%
-We validate the complete topology software-in-the-loop before any hardware: ten containerised
-processes at the target CPU architecture completed 20 federated rounds with 120 sealed frames
-and zero rejections, and the disjointness property held across 4{,}239 malicious readings with
-none reaching the cloud, cross-checked against the receiver's own independent count.
-%
-We report two negative results. Zero-shot transfer to an unseen corpus collapses, replicating a
-documented field-wide failure; and we show that a safety property can pass vacuously---an earlier
-run of ours satisfied the disjointness assertion on a single malicious reading, which a
-10\%-leaking system would also have passed nine times in ten.
+A smart farm is a cyber-physical system: a soil-moisture reading decides whether a pump starts, so
+a corrupted value wastes water rather than merely misleading a chart. Two requirements follow
+together --- the gateway must detect attacks locally, since rural backhaul cannot carry every
+packet to the cloud, and must protect the readings that survive inspection. Federated learning
+answers the first, but introduces an exposure rarely examined: the parameters now cross the same
+untrusted network the detector protects, both ways, every round. Nor does prior work say what the
+verdict should do to the data path.
+
+We present and measure a system treating these as one problem. A gated recurrent detector runs on
+each gateway; every parameter vector crossing to or from the aggregator is sealed with
+Ascon-AEAD128 (NIST SP~800-232) under per-client, per-direction keys whose associated data binds
+client, round, direction and schema, so a frame cannot be replayed, reflected or reattributed. The
+verdict then selects between paths disjoint in the object graph rather than by convention: benign
+readings leave over TLS, malicious readings have no network endpoint at all.
+
+On CICIoT2023 the centralised detector reaches macro-F1 $0.8297 \pm 0.0013$, recurrence
+contributing $+0.2322$ over an identical-budget perceptron. Federating three farms recovers 82.4\%
+of the local-to-pooled gap, and every farm scores better federated than alone: one whose partition
+lacked attack classes rises from $0.6145$ to $0.8145$, detecting what it never saw because another
+farm did. Across $K \in \{3,\dots,50\}$ aggregate macro-F1 falls only $0.079$ while the weakest
+class collapses $0.642 \rightarrow 0.386$ --- a fall the aggregate conceals. Validated
+software-in-the-loop: 120 sealed frames, zero rejections, and 4{,}239 malicious readings with none
+reaching the cloud.
+
+Two negative results are contributions. Zero-shot cross-corpus transfer collapses, replicating a
+field-wide failure that schema standardisation does not fix; and a safety property can pass
+\emph{vacuously}, as one of our own runs did on a single malicious reading. The detector consumes
+held-out flow records, so these results establish architectural correctness, not detection on live
+farm traffic.
 \end{abstract}
 
 \begin{IEEEkeywords}
