@@ -124,9 +124,12 @@
   title   = {Federated Learning Framework for {IoT} Intrusion Detection Using Tab Transformer
              and Nature-Inspired Hyperparameter Optimization},
   journal = {Frontiers in Big Data},
-  year    = {2025}
+  volume  = {8},
+  pages   = {1526480},
+  year    = {2025},
+  doi     = {10.3389/fdata.2025.1526480}
 }
-% VERIFY: volume and article number.
+% CHECKED: four authors, Frontiers in Big Data vol. 8 art. 1526480, 14 May 2025, DOI.
 
 @inproceedings{okey2024cnngru,
   author    = {Okey, Ogobuchi Daniel and Dadkhah, Sajjad and
@@ -217,13 +220,23 @@
 % Ascon-XOF128 and Ascon-CXOF128, which we do not use.
 
 @article{khan2024asconasic,
-  author  = {Khan, Safiullah and Lee, Wai-Kong and Hwang, Seong Oun},
+  author  = {Khan, Safiullah and Inayat, Kashif and Muslim, Fahad Bin and Shah, Yasir Ali and
+             {Atif Ur Rehman}, Muhammad and Khalid, Ayesha and Imran, Muhammad and
+             Abdusalomov, Akmalbek},
   title   = {Securing the {IoT} Ecosystem: {ASIC}-Based Hardware Realization of Ascon
              Lightweight Cipher},
   journal = {International Journal of Information Security},
-  year    = {2024}
+  volume  = {23},
+  number  = {6},
+  pages   = {3653--3664},
+  year    = {2024},
+  doi     = {10.1007/s10207-024-00904-1}
 }
-% VERIFY: volume, issue, pages.
+% CHECKED: eight authors, IJIS 23(6):3653-3664, 29 August 2024, DOI.
+% >>> CITATION-ACCURACY PROBLEM. The review paper lists this as "S. Khan, W. K. Lee, and
+% S. O. Hwang" -- the co-authors of the *next* reference, khan2022asconperf, which genuinely is
+% by Khan, Lee and Hwang. Only the first author is shared. The author list appears to have been
+% copied from the adjacent entry.
 
 @inproceedings{khan2022asconperf,
   author    = {Khan, Safiullah and Lee, Wai-Kong and Hwang, Seong Oun},
@@ -413,7 +426,9 @@
              {IIoT} Applications for Centralized and Federated Learning},
   journal = {IEEE Access},
   volume  = {10},
-  year    = {2022}
+  pages   = {40281--40306},
+  year    = {2022},
+  doi     = {10.1109/ACCESS.2022.3165809}
 }
 % CLAIM: the agricultural/industrial corpus characterised, trained on twice, and rejected here.
 % VERIFY: page range.
@@ -425,10 +440,15 @@
              {IoMT}},
   journal = {Internet of Things},
   volume  = {28},
-  year    = {2024}
+  pages   = {101351},
+  year    = {2024},
+  doi     = {10.1016/j.iot.2024.101351}
 }
 % CLAIM: the medical IoT corpus characterised, trained on, and rejected here.
-% VERIFY: article number.
+% CHECKED: six authors, Internet of Things vol. 28 art. 101351, December 2024, DOI. The
+% testbed is 40 IoMT devices (25 real, 15 simulated) over Wi-Fi, MQTT and Bluetooth, with 18
+% attacks in five classes -- which is the basis of our observation that it carries six of the
+% eight families our taxonomy uses.
 
 @article{ferreira2025farmflow,
   author  = {Ferreira, Rafael and Bispo, Ivo and Rabad{\~a}o, Carlos and Santos, Leonel and
@@ -447,7 +467,8 @@
 % DOI; dataset on Zenodo at 10.5281/zenodo.10964647.
 % VERIFY: the 101-feature count came from a secondary page, not from the article text.
 
-@misc{tiissrc23,
+@misc{herzalla2023tiissrc,
+  author       = {Herzalla, Dania and Lunardi, Willian T. and Andreoni Lopez, Martin},
   title        = {{TII-SSRC-23} Dataset: Typological Exploration of Diverse Traffic Patterns
                   for Intrusion Detection},
   howpublished = {arXiv:2310.10661},
@@ -456,7 +477,7 @@
 }
 % CLAIM: 27.5 GB, PCAP and CSV, eight traffic types across 32 subtypes including Mirai. NOT
 % used -- cited when explaining why no further general-purpose corpus was added.
-% VERIFY: authors.
+% CHECKED: three authors, submitted 14 September 2023.
 
 @misc{sarhan2021standardfeature,
   author       = {Sarhan, Mohanad and Layeghy, Siamak and Portmann, Marius},
@@ -469,33 +490,47 @@
 % CLAIM: NetFlow feature sets of 12 and 43 features used to convert four NIDS corpora into
 % NF-*-v2 variants sharing one schema.
 
-@misc{di_nids,
-  title        = {{DI-NIDS}: Domain Invariant Network Intrusion Detection System},
-  howpublished = {arXiv:2210.08252},
-  year         = {2022},
-  url          = {https://arxiv.org/abs/2210.08252}
+@article{layeghy2023dinids,
+  author  = {Layeghy, Siamak and Baktashmotlagh, Mahsa and Portmann, Marius},
+  title   = {{DI-NIDS}: Domain Invariant Network Intrusion Detection System},
+  journal = {Knowledge-Based Systems},
+  year    = {2023},
+  doi     = {10.1016/j.knosys.2023.110626}
 }
 % CHECKED at source (abstract): adversarial domain adaptation extracts domain-invariant
 % features, then a One-Class SVM detects on them; superior cross-domain performance on
 % NFv2-CIC-2018 and NFv2-UNSW-NB15. The abstract gives no numbers, so none are quoted.
-% VERIFY: authors.
+% CHECKED: three authors; the arXiv preprint (2210.08252) was published in Knowledge-Based
+% Systems, 2023, DOI above. Note two of the three authors are also the authors of
+% layeghy2022generalisability -- the diagnosis and the proposed remedy come from the same group.
 
-@misc{nids_dataset_survey,
-  title        = {Network Intrusion Datasets: A Survey, Limitations, and Recommendations},
-  howpublished = {arXiv:2502.06688},
-  year         = {2025},
-  url          = {https://arxiv.org/abs/2502.06688}
+@article{goldschmidt2025datasetsurvey,
+  author  = {Goldschmidt, Patrik and Chud{\'a}, Daniela},
+  title   = {Network Intrusion Datasets: A Survey, Limitations, and Recommendations},
+  journal = {Computers \& Security},
+  volume  = {156},
+  pages   = {104510},
+  year    = {2025},
+  doi     = {10.1016/j.cose.2025.104510}
 }
 % CLAIM: reviews 89 public NIDS datasets across 13 properties, listing weak cross-dataset
 % generalisation alongside temporal leakage and splitting errors as standing failure modes.
-% VERIFY: authors. Do NOT cite the "up to 76% F1 drop" figure until it is read in the text.
+% CHECKED: two authors; published in Computers & Security vol. 156 art. 104510 (2025), not
+% merely a preprint.
+% VERIFY: do NOT cite the "up to 76% F1 drop" figure until it is read in the article text.
 
-@misc{iiot_cross_domain_failure,
+@misc{hakim2026crossdomain,
+  author       = {Hakim, MD Azizul and Uddin, Md Shihab and Anis, Talha Ibne},
   title        = {Cross-Domain Generalization Failure in Lightweight Intrusion Detection
                   Models for {IIoT} Networks},
   howpublished = {arXiv:2607.00553},
   year         = {2026},
   url          = {https://arxiv.org/abs/2607.00553}
 }
-% VERIFY: the PDF did not extract. Cite only as corroborating evidence that the failure is
-% documented for IIoT, with no figures, until read.
+% CHECKED: three authors, submitted 1 July 2026. Four lightweight models trained on one IIoT
+% corpus and tested on two structurally different ones using only common features. Their
+% explainability analysis finds the top models leaning on port-category features, with
+% source-domain attack traffic showing those categories at **96 to 435 times** the target-domain
+% rate -- a concrete shortcut mechanism, and the same phenomenon layeghy2022generalisability
+% identifies with SHAP.
+% VERIFY: dataset names, which the abstract does not give.

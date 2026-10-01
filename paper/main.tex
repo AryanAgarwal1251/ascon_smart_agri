@@ -386,10 +386,18 @@ supervised model trained on one is evaluated on another, with scores sometimes f
 Their conclusion is that ``none of the considered models is able to generalise over all studied
 datasets.'' The failure is also strongly asymmetric: one model scores 94.83\% in one direction and
 4.90\% reversed. A SHAP analysis attributes high within-corpus performance to shortcut features
-that do not transfer. The same failure is documented for
-IIoT~\cite{iiot_cross_domain_failure}, and a survey of 89 NIDS
-corpora~\cite{nids_dataset_survey} lists weak cross-dataset generalisation among the field's
-standing failure modes.
+that do not transfer. The same failure is documented for IIoT~\cite{hakim2026crossdomain}, and with a
+concrete mechanism: training four lightweight models on one industrial corpus and testing on two
+structurally different ones, the strongest models are found to lean on port-category features
+whose rate in source-domain attack traffic exceeds the target domain's by factors of
+\textbf{96 to 435}. That is the same shortcut the SHAP analysis above identifies, measured
+directly. A survey of 89 NIDS corpora~\cite{goldschmidt2025datasetsurvey} lists weak
+cross-dataset generalisation among the field's standing failure modes.
+
+It is worth noting that the diagnosis and the leading proposed remedy come from the same group:
+the authors of~\cite{layeghy2022generalisability} also propose domain-invariant feature
+extraction~\cite{layeghy2023dinids}. The problem is recognised by the people best placed to
+measure it, and remains open.
 
 What does work is combining corpora during training rather than hoping for zero-shot transfer. The
 closest published work to this paper's setting~\cite{dataset_centric_fl_ids} evaluates a federated
@@ -401,7 +409,7 @@ macro-F1 over an LSTM. This work nonetheless uses weighted FedAvg and a GRU: Fed
 baseline Eq.~\eqref{eq:fedavg} defines and the one an operator can reason about, and a GRU is the
 cheapest recurrent option for a gateway-class device, which Section~\ref{sec:sil} shows matters.
 
-Domain-adversarial training is the principled alternative. DI-NIDS~\cite{di_nids} extracts
+Domain-adversarial training is the principled alternative. DI-NIDS~\cite{layeghy2023dinids} extracts
 domain-invariant features adversarially and detects on them with a one-class SVM, reporting
 superior cross-domain performance on standardised NetFlow corpora. It requires several source
 domains, which this work does not have.
@@ -1195,7 +1203,7 @@ only distinguishing content lay in transport nonces.
 
 \textbf{No further corpus was added.} The one candidate sharing the primary corpus's feature
 family was checked and shares none of its canonical columns. More general-purpose
-corpora~\cite{tiissrc23} would not deliver zero-shot transfer either, for the reason
+corpora~\cite{herzalla2023tiissrc} would not deliver zero-shot transfer either, for the reason
 Section~\ref{sec:thread_e} gives.
 
 \subsection{Zero-shot cross-corpus transfer: a replication}
