@@ -35,6 +35,56 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Paper rewrite begins: audit of the old draft, and a bibliography built from scratch
+
+The user asked to write the paper properly from the beginning -- reviewing the existing draft and
+correcting what is wrong, writing the equations, giving every measurement a graph, adding an Ascon
+section from the designers' own paper, writing algorithms, renaming the internal shorthand, and
+checking that every citation opens and actually says what we attribute to it.
+
+**`docs/paper-rewrite-audit.md`** (new) is the worklist. The draft in `design_paper.md` was written
+before the system existed and says so: "we claim no new algorithm; the contribution is the
+composition and the rigour of its specification." Seven of its statements are now contradicted by
+our own measurements -- most importantly **it describes Ascon as protecting the telemetry, when the
+architecture protects the model weights in both directions and leaves the cloud hop on plain TLS**.
+Its single global scaler, its implicit single-corpus assumption, and its "K = 3 by assumption" all
+need amending. One passage deserves promotion rather than rewriting: its insistence that the
+malicious handler hold no reference to the cloud client, with an automated test asserting no
+encrypted payload on a malicious-only run, is exactly what the implementation does and is why the
+property survived a year of refactoring.
+
+**Two renamings, both as the user asked.**
+
+*"Twin test" becomes software-in-the-loop (SIL) validation*, which is the established term for the
+real software running against simulated inputs before the target hardware exists, and it sits in a
+recognised SIL -> HIL progression with the pending Raspberry Pi run. The paper will define it
+precisely on first use so no reader assumes more than was done.
+
+*`G1`-`G6` become named gaps, written out in full* where introduced and referred to by name
+thereafter: the verdict-routing gap, the unbounded-privacy-claim gap, the partition-specification
+gap, the missing-lower-bound gap, the sequence-construction gap, and the feature-provenance gap.
+Two further gaps are ours, both found by measurement: **the vacuous-verification gap** (safety
+properties reported satisfied without reporting how many opportunities to violate them occurred)
+and **the cross-corpus semantics gap** (corpora combined on column *names*, so a shared schema can
+hide quantities differing by a factor of 2.4e11).
+
+The audit also fixes the equation inventory -- existing numbering is preserved because the code
+cites it, and three equations are owed: the weight-channel AD layout, per-packet normalisation, and
+the pigeonhole bound on client count -- and lists 13 figures and 5 algorithm floats against the
+manifests that supply them.
+
+**`paper/references.bib`** (new) is the reference list, rebuilt from zero because **every inline
+citation in the old draft is a broken `[URL](#page-0)` conversion artefact and none can be trusted**.
+Sixteen entries, each carrying the claim we attribute to it and whether that claim was read in the
+source or still needs checking; fourteen carry an outstanding VERIFY note, which is the honest
+state. The two Ascon entries are fully checked: the designers' Journal of Cryptology 34(3) article
+33 (2021), and **NIST SP 800-232** (Turan, Chang, Kang, Kelsey; final 13 August 2025), which
+standardises **Ascon-AEAD128 -- the exact variant this system uses**. Our known-answer vectors come
+from the official `ascon-c` reference implementation, and a detail worth a sentence in the paper:
+SP 800-232's Ascon-AEAD128 differs from the pre-standard Ascon-128/128a in its IVs and endianness,
+and the PyPI `ascon` package implements only the old variants -- which is why the backend is a
+vendored reference implementation gated on the KAT.
+
 ### Literature review: our cross-corpus failure is the published result, and the headline changes
 
 The user asked for proper research before any further decision. `docs/generalisation-literature-review.md`
