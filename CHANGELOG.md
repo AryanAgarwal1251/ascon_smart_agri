@@ -35,6 +35,42 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### A start-to-finish walkthrough of the software twin
+
+`docs/software-twin-walkthrough.md` (new), written to be read by someone who has not seen the
+topology. The user asked what the twin actually is and what was done at every step, so this
+explains the reasoning and not only the result:
+
+- **Why the twin exists at all** -- if you wire up two Pis and it fails, you cannot tell whether
+  the fault is the code, the wiring, the Wi-Fi, the keys, the topics or the certificate, and
+  every test cycle then costs a reflash on a board 10-20x slower than the laptop. Fixing
+  everything that can be wrong in software first means a hardware failure is unambiguously a
+  hardware failure.
+- **What "twin" means**, and what it is not: same code (`asa aggregator`, `asa client-node`,
+  `asa pi-runtime`, no test doubles), separate OS processes, a real network, and `linux/arm64`
+  images so the aarch64 PyTorch wheels a Pi would install are the ones exercised. What changes on
+  hardware is only *where the processes run*.
+- **Why no single tool does this**: a Pi is a computer running Linux, so simulating one means
+  emulating ARM Linux (QEMU, or Docker at process level), while an ESP32 is a microcontroller and
+  simulates in a browser. Wokwi's Raspberry Pi Pico is a microcontroller and is not a substitute.
+- **All ten containers individually** -- one image, nine roles selected by the compose command --
+  including why there are two brokers rather than one (the farm boundary), why `sim-3` exists
+  (K = 3 without a third Pi, because K = 2 federation is degenerate), and why `pi-1`/`pi-2` chain
+  two commands (train periodically, classify continuously, which is the real deployment shape).
+- **The twelve-step execution sequence**, including round 0 being the scaler round where only
+  count/mean/M2 sufficient statistics leave a client, so the federated scaler equals a pooled one
+  without pooling raw data.
+- **The G6 boundary stated plainly**: the GRU never sees the sensor JSON; it classifies a
+  held-out CICIoT2023 record paired to each message, and the scenario switch selects which
+  held-out pool rather than synthesising anything. What that demonstrates is architectural
+  correctness, not detection on a live agricultural deployment.
+- **The verified R = 20 run**: 120 sealed frames, 0 rejected; 13,253 readings; 8,924 benign
+  delivered with 0 failures; **4,239 malicious alerted locally with 0 reaching the cloud**, cross-
+  checked against the receiver's own independent count of 8,924. Plus how strongly G1 has been
+  tested over time (119, then an invalid 1, then 491, now 4,239).
+- **The two invalid runs**, the rule behind the passing configuration, and the `init-secrets`
+  trap that makes `--abort-on-container-exit` destroy the run.
+
 ### Breadboard wiring, wire by wire
 
 `docs/breadboard-wiring.md` (new). The user asked for every individual wire and where it goes,
