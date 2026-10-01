@@ -267,15 +267,15 @@ P6 & Gap-analytic value: states or exhibits a limitation this project can act on
 
 The threshold was set at eight so that a study had to be strong on \emph{both} domain proximity
 and method overlap rather than compensating for weakness in one with strength in the other.
-Applying the protocol yielded twenty studies, S1--S20, summarised in Table~\ref{tab:corpus}. Two
+Applying the protocol yielded nineteen studies, S1--S19, summarised in Table~\ref{tab:corpus}. Two
 admissions need explaining. S2 and S3 fall outside the recency window and were admitted under the
 foundational exception, federated averaging and its proximal variant still being the algorithms
-against which later methods are measured. S13 was admitted \emph{because} it cuts against our own
+against which later methods are measured. S12 was admitted \emph{because} it cuts against our own
 architectural choice: it reports a tree ensemble outperforming the recurrent models it tested,
 which is why Section~\ref{sec:fedresults} carries a random-forest baseline.
 
 \begin{table*}[t]
-\caption{Reviewed corpus (S1--S20), admitted under the protocol of Section~\ref{sec:protocol}.
+\caption{Reviewed corpus (S1--S19), admitted under the protocol of Section~\ref{sec:protocol}.
 FL: federated learning. AEAD: authenticated encryption with associated data. ``Relevance''
 states what the study contributes to the present design or to the gap analysis.}
 \label{tab:corpus}
@@ -295,15 +295,14 @@ S8~\cite{karunamurthy2025optimal} & IoT IDS & Optimised FL & IoT benchmarks & Re
 S9~\cite{abdelaziz2025tabtransformer} & IoT IDS & FL + TabTransformer & N-BaIoT, UNSW-NB15, CICIoT2023 & Alternative architecture on the same benchmark\\
 S10~\cite{okey2024cnngru} & IoT IDS & FL, CNN-GRU / LSTM-GRU, wFedAvg, wFedProx & CICIoT2023, FLNET2023 & \textbf{Closest prior work}; validates GRU + weighted FedAvg on our corpus at 98.25\% accuracy; stops at the label\\
 S11~\cite{khraisat2025discoveriot} & IoT IDS & Privacy-preserving FL & IoT data & Evidence on privacy-preserving aggregation strategy\\
-S12~\cite{distributediot2025dp} & Distributed IoT security & Adaptive weighting + per-device DP & Tabular IoT, Edge-IIoTset & Shows differential-privacy cost is modest; supports our future-work path\\
-S13~\cite{bai2025ietinfsec} & IoT IDS & Nine ML/DL models; three aggregation rules & UNSW-NB15 & \textbf{Dissenting evidence}: a tree ensemble beat GRU/LSTM; motivates our random-forest baseline\\
-S14~\cite{dobraunig2021ascon} & Lightweight AEAD & Ascon v1.2 design & --- & Primitive specification and design rationale\\
-S15~\cite{khan2024asconasic} & Ascon hardware & ASIC realisation & Constrained hardware & Evidence of suitability for field-node cost budgets\\
-S16~\cite{khan2022asconperf} & Ascon performance & Benchmarking & AI-enabled IoT devices & Latency and resource evidence on IoT-class hardware\\
-S17~\cite{suleiman2026lweiot} & Lightweight encryption over IoT protocols & Ascon, PRESENT, SIMON, SPECK, ChaCha20 & MQTT and CoAP, ESP32 & Directly comparable protocol-level measurement methodology\\
-S18~\cite{elhajj2024asconindustry40} & Industry 4.0 security & Ascon AEAD vs.\ AES-GCM & MQTT, digital twin & Memory and execution-time figures used in our constrained-device argument\\
-S19~\cite{ozturk2025chaosascon} & IoRT data security & \emph{Chaos-based} Ascon variant & MQTT, Raspberry Pi 3B & Evidence Ascon-class cryptography runs on gateway hardware; \emph{not} evidence about the standardised variant\\
-S20~\cite{fathy2023irrigation} & Precision agriculture & Lightweight cipher for irrigation & Agricultural IoT & Establishes the agricultural threat scenario for the telemetry channel; no detection layer\\
+S12~\cite{bai2025ietinfsec} & IoT IDS & Nine ML/DL models; three aggregation rules & UNSW-NB15 & \textbf{Dissenting evidence}: a tree ensemble beat GRU/LSTM; motivates our random-forest baseline\\
+S13~\cite{dobraunig2021ascon} & Lightweight AEAD & Ascon v1.2 design & --- & Primitive specification and design rationale\\
+S14~\cite{khan2024asconasic} & Ascon hardware & ASIC realisation & Constrained hardware & Evidence of suitability for field-node cost budgets\\
+S15~\cite{khan2022asconperf} & Ascon performance & Benchmarking & AI-enabled IoT devices & Latency and resource evidence on IoT-class hardware\\
+S16~\cite{suleiman2026lweiot} & Lightweight encryption over IoT protocols & Ascon, PRESENT, SIMON, SPECK, ChaCha20 & MQTT and CoAP, ESP32 & Directly comparable protocol-level measurement methodology\\
+S17~\cite{elhajj2024asconindustry40} & Industry 4.0 security & Ascon AEAD vs.\ AES-GCM & MQTT, digital twin & Memory and execution-time figures used in our constrained-device argument\\
+S18~\cite{ozturk2025chaosascon} & IoRT data security & \emph{Chaos-based} Ascon variant & MQTT, Raspberry Pi 3B & Evidence Ascon-class cryptography runs on gateway hardware; \emph{not} evidence about the standardised variant\\
+S19~\cite{fathy2023irrigation} & Precision agriculture & Lightweight cipher for irrigation & Agricultural IoT & Establishes the agricultural threat scenario for the telemetry channel; no detection layer\\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -326,7 +325,7 @@ of interest. Any evaluation on this corpus reporting accuracy alone is uninforma
 why macro-F1 and false-positive rate are treated as primary throughout.
 
 Recurrent and convolutional-recurrent architectures dominate the applied
-literature~\cite{okey2024cnngru,bai2025ietinfsec}. S13~\cite{bai2025ietinfsec} is the useful
+literature~\cite{okey2024cnngru,bai2025ietinfsec}. S12~\cite{bai2025ietinfsec} is the useful
 dissent: benchmarking nine methods, it found a random forest strongest on tabular flow features,
 then compared simple, weighted and difference-based aggregation rules federated over that model.
 
@@ -349,8 +348,7 @@ Applied results are consistent in direction. Federated deep detectors reach accu
 their centralised counterparts on IoT
 benchmarks~\cite{belarbi2023federated,karunamurthy2025optimal}, including on CICIoT2023 itself.
 Work on the industrial IoT quantifies the privacy--utility trade-off when differential privacy is
-added~\cite{ruzafa2021ppfl}, and further studies report that tightening the privacy budget costs
-only low single-digit percentage points of accuracy~\cite{distributediot2025dp}. Alternative
+added~\cite{ruzafa2021ppfl}. Alternative
 architectures~\cite{abdelaziz2025tabtransformer} and privacy-preserving
 strategies~\cite{khraisat2025discoveriot} fill out the space.
 
@@ -465,7 +463,7 @@ faces --- a new site is unseen devices, not an unseen testbed --- and
 Section~\ref{sec:limitations} states why this work could not run it.
 
 \subsection{Patent landscape}
-Four filings bound the space. A granted US patent~\cite{patent_us12301597} trains a random-forest
+Three filings bound the space. A granted US patent~\cite{patent_us12301597} trains a random-forest
 classifier on CICIoT2023 features at the network edge using a digital-twin representation; it is
 the closest granted patent by corpus and placement, but training is centralised and there is no
 payload cryptography. An Indian filing~\cite{patent_vit_fl} claims collaborative training of
@@ -473,8 +471,7 @@ intrusion-detection models without sharing traffic, applying differential-privac
 parameters before transmission and aggregating with FedAvg --- adjacent to our federation layer,
 and adding the differential privacy we place out of scope. A further filing claims
 privacy-preserving global threat detection with standardised threat-intelligence
-dissemination~\cite{patent_mallareddy}, and a multi-level federated framework for
-Industry~4.0~\cite{patent_multilevel_fl} establishes prior art for federation across heterogeneous
+dissemination~\cite{patent_mallareddy}, establishing prior art for federation across heterogeneous
 device tiers.
 
 The conclusion is narrow. Federated intrusion detection is actively claimed, and edge detection on
@@ -627,10 +624,13 @@ defences, adversarial-example robustness, production key management and device a
 dashboards, and cloud agronomic analytics.
 
 \begin{figure*}[t]\centering
-\includegraphics[width=0.96\textwidth]{01_deployment.png}
-\caption{Deployment view, with the cryptographic protection named on each hop. Ascon-AEAD128
-seals the parameter exchange in both directions; the gateway-to-cloud hop is TLS; the
-malicious-verdict path has no network endpoint at all.}
+\includegraphics[width=0.98\textwidth]{topology.pdf}
+\caption{The deployment at the scale it is built: six sensor nodes, two farm gateways and one
+laptop, with the cryptographic protection named on every hop. Ascon-AEAD128 seals the parameter
+exchange in both directions; the gateway-to-cloud hop is TLS and carries benign readings only;
+the device-to-gateway hop never leaves the farm. \textbf{The malicious path is the one with no
+line to draw} --- a verdict of ``malicious'' terminates at the gateway that raised it, because
+the alert sink holds no transport (Section~\ref{sec:routing}).}
 \label{fig:arch}
 \end{figure*}
 

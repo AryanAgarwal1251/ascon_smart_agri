@@ -35,6 +35,35 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The two weak references cut, and the deployment drawn at the scale it is built
+
+**Two references removed, 38 down to 36.** The distributed-IoT differential-privacy paper and the
+multi-level federated Industry 4.0 patent are gone, as recommended across the last two entries:
+each was cited once inside a list, neither had resolvable authorship or a venue, and both were
+the only entries still marked incomplete. **The bibliography now carries no incomplete entry.**
+Removing them was not a one-line deletion --- the DP paper was row S12 of the reviewed-corpus
+table, so the table lost a row and S13--S20 were renumbered to S12--S19 throughout, including
+the prose that cites them; the Thread B sentence it supported was cut with it, and the patent
+landscape went from four filings to three. Every citation key still resolves and nothing is
+uncited.
+
+**A new full-width figure replaces the PlantUML deployment view.** The old one was schematic: two
+farms, a sketch of sensors, no counts. The replacement draws the deployment at the scale it is
+actually built --- **six ESP32 nodes, two Raspberry Pi gateways and one laptop** --- with each
+node's two sensors and their pin assignments on its face, and each hop labelled with what
+protects it: Wi-Fi/MQTT farm-local and in the clear, Ascon-AEAD128 sealed weights in both
+directions, TLS for benign readings only.
+
+Its best property is what is absent. **The malicious path is the one with no line to draw**, and
+the figure says so in its own annotation: a malicious verdict terminates at the gateway that
+raised it, because the alert sink holds no transport. A reader who counts the arrows finds the
+disjointness property rather than being told about it.
+
+Three layout defects were caught by rendering and looking, none visible from the source: the
+laptop's second caption line sat on its own bottom border, the gateway role list overflowed both
+box edges, and a width fix silently failed because the formatter had already split that call
+across lines, so the literal being matched no longer existed.
+
 ### Citation audit finished: 32 of 38 verified, and the rest are deliberate
 
 Six more entries resolved at source, and the remaining notes were classified rather than left as

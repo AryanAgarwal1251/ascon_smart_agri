@@ -550,7 +550,168 @@ def fig_pinout() -> None:
     save(fig, "pinout")
 
 
+def fig_topology() -> None:
+    """The deployment as it is actually wired: six sensor nodes, two gateways, one laptop.
+
+    Drawn at full text width because the point is the whole object graph at once -- in
+    particular that the malicious path has no outgoing link to draw.
+    """
+    fig, ax = plt.subplots(figsize=(COL2, 3.9))
+    ax.set_xlim(0, 16)
+    ax.set_ylim(0, 11)
+    ax.axis("off")
+
+    def panel(x, y, w, h, label):
+        ax.add_patch(
+            plt.Rectangle(
+                (x, y), w, h, facecolor="#f7f7f5", edgecolor="#d8d7d0", linewidth=0.8, zorder=1
+            )
+        )
+        ax.text(
+            x + 0.18,
+            y + h - 0.28,
+            label,
+            ha="left",
+            va="top",
+            fontsize=7.4,
+            color=INK2,
+            fontweight="bold",
+            zorder=2,
+        )
+
+    def box(x, y, w, h, title, lines, fc, ec):
+        ax.add_patch(
+            plt.Rectangle((x, y), w, h, facecolor=fc, edgecolor=ec, linewidth=1.0, zorder=3)
+        )
+        ax.text(
+            x + w / 2,
+            y + h - 0.34,
+            title,
+            ha="center",
+            va="top",
+            fontsize=7.4,
+            color=INK,
+            fontweight="bold",
+            zorder=4,
+        )
+        for i, ln in enumerate(lines):
+            ax.text(
+                x + w / 2,
+                y + h - 0.86 - i * 0.42,
+                ln,
+                ha="center",
+                va="top",
+                fontsize=6.0,
+                color=INK2,
+                zorder=4,
+            )
+
+    panel(0.2, 1.3, 7.3, 6.3, "Farm 1")
+    panel(8.5, 1.3, 7.3, 6.3, "Farm 2")
+
+    box(
+        5.2,
+        8.65,
+        5.6,
+        1.85,
+        "Laptop",
+        ["aggregator (master GRU) · TLS receiver", "simulated client 3"],
+        "#fdf6ec",
+        ORANGE,
+    )
+
+    for px in (1.9, 10.2):
+        box(
+            px,
+            5.4,
+            3.9,
+            1.3,
+            "Raspberry Pi 5",
+            ["broker · GRU · router · alert sink"],
+            "#eef4fc",
+            BLUE,
+        )
+
+    node = 1
+    for base in (0.45, 8.75):
+        for dx in (0.0, 2.35, 4.70):
+            box(
+                base + dx,
+                1.7,
+                2.1,
+                2.1,
+                f"ESP32 {node}",
+                ["DHT22 → GPIO 15", "soil → GPIO 34"],
+                "#eef9f4",
+                AQUA,
+            )
+            node += 1
+
+    # sensor hop: every node associates to its own farm's broker, and goes no further
+    for base, pi_cx in ((0.45, 3.85), (8.75, 12.15)):
+        for dx, entry in ((0.0, -1.05), (2.35, 0.0), (4.70, 1.05)):
+            ax.annotate(
+                "",
+                xy=(pi_cx + entry, 5.4),
+                xytext=(base + dx + 1.05, 3.8),
+                arrowprops={
+                    "arrowstyle": "-|>",
+                    "color": AQUA,
+                    "lw": 1.1,
+                    "shrinkA": 1,
+                    "shrinkB": 1,
+                },
+                zorder=2,
+            )
+
+    # the two uplinks per farm, drawn apart so neither crosses the other
+    links = (
+        ((3.0, 6.7), (6.3, 8.65), ORANGE, 2.0, "<|-|>", "-"),
+        ((4.8, 6.7), (7.1, 8.65), BLUE, 1.2, "-|>", (0, (3, 2))),
+        ((13.1, 6.7), (9.7, 8.65), ORANGE, 2.0, "<|-|>", "-"),
+        ((11.3, 6.7), (8.9, 8.65), BLUE, 1.2, "-|>", (0, (3, 2))),
+    )
+    for (x0, y0), (x1, y1), colour, lw, style, dash in links:
+        ax.annotate(
+            "",
+            xy=(x1, y1),
+            xytext=(x0, y0),
+            arrowprops={
+                "arrowstyle": style,
+                "color": colour,
+                "lw": lw,
+                "linestyle": dash,
+                "shrinkA": 2,
+                "shrinkB": 2,
+            },
+            zorder=2,
+        )
+
+    legend = (
+        (AQUA, 1.1, "-", "Wi-Fi / MQTT, farm-local and in the clear"),
+        (ORANGE, 2.0, "-", "Ascon-AEAD128 sealed weights, both directions"),
+        (BLUE, 1.2, (0, (3, 2)), "TLS, benign readings only"),
+    )
+    for i, (colour, lw, dash, label) in enumerate(legend):
+        y = 0.92 - i * 0.31
+        ax.plot([0.3, 1.2], [y, y], color=colour, lw=lw, linestyle=dash, zorder=2)
+        ax.text(1.4, y, label, ha="left", va="center", fontsize=6.3, color=INK)
+
+    ax.text(
+        8.4,
+        0.61,
+        "A malicious verdict has no line on this figure: it terminates at the\n"
+        "gateway that raised it, and the alert sink holds no transport.",
+        ha="left",
+        va="center",
+        fontsize=6.3,
+        color=ORANGE,
+    )
+    save(fig, "topology")
+
+
 FIGURES = {
+    "topology": fig_topology,
     "pinout": fig_pinout,
     "ksweep_f1": fig_ksweep,
     "communication": fig_communication,
