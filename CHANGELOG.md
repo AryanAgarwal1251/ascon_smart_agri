@@ -35,6 +35,49 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Paper batches 2-5: the draft is complete
+
+`main.tex` goes 816 -> **1,368 lines** and the last `\todo` is gone. Every section is written
+from a committed manifest.
+
+**Batch 2 -- equations, 11 -> 33.** The formal problem statement (window matrix, binary
+projection, federated objective), the subsampling cap and imbalance ratio, the four GRU gate
+equations and the layer-normalised head, mutual information and reciprocal rank fusion for feature
+selection, and the full AEAD construction: encryption, decryption returning the bottom element,
+both associated-data layouts, the nonce birthday bound, and wire overhead. Macro-F1 and FPR are
+now defined rather than assumed.
+
+The one that mattered most is **Eq. (8), the leakage-inflation bound** `Delta ~ delta*rho*(1-Acc)`.
+It is the entire argument for deduplicating before splitting, and the paper now makes the point
+the formula carries: the inflation scales with `1 - Acc_true`, so **a detector is flattered most
+precisely on the classes where its performance matters**.
+
+**Batch 3 -- threat model and three tables.** Constraints C1-C4, the three channels with their
+distinct adversaries, and the scope lists. Table~I ties each attack family to its consequence in a
+farm, which is the only place the paper connects a class label to a physical outcome. Table~II
+separates assumptions that are properties of the world from artefacts of working without hardware.
+Table~VI carries the risk register with its controls.
+
+**Batch 4 -- results.** Recurrence is worth +0.2322 macro-F1 against an otherwise-matched
+perceptron, fifty-one times the seed standard deviation. The federated bracket, 82.4 % of the
+local-to-centralised gap recovered, with FPR read first. Per-client gains, all positive, and the
+seed where two starved clients went 0.6145 -> 0.8145. The communication argument, now stated as
+specific to small K because it reaches 13.59 MB per round at K = 50. The dataset section reports
+both rejections as measurements, including the 7.33x extractor window-size difference and the
+three features whose ranges are disjoint. Cross-corpus transfer is framed as a replication, with
+the explicit note that **our semantics defect is not its cause** -- standardised schemas do not
+rescue transfer for anyone.
+
+**Batch 5 -- introduction, limitations, conclusion.** The introduction frames from the deployment
+and names the parameter exchange as the channel this work introduces. The limitations section
+states nine of them in our own voice before a reviewer can, including that leave-one-device-out
+could not be run because the corpus carries no device attribution, and that gradient inversion and
+poisoning are live against this design.
+
+Final state: 1,368 lines, 9 sections, **33 equations, 7 tables, 4 algorithms, 11 figures, 37
+references all cited**, zero dangling cross-references, all environments balanced, two
+`\verifycite` markers left on claims still unconfirmed.
+
 ### Paper batch 1: the literature review, written
 
 `main.tex` grows from 592 to 816 lines. Section II now carries the review protocol with its

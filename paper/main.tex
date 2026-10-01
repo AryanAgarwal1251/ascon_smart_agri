@@ -109,8 +109,33 @@ cryptography, smart agriculture, Internet of Things, gated recurrent unit
 
 %=======================================================================
 \section{Introduction}
-\todo{write. Frame from the deployment: a farm gateway sees its own traffic only; pooling is
-refused; the parameter exchange is the new exposure; and the verdict has to govern the data path.}
+A smart farm runs on readings that trigger physical actions: a moisture value decides
+whether a pump starts. Two security requirements follow, and they arrive together rather than in
+sequence. The farm's edge gateway has to recognise attack traffic from compromised devices
+locally, because rural backhaul cannot carry every packet to a cloud inspection service. It also
+has to protect the readings that survive inspection, since a modified value arriving silently does
+more damage than one merely observed.
+
+Each gateway, however, sees only its own traffic. A single farm encounters too few attack
+instances to train a detector that generalises, and the rarer families may never appear on its
+network at all. Pooling records centrally fixes the statistics and breaks both the bandwidth
+constraint and the data-ownership one. Federated learning is the standard answer: exchange
+parameters instead of records.
+
+That answer introduces a channel the literature rarely examines. The parameter vectors now cross
+the same untrusted field network the detector exists to protect, in both directions, every round.
+A curious aggregator or a network observer sees them. Securing that exchange is the problem this
+paper takes up, and it is distinct from securing the telemetry: one cipher per hop, each with its
+own stated threat.
+
+A second seam runs alongside it. Detection work in this domain terminates at a label, and
+cryptographic work benchmarks ciphers on channels that carry no verdict. Neither asks what the
+detector's output should \emph{do}. We make the verdict a routing decision over two paths that are
+disjoint in the object graph rather than by convention: benign readings leave over TLS, malicious
+readings never leave at all.
+
+This paper reports a built and measured system rather than a design. Everything below rests on
+committed run manifests, and every figure is generated from them.
 
 \subsection{Contributions}
 This paper is an empirical study of a built and measured system. Its contributions are:
@@ -171,7 +196,8 @@ the aggregator. It does not protect the telemetry on its way to the cloud; that 
 The reasoning is one cipher per hop with a stated threat for each: the parameter exchange
 traverses the untrusted field network and is the channel this work introduces, whereas the
 gateway-to-cloud hop is an ordinary authenticated transport problem already solved by TLS.
-\todo{state the threat model formally in Section~\ref{sec:threat}}
+The three channels, and which adversary each faces, are set out in
+Section~\ref{sec:threat}.
 
 \subsection{Review protocol}\label{sec:protocol}
 A reading list assembled by judgement cannot be audited, so every candidate was scored against
@@ -452,7 +478,108 @@ Two further gaps are ours, both found by measurement rather than by reading:
 
 %=======================================================================
 \section{Threat Model and System Architecture}\label{sec:threat}
-\todo{write: three channels, adversary capability per channel, what is in and out of scope.}
+
+\subsection{The deployment environment}
+Smart agriculture places networked sensing and actuation across farmland: soil-moisture probes,
+temperature and humidity sensors, water-level and flow meters, and programmable irrigation
+controllers, publishing over MQTT to a farm-side gateway. This is a cyber-physical system, not a
+data-collection network, and the distinction drives everything that follows. A corrupted
+soil-moisture reading does not produce a misleading chart; it causes a pump to run, or to stay off
+when it should not. The damage is physical, appears days later, and is expensive. Integrity
+therefore matters at least as much as confidentiality.
+
+Four properties of the field environment shape the design.
+
+\textbf{C1 --- Resource constraints.} Field nodes are battery- or solar-powered
+microcontrollers whose energy budget for cryptography and inference is measured in microjoules.
+This is the device class that motivated the NIST lightweight cryptography programme.
+
+\textbf{C2 --- Constrained backhaul.} Rural connectivity is cellular or long-range radio, metered
+and intermittent. Continuously shipping raw captures to a central service for training is not
+bandwidth-feasible, a claim quantified in Section~\ref{sec:commcost}.
+
+\textbf{C3 --- Physical exposure.} Nodes sit in open fields where an adversary can approach them
+or capture radio traffic with commodity hardware. The assumption of a trusted internal network,
+reasonable inside a building, does not hold.
+
+\textbf{C4 --- Data ownership.} Farm operational data is commercially sensitive because it
+predicts yield, and cooperatives are increasingly unwilling to hand raw records to a third-party
+aggregator.
+
+\begin{table}[t]
+\caption{Attack families in the corpus and their consequence in a farm deployment.}
+\label{tab:families}
+\centering\footnotesize
+\begin{tabular}{@{}lp{5.4cm}@{}}
+\toprule
+\textbf{Family} & \textbf{Consequence in a farm deployment}\\
+\midrule
+DDoS / DoS & Telemetry never arrives; controllers act on stale state\\
+Mirai & Nodes conscripted into a botnet; bandwidth exhausted\\
+Reconnaissance & Deployment mapped; precursor to targeted compromise\\
+Spoofing & False readings injected; wrong irrigation decisions\\
+Brute force & Default-credential takeover of gateways\\
+Web-based & Compromise of the farm management interface\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Three channels, three adversaries}
+We distinguish three channels, each with a different adversary, because conflating them is a
+common source of overstated security claims.
+
+\textbf{Channel 1: device-to-gateway traffic.} The adversary is a compromised IoT device on the
+same network --- the scenario the corpus was built to represent. Table~\ref{tab:families} gives
+the attack families and what each means for a farm. \emph{The defence is detection.}
+
+\textbf{Channel 2: gateway-to-cloud telemetry.} The adversary is a network observer who can read,
+modify, replay or drop messages in transit. Detection does not help, because the traffic has
+already been judged benign. \emph{The defence is authenticated encryption}, and confidentiality
+alone is insufficient: a scheme without integrity hands the receiver a modified moisture reading
+indistinguishable from a genuine one.
+
+\textbf{Channel 3: node-to-aggregator model updates.} The adversary is either a curious
+aggregator that would reconstruct client data, or a compromised client submitting a poisoned
+update. \emph{This is the channel this work introduces}, and the one Ascon protects here. Federated
+learning addresses the first threat only partially and the second not at all; both are named as
+unaddressed in Section~\ref{sec:limitations}.
+
+\subsection{Assumptions, and which are artefacts of simulation}
+Table~\ref{tab:assumptions} separates assumptions by status, because some are properties of the
+world and others are artefacts of working without hardware. Presenting a simulation artefact as an
+empirical fact is a common failure in this class of system; A3 is the one comparable work most
+often leaves unstated, and Section~\ref{sec:provenance} addresses it directly.
+
+\begin{table}[t]
+\caption{Assumptions, classified by status.}
+\label{tab:assumptions}
+\centering\footnotesize
+\begin{tabular}{@{}llp{3.1cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Assumption} & \textbf{Status}\\
+\midrule
+A1 & Gateways run as separate OS processes at the target architecture & Software-in-the-loop; hardware pending\\
+A2 & Partition-to-farm mapping is assigned, not intrinsic & Documented as a strategy\\
+A3 & Runtime network features come from held-out records, not the payload & \textbf{Declared limitation}\\
+A4 & The aggregator is honest-but-curious & Scope boundary; not solved\\
+A5 & Channel keys are pre-shared out of band & Prototype; production key management out of scope\\
+A6 & The cloud tier is a TLS receiver under our control & Scope boundary\\
+A7 & The class taxonomy is known to all clients a priori & Design requirement for a shared output layer\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Scope}
+\emph{In scope:} corpus characterisation, leakage-controlled preprocessing, feature selection,
+sequence construction, the detector and its binary projection, federated simulation at varying
+client counts, the sealed bidirectional weight channel, telemetry simulation with an explicit
+feature adapter, the TLS benign path, the alerting interface, and software-in-the-loop validation
+of the whole topology.
+
+\emph{Out of scope, and reported as limitations rather than as solved problems:}
+Byzantine-robust aggregation, differential privacy, secure aggregation, gradient-inversion
+defences, adversarial-example robustness, production key management and device attestation,
+dashboards, and cloud agronomic analytics.
 
 \begin{figure*}[t]\centering
 \includegraphics[width=0.96\textwidth]{01_deployment.png}
@@ -472,9 +599,88 @@ them. The detector never consumes the application payload.}
 %=======================================================================
 \section{Methodology}
 
+\subsection{Formal problem statement}\label{sec:formal}
+Let $\mathcal{D} = \{(x_t, y_t)\}_{t=1}^{M}$ be a corpus of network flow records, $x_t \in
+\mathbb{R}^{F_0}$ a vector of flow-derived features and $y_t \in \mathcal{C}$ a traffic-class
+label with $|\mathcal{C}| = C$. After selection to $F \le F_0$ dimensions and windowing with
+length $W$, a training example is
+\begin{equation}
+X_i = \big[\, x_i,\; x_{i+1},\; \dots,\; x_{i+W-1} \,\big]^{\top} \in \mathbb{R}^{W \times F}.
+\label{eq:window}
+\end{equation}
+We seek $f_\theta : \mathbb{R}^{W \times F} \to \Delta^{C-1}$ together with the deterministic
+binary projection
+\begin{equation}
+b(\hat{y}) =
+\begin{cases}
+\text{benign}, & \hat{y} = c_{\text{benign}},\\
+\text{malicious}, & \text{otherwise},
+\end{cases}
+\qquad \hat{y} = \arg\max_c f_\theta(X)_c .
+\label{eq:binproj}
+\end{equation}
+The parameters are to be obtained without centralising $\mathcal{D}$. With $K$ clients holding
+disjoint partitions $\mathcal{D}_1,\dots,\mathcal{D}_K$ of sizes $n_1,\dots,n_K$ and
+$n = \sum_k n_k$, the objective is
+\begin{equation}
+\min_{\theta} F(\theta) = \sum_{k=1}^{K} \frac{n_k}{n} F_k(\theta),
+\label{eq:fedobj}
+\end{equation}
+\begin{equation}
+F_k(\theta) = \frac{1}{n_k} \sum_{(X,y) \in \mathcal{D}_k} \ell\big(f_\theta(X),\, y\big),
+\label{eq:localobj}
+\end{equation}
+subject to no element of $\mathcal{D}_k$ being transmitted beyond client $k$. Equation~\eqref{eq:route}
+then states the coupling that the verdict-routing gap identifies: the classifier output is consumed
+as a control decision over the data path rather than written to a log.
+
 \subsection{Corpus, leakage control, and why one corpus}\label{sec:data}
-\todo{write from docs/dataset-selection.md. Deduplicate before splitting; the ordering is the
-control. Report the three corpora and the measurements that rejected two.}
+Before any modelling, a characterisation script reports the real column names and types,
+per-column null and zero-variance checks, the exact duplicate count, the label vocabulary with
+counts, and the numeric correlation matrix. No column or class name enters the paper unless that
+script produced it; figures quoted from the literature are treated as hypotheses to confirm.
+
+\textbf{Subsampling.} The full corpus does not fit in workstation memory, so we draw a stratified
+subsample by reading whole capture parts in a fixed order and applying a per-class cap $\kappa_c$,
+\begin{equation}
+n^{\text{sub}}_c = \min(n_c,\, \kappa_c),
+\label{eq:cap}
+\end{equation}
+chosen to compress the dominant flooding classes while retaining every available instance of the
+rare families. The seed and the realised counts go into the run manifest.
+
+\textbf{Deduplication ordering, and why it is a control rather than hygiene.} The corpus contains
+exact duplicate rows. If deduplication runs \emph{after} the split, identical records appear on
+both sides and the test set measures memorisation. Writing $\delta$ for the duplicate fraction and
+$\rho$ for the probability that a duplicate's twin lands in training, the fraction of test items
+effectively seen during training is approximately $\delta\rho$, and accuracy is inflated by about
+\begin{equation}
+\Delta \approx \delta\,\rho\,\big(1 - \text{Acc}_{\text{true}}\big).
+\label{eq:leak}
+\end{equation}
+The inflation scales with $1 - \text{Acc}_{\text{true}}$, so it is \emph{largest for the hardest
+classes} --- a detector is flattered most precisely where its performance matters. We therefore fix
+the order
+\begin{equation}
+\text{deduplicate} \;\rightarrow\; \text{split} \;\rightarrow\; \text{fit} \;\rightarrow\;
+\text{transform},
+\label{eq:order}
+\end{equation}
+and assert it with a test that fails if any record hash appears in both partitions. Every run
+manifest records the realised overlap, which is zero throughout this paper.
+
+\textbf{Taxonomy and splitting.} The task is $C = 8$ classes: benign plus seven attack families.
+At the corpus's imbalance ratio
+\begin{equation}
+\mathrm{IR} = \frac{\max_c n_c}{\min_c n_c} \approx 5751,
+\label{eq:ir}
+\end{equation}
+the rarest leaf classes cannot support a defensible macro-F1 estimate, and the family label is in
+any case the actionable granularity for an operator. The binary decision of
+Eq.~\eqref{eq:binproj} is a projection of the eight-class output; no second model is trained for
+it. Splitting operates on contiguous \emph{blocks} rather than rows, so local ordering survives
+into sequence construction, and a stratified subset of blocks forms a global test set shared by
+every client and every baseline.
 
 \begin{algorithm}[t]
 \caption{Leakage-controlled preparation}\label{alg:prep}
@@ -490,8 +696,42 @@ control. Report the three corpora and the measurements that rejected two.}
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Feature selection}
-\todo{four stages, 39 $\rightarrow$ 16, with Fig.~3.}
+\subsection{Feature selection}\label{sec:features}
+Subsampling reduces rows; feature selection reduces columns. The selector runs in four
+stages, all fitted on training blocks only, and is persisted so that inference uses exactly the
+same columns.
+
+\emph{Stage 1, rule-based elimination.} Drop labels, identifiers, zero-variance columns, and any
+column that could not exist at inference time.
+
+\emph{Stage 2, correlation pruning.} Compute the Spearman rank correlation $\rho_{jk}$ for every
+numeric pair on training data and remove one member of any pair with $|\rho_{jk}| \ge \tau$,
+default $\tau = 0.95$, keeping the member with higher univariate relevance.
+
+\emph{Stage 3, relevance ranking.} Score each surviving feature by mutual information with the
+label,
+\begin{equation}
+I(X_j; Y) = \sum_{x \in X_j} \sum_{y \in \mathcal{C}} p(x,y)
+\log \frac{p(x,y)}{p(x)\,p(y)},
+\label{eq:mi}
+\end{equation}
+and independently by random-forest impurity importance, then combine the two rankings by
+reciprocal rank fusion,
+\begin{equation}
+s(j) = \sum_{m \in \{\text{MI},\,\text{RF}\}} \frac{1}{\kappa + r_m(j)}, \qquad \kappa = 60,
+\label{eq:rrf}
+\end{equation}
+where $r_m(j)$ is the rank of feature $j$ under method $m$. Two methods are used because they
+disagree informatively: mutual information captures non-monotonic univariate dependence, while
+impurity importance is biased toward high-cardinality features. Where they disagree we report the
+disagreement rather than hide it in an average.
+
+\emph{Stage 4, cardinality selection.} Sweep $F \in \{8, 12, 16, 24, F_0\}$ and take the knee of
+the validation macro-F1 curve, which selects $F = 16$ from $F_0 = 39$ canonical columns.
+
+We deliberately do not apply principal component analysis. Components are linear mixtures, which
+destroys the column-level interpretability an operator needs in order to act on an alert and would
+make the provenance boundary of Section~\ref{sec:provenance} impossible to specify honestly.
 
 \subsection{Temporal sequence construction}\label{sec:sequences}
 Windows are built only over maximal runs of adjacent records sharing both label and source
@@ -504,9 +744,28 @@ N_{\text{seq}} = \sum_r \max(0,\; L_r - W + 1).
 \end{equation}
 
 \subsection{Detection model}
-\todo{GRU equations; LayerNorm not BatchNorm, because batch statistics do not aggregate across
-federated clients.} The default configuration has $F=16$ input features, hidden width $H=96$ and
-$C=8$ classes, giving
+Every client holds an identical architecture, which is a precondition for parameter
+averaging. A single gated recurrent layer reads the window and a linear head produces class
+logits. For input $x_t \in \mathbb{R}^{F}$ and hidden state $h_{t-1} \in \mathbb{R}^{H}$,
+\begin{align}
+z_t &= \sigma\big(W_z x_t + U_z h_{t-1} + b_z\big), \label{eq:gru_z}\\
+r_t &= \sigma\big(W_r x_t + U_r h_{t-1} + b_r\big), \label{eq:gru_r}\\
+\tilde{h}_t &= \tanh\big(W_h x_t + U_h (r_t \odot h_{t-1}) + b_h\big), \label{eq:gru_ht}\\
+h_t &= (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t, \label{eq:gru_h}
+\end{align}
+with $\sigma$ the logistic function and $\odot$ the elementwise product. The update gate $z_t$ is
+what carries evidence across the window: a burst beginning early remains represented in $h_W$.
+Class scores follow from the final state,
+\begin{equation}
+p = \mathrm{softmax}\big(W_o\, \mathrm{LN}(h_W) + b_o\big),
+\label{eq:head}
+\end{equation}
+where $\mathrm{LN}$ is layer normalisation. That choice over batch normalisation is deliberate and
+specific to federation: batch statistics are running estimates of one client's input distribution,
+so averaging them across clients with different distributions produces a quantity describing no
+client's data. Layer normalisation carries no such cross-client state.
+
+The default configuration has $F=16$ input features, hidden width $H=96$ and $C=8$ classes, giving
 \begin{equation}
 |\theta| = 3H(F + H + 1) + H(2 + C) + C = 33{,}800,
 \label{eq:params}
@@ -576,6 +835,52 @@ binds client, round, direction and schema version.}
 \label{fig:round}
 \end{figure}
 
+\subsection{Authenticated encryption construction}\label{sec:aead}
+Both protected channels use Ascon-AEAD128 as specified in SP~800-232~\cite{nist2025sp800232},
+with a 128-bit key, 128-bit nonce and 128-bit tag. Encryption produces a ciphertext and a tag,
+\begin{equation}
+(c, \mathrm{t}) = \mathrm{Enc}_{k}(\nu,\, a,\, p),
+\label{eq:enc}
+\end{equation}
+and decryption returns the payload only if the tag verifies:
+\begin{equation}
+\mathrm{Dec}_{k}(\nu,\, a,\, c,\, \mathrm{t}) \in \{\, p,\; \bot \,\}.
+\label{eq:dec}
+\end{equation}
+The $\bot$ outcome is the property that matters here. A scheme offering confidentiality alone
+would return \emph{some} plaintext for a modified ciphertext, and a farm would act on it.
+
+\textbf{Associated data.} The associated data is authenticated but not encrypted, because a
+receiver must read the sender's identity before it can select a key. For telemetry we set
+\begin{equation}
+a = \langle \texttt{edge\_id},\; \texttt{device\_id},\; \texttt{counter},\;
+\texttt{schema\_version} \rangle,
+\label{eq:telemetryad}
+\end{equation}
+and for the weight channel the layout of Eq.~\eqref{eq:weightad}. Authenticating a monotonic
+counter also yields replay detection, which encryption alone does not provide.
+
+\textbf{Nonce discipline.} Nonce reuse under a fixed key is catastrophic for AEAD security, so a
+fresh 16-byte nonce is drawn per message from a cryptographically secure generator and
+transmitted alongside the ciphertext. For $q$ messages under one key the birthday bound gives
+\begin{equation}
+\Pr[\text{collision}] \le \frac{q(q-1)}{2^{129}},
+\label{eq:nonce}
+\end{equation}
+which for $q = 10^{6}$ is below $1.5 \times 10^{-27}$: random selection suffices at any volume
+this system reaches. A test nonetheless accumulates every nonce issued under each key and asserts
+zero collisions, because the check costs almost nothing and the failure would be unrecoverable.
+
+\textbf{Overhead.} The wire overhead is a 16-byte tag plus a 16-byte nonce, independent of
+payload size,
+\begin{equation}
+|c|_{\text{wire}} = |p| + 32 \ \text{bytes}.
+\label{eq:overhead}
+\end{equation}
+For a 96-byte sensor reading that is a 33\% expansion, falling to 6.3\% at 512 bytes. The relative
+cost is therefore worst exactly where agricultural telemetry sits, which is an argument for
+batching several readings per message --- and a measurement we report rather than assume.
+
 \subsection{The sealed weight channel}\label{sec:channel}
 Each frame carries associated data
 \begin{equation}
@@ -616,15 +921,66 @@ the network with. Breaking the property requires changing a constructor signatur
 tests reject.
 
 \subsection{Runtime feature provenance}\label{sec:provenance}
-\todo{state the boundary: the model consumes held-out flow-derived records paired to each
-arriving message; the application payload is never parsed into features; the scenario control
-selects which held-out pool is drawn from and synthesises nothing. Say plainly what this
-demonstrates (architectural correctness) and what it does not (detection on live farm traffic).}
+What this subsection reports is a limitation rather than a result.
+
+A payload such as \texttt{\{"deviceId":"soil01", "temperature":24.8, "soilMoisture":42.5\}}
+contains no flow-derived features at all. Feeding those fields to a model trained on flow records
+and reporting a detection outcome would be meaningless: they are application data, the model
+consumes network measurements, and they are different objects. The code keeps them apart.
+
+Each message therefore carries two planes, drawn in Fig.~\ref{fig:planes}. The \emph{application
+plane} is the payload, and it is what Ascon protects. The \emph{network plane} is a flow-feature
+vector drawn from \textbf{held-out records never seen during training} --- the test split of
+Section~\ref{sec:data}, 311{,}563 rows --- standing in for the network conditions under which the
+message was transmitted, and it is what the detector classifies. The adapter records the
+provenance of every feature value the model consumes, and no value is invented. The scenario
+control used in evaluation selects \emph{which held-out pool} a record is drawn from; it
+synthesises nothing.
+
+We considered two alternatives and rejected both. Synthesising network features with a generative
+model cannot be verified and would evaluate the detector against its own generator's artefacts.
+Instrumenting a live broker recovers only part of the feature set without the original extractor,
+and mixing measured with replayed features introduces a distribution shift we could not document.
+
+The runtime demonstration therefore establishes \emph{architectural correctness}: the pipeline
+separates the two planes, routes on the verdict, seals and verifies correctly, and never places a
+malicious-verdict payload on the cloud path. It does \emph{not} show that a model trained on this
+corpus would detect attacks against a live agricultural deployment. That claim would require
+capture and feature re-extraction on the target network, and we do not make it.
 
 %=======================================================================
-\section{Experimental Setup}
-\todo{corpus splits, budgets, seeds, hardware, and the statement that every reported figure is
-read from a committed run manifest rather than transcribed.}
+\section{Experimental Setup}\label{sec:setup}
+\textbf{Splits and budget.} After deduplication the corpus yields 1{,}237{,}904 training rows
+and 311{,}563 held-out test rows, with a realised train/test hash overlap of zero. Unless stated
+otherwise every run uses $W = 16$, $\alpha = 0.5$, $R = 20$ rounds, $E = 3$ local epochs, a cap of
+400{,}000 sequences per client, and three seeds reported as mean $\pm$ standard deviation. Every
+baseline is compute-matched at $R \times E = 60$ local passes, so a difference between them is
+attributable to the method rather than to the budget.
+
+\textbf{Metrics.} For the eight-class task we report macro-averaged precision and recall,
+\begin{equation}
+\text{macro-F1} = \frac{1}{C}\sum_{c=1}^{C} \frac{2 P_c R_c}{P_c + R_c},
+\label{eq:macrof1}
+\end{equation}
+per-class F1, balanced accuracy, the Matthews correlation coefficient and the confusion matrix.
+For the binary projection we report precision, recall, PR-AUC and the false-positive rate
+\begin{equation}
+\mathrm{FPR} = \frac{\mathrm{FP}}{\mathrm{FP} + \mathrm{TN}}.
+\label{eq:fpr}
+\end{equation}
+FPR is first-class because in an operational detector a high false-alarm rate is the failure that
+causes the system to be switched off. Accuracy is reported alongside these and never on its own.
+
+\textbf{Provenance of every number.} Each run writes a manifest recording seeds, library versions,
+hardware, the full configuration, the realised per-class counts and the leakage-gate result. Every
+figure in this paper is generated directly from those manifests by a script, and every number in
+the text is read from them; none is transcribed by hand.
+
+\textbf{A stated expectation.} Published results on this corpus routinely exceed 98--99\%
+accuracy. Near-ceiling accuracy here is a known property of the data, produced by the imbalance of
+Eq.~\eqref{eq:ir} and the separability of the flooding classes, and is not evidence of a superior
+model. We state in advance that results in that range are expected, and direct attention instead
+to macro-F1 on the rare families and to FPR, where differences between methods actually appear.
 
 %=======================================================================
 \section{Results}
@@ -637,9 +993,23 @@ macro-F1 against the otherwise-matched multilayer perceptron.}
 \end{figure}
 
 \subsection{Centralised baselines and the value of recurrence}
-\todo{table: random forest 0.6855, MLP 0.6070, GRU 0.8297 $\pm$ 0.0013 at $W\!=\!16$, three
-seeds, identical split and budget. Recurrence is worth $+0.2322$, fifty-one times the seed
-standard deviation.}
+Three centralised baselines were trained on an identical split at an identical budget, over
+three seeds (Fig.~\ref{fig:baselines}). A random forest on single records reaches macro-F1
+$0.6855$; a multilayer perceptron on single records, which differs from the detector only by the
+absence of recurrence, reaches $0.6070$; the gated recurrent detector at $W = 16$ reaches
+$\mathbf{0.8297 \pm 0.0013}$.
+
+\textbf{Recurrence earns its place.} The gap to the otherwise-matched perceptron is $+0.2322$
+macro-F1 --- fifty-one times the seed standard deviation, so it is not a sampling artefact. This
+is the ablation the sequence-construction gap demands: because our windows are positional rather
+than chronological, the architecture must justify itself empirically rather than by appeal to the
+general sequentiality of network traffic. It does.
+
+The random forest result is reported because a reviewed study found a tree ensemble strongest on
+tabular flow features~\cite{bai2025ietinfsec}. On single records it is indeed the stronger
+non-recurrent model, beating the perceptron by $0.0785$; the recurrent detector beats it by
+$0.1442$. The disagreement is informative rather than embarrassing: a tree ensemble is a good
+classifier of one record, and the detector's advantage comes from reading sixteen.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\columnwidth]{federation_bracket.pdf}
@@ -656,9 +1026,30 @@ bar is positive on every seed.}
 \end{figure}
 
 \subsection{Federated performance and per-client gain}\label{sec:fedresults}
-\todo{bracket table and Fig.~6--7. Federated $0.8308 \pm 0.0150$ between local-only
-$0.7205 \pm 0.0750$ and centralised $0.8543 \pm 0.0040$, recovering 82.4\%. Per-client gains all
-positive. Read FPR $0.2975 \pm 0.0512$ first.}
+The three-way comparison the missing-lower-bound gap calls for is given in
+Fig.~\ref{fig:bracket}. All three baselines are compute-matched at sixty local passes, so the
+comparison isolates the training regime. The federated global model reaches macro-F1
+$\mathbf{0.8308 \pm 0.0150}$, sitting inside the bracket its two baselines define: local-only
+$0.7205 \pm 0.0750$ below, centralised $0.8543 \pm 0.0040$ above. Federating therefore recovers
+$\mathbf{82.4\%}$ of the macro-F1 that keeping data local leaves on the table, for a measured
+$815{,}136$ bytes per round.
+
+\textbf{Read the false-positive rate first.} The federated model's FPR is $0.2975 \pm 0.0512$.
+Under the imbalance of Eq.~\eqref{eq:ir} that is the number an operator feels, and it is the
+reason Section~\ref{sec:setup} declines to lead with accuracy.
+
+\textbf{Local-only is also the least stable baseline} ($\pm 0.0750$ against the federated model's
+$\pm 0.0150$), because its score depends entirely on which classes its partition happened to be
+dealt.
+
+\textbf{Every farm is better off federating.} Fig.~\ref{fig:gain} gives the per-client gain, which
+is the quantity an operator deciding whether to join actually needs. On the mixed-farm
+configuration the gains are $+0.1338$, $+0.0789$ and $+0.0516$ macro-F1 on one corpus and
+$+0.1568$, $+0.1547$ and $+0.1970$ on the other --- positive for every farm, on every seed, on
+both corpora. The sharpest case is a seed in which two clients were dealt partitions missing
+attack classes entirely: local-only training fell to $0.6145$ while the federated model still
+reached $\mathbf{0.8145}$. A farm that has never seen an attack family can still detect it,
+because other farms have, and only parameters crossed the network.
 
 \subsection{Client-count scalability}\label{sec:ksweep}
 Table~\ref{tab:ksweep} reports 21 configurations, three seeds each, at the Phase-4 budget.
@@ -725,10 +1116,26 @@ slowly; they converge lower.}
 \label{fig:convergence}
 \end{figure}
 
-\subsection{Cryptographic and communication overhead}
-\todo{table: per-round bytes measured against Eq.~\eqref{eq:bytes}; seal/open latency; and the
-observation that communication grows linearly to 13.59\,MB per round at $K=50$,
-so the benefit degrades before the communication break-even is reached.}
+\subsection{Cryptographic and communication overhead}\label{sec:commcost}
+Equation~\eqref{eq:bytes} predicts $811{,}200$ bytes per round at $K = 3$; we measure
+$815{,}136$, the $0.5\%$ excess being serialisation framing. Per client per direction that is
+$135{,}942$ bytes, so $271{,}883$ bytes both ways --- a figure worth stating carefully, because the
+aggregate over three clients in one direction ($407{,}752$ bytes) is easily mistaken for one
+client's cost.
+
+Set against the alternative, the argument for federation under constraint~C2 is quantitative. A
+twenty-round schedule costs roughly $15.5$~MiB in total. Moving the records themselves instead
+would be on the order of hundreds of megabytes, a factor of roughly eighteen larger. That ratio
+holds \emph{because the model is small}: by Eq.~\eqref{eq:params} it is 33{,}800 parameters, or
+132~KiB at single precision. It would not hold for a large model retrained frequently, which is a
+reason to prefer a compact detector independently of inference cost.
+
+\textbf{The ratio is also specific to small $K$.} Communication grows linearly in client count
+(Fig.~\ref{fig:comm}), from $0.82$~MB per round at $K = 3$ to $\mathbf{13.59}$~MB at $K = 50$, a
+$16.6\times$ increase. Since accuracy has already fallen $0.079$ by $K = 50$
+(Table~\ref{tab:ksweep}), the benefit of federating degrades before the communication cost becomes
+the binding constraint. For this system, client count is limited by rare-class dilution rather
+than by bandwidth.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\columnwidth]{feature_overlap.pdf}
@@ -739,16 +1146,77 @@ a factor of $2.4\times10^{11}$.}
 \end{figure}
 
 \subsection{Dataset selection as a result}\label{sec:semantics}
-\todo{write from docs/dataset-selection.md and docs/generalisation-plan.md: the three corpora,
-the two rejections and their measurements, the $7.33\times$ extractor window-size difference, and
-the three columns whose ranges are disjoint---including \texttt{Variance} spanning $0..1$ in one
-corpus and $0..1.13\times10^{8}$ in the other.}
+Three corpora were characterised and trained on; one was selected. We report the
+measurements rather than assert the choice, because two of the rejections are results in
+themselves.
+
+\textbf{A medical corpus does not help an agricultural detector.}
+CICIoMT2024~\cite{dadkhah2024ciciomt} is the easy case technically: the same extractor family,
+the same canonical columns, a genuine drop-in. It still fails on substance. It carries six of the
+eight attack families, lacking two entirely, so it adds volume rather than coverage; and the
+federated client structure should model the deployment domain, which for this work is farms.
+
+\textbf{A shared column name is not a shared quantity.} Measuring the two corpora's selected
+features directly (Fig.~\ref{fig:overlap}) shows that three of the sixteen do not denote the same
+thing. \texttt{Variance} spans $0$ to $1.13\times10^{8}$ in one corpus and $0$ to $1$ in the other,
+with every row of the second below one. \texttt{Header\_Length} spans $0$ to $60$ --- a correct IP
+header, median 20 --- against $0$ to $9.89\times10^{6}$. \texttt{IAT} medians differ by a factor of
+$2.4\times10^{11}$. These are three of the four highest-ranked features from
+Section~\ref{sec:features}.
+
+Part of the discrepancy has a clean explanation. The packet-count feature differs by
+$\mathbf{7.33\times}$ between the corpora ($69.66$ against $9.51$), meaning the two extractors use
+different window sizes; normalising the count and sum features per packet restores four of the
+eight broken columns to overlap. The remaining three do not recover and must be dropped from any
+shared vocabulary. \textbf{This is the cross-corpus semantics gap}, and it is invisible under
+per-corpus standardisation, which is why it survived until a cross-corpus evaluation was attempted.
+
+\textbf{A corpus can be good and still be unusable here.} Edge-IIoTset~\cite{ferrag2022edgeiiotset}
+is the most agriculture-relevant corpus available, carrying MQTT and Modbus traffic from
+soil-moisture, temperature and pH sensing. Forced into the canonical feature language it scores
+macro-F1 $0.12$. Trained instead on its own native columns --- eight MQTT fields, two Modbus
+fields, and transport flags, lengths and timings --- the same architecture reaches
+$\mathbf{0.9822 \pm 0.0043}$ over twelve classes with FPR $0.0017$. The corpus is not the problem;
+our translation was.
+
+It is nonetheless excluded, for two reasons. Its value lives in \texttt{mqtt.*} and
+\texttt{mbtcp.*} columns that do not exist in the primary corpus's extractor output, and federated
+averaging requires an identical input width across clients, so a 26-input detector cannot be
+averaged with a 16-input one. A zero-padded union of the two vocabularies is not an escape: the
+model learns the zero pattern as corpus identity and silently becomes two sub-models with inflated
+in-distribution scores. And measured against the primary corpus's 34 leaf classes, its only
+genuinely novel attack type is ransomware. Splitting the architecture to gain one attack family is
+not a trade worth making.
+
+Three of its own classes are also inexpressible once identifier columns are removed as leakage
+discipline requires: two flood classes contribute one and thirty-eight distinct windows
+respectively, because every behavioural feature is literally zero for every packet in them. Their
+only distinguishing content lay in transport nonces.
+
+\textbf{No further corpus was added.} The one candidate sharing the primary corpus's feature
+family was checked and shares none of its canonical columns. More general-purpose
+corpora~\cite{tiissrc23} would not deliver zero-shot transfer either, for the reason
+Section~\ref{sec:thread_e} gives.
 
 \subsection{Zero-shot cross-corpus transfer: a replication}
-\todo{report our figures and frame them as a replication of
-\cite{layeghy2022generalisability}---56.28\% average decay across four corpora sharing a single
-standardised 43-feature schema---and of \cite{dataset_centric_fl_ids}'s up-to-30-point loss. Note
-that schema standardisation does not rescue transfer, so our semantics defect is not the cause.}
+Evaluated on a corpus held out entirely from training, the detector collapses: macro-F1
+falls to approximately $0.08$ with a false-positive rate above $0.9$. We report this as a
+\textbf{replication rather than a finding}.
+
+The field-wide result is unambiguous. Four corpora converted to a \emph{single} standardised
+43-feature schema --- an experiment designed precisely to remove schema mismatch as an explanation
+--- still lose $56.28\%$ of performance on average under cross-corpus
+evaluation~\cite{layeghy2022generalisability}, with scores sometimes near zero and strong asymmetry
+between directions. A federated IDS evaluated across three IoT corpora loses up to thirty
+percentage points of macro-F1 the same way~\cite{dataset_centric_fl_ids}.
+
+Two consequences follow for this paper. First, \textbf{the semantics defect of
+Section~\ref{sec:semantics} is not the cause}: standardising the schema does not rescue transfer
+for anyone, so correcting our feature mapping --- which is owed on its own merits --- would not
+change this result. Second, zero-shot cross-testbed transfer is not an achievable target, and we
+do not treat it as one. The deployment answer is per-site capture and federated adaptation, whose
+benefit is the measured per-client gain of Section~\ref{sec:fedresults}: a farm that has never
+seen an attack family detects it anyway, because another farm has.
 
 %=======================================================================
 \section{Software-in-the-Loop Validation}\label{sec:sil}
@@ -798,16 +1266,100 @@ We report both throughout.
 
 %=======================================================================
 \section{Limitations and Threats to Validity}\label{sec:limitations}
-\todo{write from docs/paper-claims-inventory.md Section B, in our own voice and before a reviewer
-raises them: the feature-provenance boundary means detection on live farm traffic is not
-demonstrated; cross-corpus transfer was measured and failed; Ascon protects the parameter channel
-and not the telemetry; no on-device results yet, so no timing claim; $K=3$ is a budget constraint;
-leave-one-device-out could not be run because the corpus carries no device attribution; and
-gradient inversion, poisoning, differential privacy and secure aggregation are all out of scope.}
+
+\begin{table}[t]
+\caption{Risks carrying a design consequence, and the control adopted for each.
+L: likelihood, I: impact.}
+\label{tab:risks}
+\centering\footnotesize
+\begin{tabular}{@{}lp{2.5cm}ccp{2.4cm}@{}}
+\toprule
+ & \textbf{Risk} & \textbf{L} & \textbf{I} & \textbf{Control}\\
+\midrule
+R1 & Memory exhaustion on load & H & M & Chunked reads, per-class caps, float32\\
+R2 & Rare classes collapse to zero recall & H & M & Family taxonomy, weighted loss, per-class reporting\\
+R3 & Duplicate-row leakage inflates results & H & H & Dedup before split, Eq.~\eqref{eq:order}; blocking test\\
+R4 & FedAvg diverges under non-IID data & M & M & Fewer local epochs, layer norm, FedProx fallback; negative result reported\\
+R5 & Ascon variant mismatch & M & M & Known-answer tests as a gating check\\
+R6 & Nonce reuse & L & H & CSPRNG per message; collision assertion\\
+R7 & Near-perfect results accepted uncritically & M & M & Stated expectation, Section~\ref{sec:setup}; leakage audit\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We state these before a reviewer has to.
+
+\textbf{Detection on live agricultural traffic is not demonstrated.} Under the boundary of
+Section~\ref{sec:provenance} the detector classifies held-out flow records paired to each arriving
+message; the application payload is never parsed into features. What the runtime results establish
+is architectural correctness. Establishing detection on a live deployment requires capture and
+feature re-extraction on the target network, which we have not done.
+
+\textbf{Cross-testbed transfer was measured and it failed.} Section~\ref{sec:thread_e} reports why
+this is the field-wide result rather than a defect of this system, and why correcting the feature
+semantics would not change it. The honest position is that zero-shot transfer is unavailable and
+per-site adaptation is the deployment path.
+
+\textbf{Ascon protects the parameter channel, not the telemetry.} The gateway-to-cloud hop uses
+TLS. The security claim of this paper is about Channel~3 of Section~\ref{sec:threat}.
+
+\textbf{No on-device results.} Every number here comes from containerised processes at the target
+CPU architecture. Container timings are not gateway timings, and no latency or energy claim is
+made for field hardware; manifests record the platform so the two cannot be confused.
+
+\textbf{$K = 3$ is a budget constraint, not an optimum.} It is the hardware configuration. The
+sweep of Section~\ref{sec:ksweep} is what measures the architecture's behaviour across client
+counts, and it happens to show $K = 3$ is also the accuracy-optimal point --- but that is a result,
+not the reason the value was chosen.
+
+\textbf{Leave-one-device-out could not be run.} It is the generalisation question a federated farm
+actually faces, and Galal~\cite{galal2026provenance} shows it is answerable and discriminating.
+Our corpus's published records carry no device attribution --- they are organised by attack type
+--- so the experiment is unavailable here. A corpus such as Farm-Flow~\cite{farmflow2024} would
+enable it.
+
+\textbf{Threats the federation does not address.} Gradient inversion and model poisoning are both
+live against this design. We claim only the narrower property that raw records are not
+transmitted. Differential privacy, secure aggregation and Byzantine-robust aggregation are out of
+scope and are not approximated by anything here.
+
+\textbf{A methodological limitation of our own results.} Section~\ref{sec:vacuous} shows that one
+of our earlier runs satisfied the disjointness property on a single malicious reading. We report
+opportunity counts alongside every safety claim for that reason, and recommend others do the same.
+
+\textbf{Ethics.} The corpus is machine-generated traffic from a controlled testbed, used under its
+publishers' terms. No live attack traffic is generated: every malicious instance is a replayed
+record, and nothing is directed at any real network. Key material is excluded from version
+control and demonstration keys are labelled as such.
 
 %=======================================================================
 \section{Conclusion}
-\todo{write last.}
+We built a federated intrusion detector for smart agriculture in which the parameter
+exchange itself is the protected channel, and measured it.
+
+Three results carry the paper. Federating is worth it \emph{per farm}: every client scored better
+federated than alone, on every seed and both corpora, and a client dealt a partition missing
+attack classes rose from $0.6145$ to $0.8145$ macro-F1 --- it detected what it had never seen,
+because another farm had. The sealed bidirectional channel costs $271{,}883$ bytes per client per
+round and rejected nothing across 120 frames. And path disjointness held across 4{,}239 malicious
+readings with none reaching the cloud, cross-checked against the receiver's own count.
+
+Two results are negative and we report them as contributions. Zero-shot cross-corpus transfer
+collapses, replicating a documented field-wide failure that standardised feature schemas do not
+fix. And a safety property can pass vacuously: an earlier run of ours satisfied the disjointness
+assertion on one malicious reading, which a system leaking one in ten would have passed nine times
+in ten. A guarantee reported as satisfied carries no information unless the number of
+opportunities to violate it is reported with it.
+
+The client-count sweep adds a third observation with a methodological edge. Aggregate macro-F1
+degrades gently to $K = 50$, falling $0.079$; the weakest class falls $0.256$ over the same range,
+a $40\%$ relative collapse, and no client is ever empty. Reporting the aggregate alone would have
+concealed it.
+
+What remains is the work the boundary of Section~\ref{sec:provenance} defines. A live feature
+extractor on the gateway, capture on the target network, and on-device validation would convert
+the architectural claim into a detection claim. The federated structure is what makes that
+tractable: each farm contributes what it captures, and the others receive it as parameters.
 
 %=======================================================================
 \bibliographystyle{IEEEtran}
