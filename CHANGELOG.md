@@ -35,6 +35,23 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### A pin and wiring figure for the hardware node
+
+`scripts/make_figures.py` gains `fig_pinout`, drawn rather than photographed so the pin
+assignments stay legible at IEEE column width and match
+`firmware/esp32_sensor/diagram.json` exactly, wire colours included. It shows all six wires, the
+two that carry signal (DHT22 data to GPIO 15, soil moisture to GPIO 34), and the constraint that
+is easiest to get wrong: **GPIO 34 is on ADC1, and ADC2 stops working entirely while Wi-Fi is
+active**, so a node that is always associated would silently read noise from an ADC2 pin.
+
+Two bugs were worth the detour. The figure first rendered as 7 of 7 rather than 8 of 8, because
+the registration line sat below the `if __name__` guard and so executed after `main()` had already
+iterated the registry. And the first clean render put pin labels on top of the box titles and ran
+a wire straight through one of them; the fix moves the peripheral boxes right to open a gutter,
+right-aligns the box titles, and gives each pin label a surface-coloured backing box so no wire
+can cross text. Rendering and looking at the output caught both --- neither is visible from the
+source.
+
 ### Tables were overflowing the page; fixed, and the references audited for relevance
 
 The user compiled the draft and found two tables running past the right margin with their last

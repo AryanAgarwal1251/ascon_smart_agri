@@ -433,7 +433,125 @@ def fig_baselines() -> None:
     save(fig, "baselines")
 
 
+def fig_pinout() -> None:
+    """ESP32 sensor-node wiring: every wire, with its pin and colour.
+
+    Drawn rather than photographed so the pin assignments stay readable at column width and
+    match ``firmware/esp32_sensor/diagram.json`` exactly; wire colours follow that file.
+    """
+    fig, ax = plt.subplots(figsize=(COL1, 2.9))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 8)
+    ax.axis("off")
+
+    def box(x, y, w, h, label, sub, fc, ec):
+        ax.add_patch(
+            plt.Rectangle((x, y), w, h, facecolor=fc, edgecolor=ec, linewidth=0.9, zorder=2)
+        )
+        ax.text(
+            x + w / 2,
+            y + h - 0.33,
+            label,
+            ha="center",
+            va="top",
+            fontsize=7.2,
+            color=INK,
+            zorder=3,
+            fontweight="bold",
+        )
+        ax.text(
+            x + w / 2,
+            y + h - 0.78,
+            sub,
+            ha="center",
+            va="top",
+            fontsize=6.2,
+            color=INK2,
+            zorder=3,
+        )
+
+    box(0.3, 1.9, 3.1, 4.6, "ESP32", "DevKitC V4", "#eef4fc", BLUE)
+    box(6.7, 5.0, 3.0, 1.9, "DHT22", "3-pin module", "#fdf6ec", ORANGE)
+    box(6.7, 1.9, 3.0, 1.9, "Soil moisture", "capacitive v1.2", "#eef9f4", AQUA)
+
+    for name, y in (("3V3", 5.9), ("GND", 5.3), ("GPIO 15", 4.2), ("GPIO 34", 3.0)):
+        ax.plot(3.4, y, "o", ms=4, color=INK2, zorder=4)
+        ax.text(
+            3.25,
+            y,
+            name,
+            ha="right",
+            va="center",
+            fontsize=6.6,
+            color=INK,
+            zorder=5,
+            bbox={"facecolor": SURFACE, "edgecolor": "none", "pad": 0.8},
+        )
+
+    for label, y in (
+        ("VCC", 6.45),
+        ("DATA", 5.85),
+        ("GND", 5.25),
+        ("VCC", 3.35),
+        ("AOUT", 2.75),
+        ("GND", 2.15),
+    ):
+        ax.plot(6.7, y, "o", ms=4, color=INK2, zorder=4)
+        ax.text(
+            6.58,
+            y,
+            label,
+            ha="right",
+            va="center",
+            fontsize=6.6,
+            color=INK,
+            zorder=5,
+            bbox={"facecolor": SURFACE, "edgecolor": "none", "pad": 0.8},
+        )
+
+    wires = (
+        ((3.4, 5.9), (6.7, 6.45), "#c0392b"),
+        ((3.4, 5.3), (6.7, 5.25), "#2c2c2c"),
+        ((3.4, 4.2), (6.7, 5.85), AQUA),
+        ((3.4, 5.9), (6.7, 3.35), "#c0392b"),
+        ((3.4, 5.3), (6.7, 2.15), "#2c2c2c"),
+        ((3.4, 3.0), (6.7, 2.75), ORANGE),
+    )
+    for (x0, y0), (x1, y1), colour in wires:
+        ax.annotate(
+            "",
+            xy=(x1, y1),
+            xytext=(x0, y0),
+            arrowprops={
+                "arrowstyle": "-",
+                "color": colour,
+                "lw": 1.5,
+                "connectionstyle": "arc3,rad=0.12",
+            },
+            zorder=1,
+        )
+
+    ax.text(
+        5.0,
+        1.0,
+        "signal wires: DHT22 DATA $\\rightarrow$ GPIO 15,  soil AOUT $\\rightarrow$ GPIO 34",
+        ha="center",
+        fontsize=6.5,
+        color=INK,
+    )
+    ax.text(
+        5.0,
+        0.45,
+        "GPIO 34 is on ADC1; ADC2 is unusable while Wi-Fi is active",
+        ha="center",
+        fontsize=6.2,
+        color=ORANGE,
+    )
+    save(fig, "pinout")
+
+
 FIGURES = {
+    "pinout": fig_pinout,
     "ksweep_f1": fig_ksweep,
     "communication": fig_communication,
     "federation_bracket": fig_bracket,
