@@ -35,6 +35,32 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Paper groundwork: a claims inventory built before any drafting
+
+The user asked to start the IEEE paper once the K sweep lands. `docs/paper-claims-inventory.md`
+(new) is the first artefact, written deliberately *before* prose: every number the paper may use,
+traced to a committed manifest, and -- the half that matters more -- every claim the paper must
+**not** make, with the wording to use instead.
+
+Section A collects what is provable across nine areas, with the per-client federation gain
+identified as the strongest result in the project (positive for every client, every seed, both
+corpora; and a client missing classes still goes 0.6145 -> 0.8145). Section A9 lists the
+**negative** results as contributions rather than apologies: leave-one-dataset-out at
+0.0853/0.0763, the G1 run that passed vacuously on one malicious reading, and the analytical K
+model mispredicting its own mechanism.
+
+Section B is the guard rail -- eight claims that would be wrong, each with why and with the
+honest replacement. The ones most easily slipped into: "detects attacks on a live agricultural
+deployment" (the runtime classifies held-out records; no live extractor exists), "Ascon protects
+the telemetry" (it protects the *weight channel*; the cloud hop is TLS by design), "validated on
+Raspberry Pi hardware" (no hardware has run; container timings are not Pi timings), and "three
+datasets were used" (three were evaluated, two were rejected, and the measurements are the
+point).
+
+Sections C and D list the ten figures with their data readiness and the two-column section
+structure. Two things are outstanding: the sweep's final K = 50 points before VI-C can be
+drafted, and the target venue and page limit, which decide how much of VI survives.
+
 ### G1 written up: the threat, the structural enforcement, and how strongly it was tested
 
 `docs/g1-path-disjointness.md` (new) collects the project's central safety guarantee in one
