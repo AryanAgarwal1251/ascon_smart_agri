@@ -35,6 +35,32 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Citation audit finished: 32 of 38 verified, and the rest are deliberate
+
+Six more entries resolved at source, and the remaining notes were classified rather than left as
+an undifferentiated backlog --- because most of them are not work owed.
+
+**Resolved this round.** Okey et al. is ISWCS 2024, pp. 1--6, with DOI; the landing page that
+first surfaced it did not name the venue, the IEEE record does. LWE-IoT is Suleiman, Javeed and
+Raza, *Int. J. Circuit Theory and Applications* 2026, and its edge nodes are ESP32 with the
+broker on a desktop --- the same shape of measurement as ours. Khraisat et al. has six authors in
+*Discover Internet of Things* 5:72. The granted US patent is 12,301,597, *Network edge digital
+twin for IoT attack detection*, inventors Alhazmi and Alakeel, assigned to King Saud University;
+it uses our corpus with a random forest at the edge, which is what makes it the closest granted
+patent by corpus and placement. Two stale page-range markers were cleared.
+
+**What remains, and why.** Three entries still want a number we can look up: two Indian patent
+applications and nothing else. **Four are standing cautions that should stay**, because they are
+doing their job: they forbid citing a figure we have not read in the source --- the survey's "up
+to 76 % F1 drop", Farm-Flow's 101-feature count, the IIoT paper's unnamed datasets, and a volume
+number the journal has not yet assigned. **A check confirms none of those figures appears
+anywhere in `main.tex`.** The notes prevented exactly what they were written to prevent.
+
+**Two entries remain incomplete and should be cut**, as previously recommended: the
+distributed-IoT differential-privacy paper and the multi-level federated Industry 4.0 patent.
+Each is cited once inside a list, neither has resolvable authorship or venue, and dropping both
+leaves 36 references.
+
 ### The Ascon section rewritten against the published standard, which also caught our own citation error
 
 The user supplied the actual NIST SP 800-232 document. Checking the paper against it resolved the

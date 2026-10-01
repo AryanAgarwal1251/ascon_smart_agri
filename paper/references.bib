@@ -132,13 +132,14 @@
 % CHECKED: four authors, Frontiers in Big Data vol. 8 art. 1526480, 14 May 2025, DOI.
 
 @inproceedings{okey2024cnngru,
-  author    = {Okey, Ogobuchi Daniel and Dadkhah, Sajjad and
-               Rodriguez, Demostenes Zegarra and Kleinschmidt, Jo{\~a}o Henrique},
+  author    = {Okey, Ogobuchi Daniel and Rodriguez, Demostenes Zegarra and
+               Kleinschmidt, Jo{\~a}o Henrique},
   title     = {Enhancing {IoT} Intrusion Detection with Federated Learning-Based {CNN-GRU}
                and {LSTM-GRU} Ensembles},
-  booktitle = {Proc. IEEE Conference},
+  booktitle = {Proc. 19th International Symposium on Wireless Communication Systems (ISWCS)},
+  pages     = {1--6},
   year      = {2024},
-  url       = {https://ieeexplore.ieee.org/document/10639159}
+  doi       = {10.1109/ISWCS61526.2024.10639159}
 }
 % CHECKED: authors identified. Federated ensemble IDS over CNN, GRU and LSTM with two
 % aggregation functions, wFedAvg and wFedProx, evaluated on CICIoT2023 and FLNET2023.
@@ -146,13 +147,15 @@
 % 95.66% on FLNET2023.
 % CLAIM: closest prior work to the detection layer -- validates GRU plus weighted FedAvg on
 % our dataset; stops at the label.
-% VERIFY: the exact conference name and DOI still need the IEEE record (the landing page did
-% not render); do not submit with "Proc. IEEE Conference".
+% CHECKED: three authors, 19th International Symposium on Wireless Communication Systems
+% (ISWCS) 2024, pp. 1-6, IEEE, DOI. The landing page that first surfaced this did not name
+% the venue; the IEEE record does.
 
 @article{khraisat2025discoveriot,
-  author  = {Khraisat, Ansam and Alazab, Ammar and Alazab, Moutaz},
-  title   = {Federated Learning for Intrusion Detection in {IoT} Environments: A
-             Privacy-Preserving Strategy},
+  author  = {Khraisat, Ansam and Alazab, Ammar and Alazab, Moutaz and Obeidat, Areej and
+             Singh, Sarabjot and Jan, Tony},
+  title   = {Federated Learning for Intrusion Detection in {IoT} Environments:
+             A Privacy-Preserving Strategy},
   journal = {Discover Internet of Things},
   volume  = {5},
   pages   = {72},
@@ -160,7 +163,8 @@
   doi     = {10.1007/s43926-025-00169-7}
 }
 % CHECKED: three authors, Discover IoT vol. 5 art. 72 (2025), DOI.
-% VERIFY: the given names are from a search summary; confirm initials at the publisher.
+% CHECKED: six authors, Discover Internet of Things vol. 5 art. 72 (2025), DOI. The system
+% is named PEIoT-DS in the article.
 
 @article{distributediot2025dp,
   title   = {Federated Learning for Distributed {IoT} Security: A Privacy-Preserving Approach
@@ -253,15 +257,17 @@
 }
 
 @article{suleiman2026lweiot,
-  author  = {Suleiman, A.},
-  title   = {{LWE-IoT}: Evaluating Lightweight Encryption Schemes in {MQTT} and {CoAP} {IoT}
-             Protocols},
+  author  = {Suleiman, Fadi and Javeed, Khalid and Raza, Shahid},
+  title   = {{LWE-IoT}: Evaluating Lightweight Encryption Schemes in {MQTT} and {CoAP}
+             {IoT} Protocols},
   journal = {International Journal of Circuit Theory and Applications},
-  year    = {2026}
+  year    = {2026},
+  doi     = {10.1002/cta.70489}
 }
 % CLAIM: compares Ascon, PRESENT, SIMON, SPECK and ChaCha20 over MQTT and CoAP on ESP32 nodes
 % across payload sizes -- the protocol-level measurement methodology closest to ours.
-% VERIFY: full author list ("Suleiman et al.") and the first author's given name.
+% CHECKED: three authors, Int. J. Circuit Theory and Applications 2026, DOI. Edge nodes
+% are ESP32 with the MQTT broker on a desktop -- the same shape of measurement as ours.
 
 @article{elhajj2024asconindustry40,
   author  = {El-Hajj, Mohammed and Gebremariam, Teklit Haftu},
@@ -324,13 +330,17 @@
 % ---- Patent landscape ------------------------------------------------
 
 @misc{patent_us12301597,
+  author       = {Alhazmi, Malak Mohammed and Alakeel, Fatimah Yousef},
   title        = {Network Edge Digital Twin for {IoT} Attack Detection},
   howpublished = {U.S. Patent 12,301,597},
+  note         = {Assignee: King Saud University},
   year         = {2025}
 }
 % CLAIM: trains a random forest on CICIoT2023 features at the network edge using a digital-twin
 % representation; training is centralised and there is no payload cryptography.
-% VERIFY: assignee and inventors.
+% CHECKED at the USPTO full-text record: two inventors, assigned to King Saud University.
+% It uses the same corpus we do -- 34 classes in 8 categories, 46 features -- with a random
+% forest at the edge, which is why it is the closest granted patent by corpus and placement.
 
 @misc{patent_vit_fl,
   author       = {{Vellore Institute of Technology}},
@@ -449,7 +459,7 @@
   doi     = {10.1109/ACCESS.2022.3165809}
 }
 % CLAIM: the agricultural/industrial corpus characterised, trained on twice, and rejected here.
-% VERIFY: page range.
+% CHECKED: five authors, IEEE Access 10:40281-40306, 8 April 2022, DOI.
 
 @article{dadkhah2024ciciomt,
   author  = {Dadkhah, Sajjad and Neto, Euclides Carlos Pinto and Ferreira, Raphael and
