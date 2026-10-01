@@ -35,6 +35,64 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Three of the sixteen features do not mean the same thing in the two corpora
+
+The user asked how to make the model generalise across IoT testbeds. Diagnosing before proposing
+turned up a defect that invalidates several numbers reported over the past two days, so the
+measurement comes first.
+
+Read straight out of `artifacts/phase9_cache.npz`, before any scaling:
+
+| Feature | Phase 2 rank | CICIoT2023 | CICIoMT2024 |
+| --- | --- | --- | --- |
+| `Variance` | 5 | 0 … 1.13e8 | **0 … 1** (100 % of rows <= 1) |
+| `Header_Length` | 2 | 0 … 60 (median 20, a correct IP header) | **0 … 9.89e6** |
+| `IAT` | 6 | 2.4e-7 … 4.7e4 | **4.7e-6 … 1.69e8**, with 79.6 % of rows within +-1 % of 8.47e7 |
+
+`IAT` medians differ by a factor of 2.4e11. These are not distribution shifts; they are different
+quantities wearing the same column name. **Three of Phase 2's top six features are affected.**
+
+This was a recorded risk that had not been discharged: `data/datasets.py` states that every alias
+for the new corpora "was written from the published documentation, not from the files", and the
+2026-09-22 entry lists re-verifying CICIoMT2024's feature semantics as an open follow-up. Only the
+`Duration -> Time_To_Live` alias was ever checked against real values. Per-corpus standardisation
+then hid the problem in-distribution, because a model trained and tested inside one corpus never
+sees the other's scale -- which is why it survived until a cross-corpus evaluation.
+
+**Withdrawn as contaminated**, and struck in place rather than deleted: the leave-one-dataset-out
+figures (0.0853 / 0.0763), the 0.023 and 0.070 costs attributed to adding CICIoMT2024, and the
+two-corpus pooled twin. We came close to publishing a wrong negative result -- the claims
+inventory had listed the LODO failure as a contribution.
+
+**Unaffected:** everything that never crosses corpora. Phase 3's 0.8297 and the recurrence
+ablation, Phase 4's 0.8308 and the 82.4 % gap recovery, the entire K sweep, the per-client
+federation gain on CICIoT2023, Phases 7 and 8, G1, the Ascon work, and Edge-IIoTset's 0.9822 on
+its own native schema. CICIoMT2024's label coverage (6 of 8 families) is derived from filenames,
+not feature columns, so it stands.
+
+**The dataset decision survives on two of its three legs.** Domain coherence (a medical testbed
+against an agriculture deployment) and the absence of any attack family CICIoT2023 lacks both
+hold; the measured-degradation leg is withdrawn. `docs/dataset-selection.md` is corrected in place.
+
+`docs/generalisation-plan.md` (new) then sets out the actual route, with the fix as step 0 because
+domain adaptation layered on mismatched features would only be correcting a data defect: verify
+all 39 aliases against real values, add a cross-corpus range-overlap test that fails loudly on a
+10^11 disjointness, re-run LODO for the first honest generalisation number, then rank/quantile
+features, shape features instead of magnitudes, and domain-adversarial training.
+
+It also names a real tension. **With two corpora, leave-one-dataset-out trains on exactly one
+domain** -- that is domain *transfer*, the hardest possible setting, not domain *generalisation*,
+which needs variation across several source domains to learn invariance from. So if cross-testbed
+generalisation is to be a headline claim, more corpora are required -- not as extra attack
+coverage, which they do not provide, but as **additional domains**, which is precisely what is
+missing. That is a different justification from the one they were rejected on, and the choice
+between the two headline claims is the user's.
+
+Also corrected: the claims inventory had listed "validated on Raspberry Pi hardware" among claims
+the paper must never make. The hardware demo is planned, so it now sits in a new A10 "pending"
+section alongside the measurement that will fill it in, and only *reporting container timings as
+Pi timings* remains forbidden.
+
 ### Paper groundwork: a claims inventory built before any drafting
 
 The user asked to start the IEEE paper once the K sweep lands. `docs/paper-claims-inventory.md`

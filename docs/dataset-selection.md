@@ -36,8 +36,16 @@ Every figure below is macro-F1 on the **CICIoT2023 test set**, 3 seeds, at the s
 | CICIoT2023 + CICIoMT2024, mixed farms | 0.8211 ± 0.0153 | **−0.023** |
 | CICIoT2023 + CICIoMT2024, one corpus per farm | 0.7742 ± 0.0119 | **−0.070** |
 
-**Adding a second corpus never helped.** It cost 0.023 in the best layout and 0.070 in the
-worst.
+> ⚠️ **Correction, 2026-10-01.** These two-corpus figures are **contaminated** and are retained
+> only for the record. Three of the 16 features (`Variance`, `Header_Length`, `IAT`) do not denote
+> the same quantity in the two corpora — `Variance` spans 0…1.13×10⁸ in CICIoT2023 but 0…1 in
+> CICIoMT2024 — so any cross-corpus number measures a broken alias mapping rather than a
+> modelling effect. See [`generalisation-plan.md`](generalisation-plan.md).
+>
+> **The decision to train on CICIoT2023 alone still stands**, on the two reasons that do not
+> depend on these figures: CICIoMT2024 is a medical testbed against an agriculture deployment
+> domain, and it supplies **no attack family CICIoT2023 lacks** (6 of 8; no Mirai, no BruteForce),
+> which is derived from filenames rather than feature columns and is therefore unaffected.
 
 ---
 
@@ -56,9 +64,9 @@ hospital federates over hospital sites, one for agriculture over farms. You do n
 hospital and a farm in the same federation. Extra corpora may widen *attack coverage* — they do
 not get to define clients — and CICIoMT2024 widens nothing.
 
-**3. It measurably degrades the model.** 0.8443 → 0.8211 when mixed into every farm. When
-allocated as its own farm, 0.7742 — because that farm holds 6/8 families and FedAvg averages
-its weights into the global model every round.
+**3. ~~It measurably degrades the model.~~** **Withdrawn 2026-10-01** — the 0.8443 → 0.8211 and
+0.7742 figures are contaminated by the feature-semantics bug above. Reasons 1 and 2 carry the
+decision on their own.
 
 **Kept as:** the labelled cross-domain ablation. "Here is what federating across two domains
 costs" is a real result, and the corpus-per-client configuration is the only place this project
@@ -157,9 +165,10 @@ leave-one-dataset-out results:
 | CICIoMT2024 | CICIoT2023 (unseen testbed) | **0.0853 ± 0.0288** |
 | CICIoT2023 | CICIoMT2024 (unseen testbed) | **0.0763 ± 0.0251** |
 
-A model trained on one testbed does not transfer to another. Adding a fourth corpus yields one
-more testbed the model also fails to transfer to — which is exactly what adding the second one
-demonstrated. The fix is capture on the *target* network, not more public corpora.
+> ⚠️ **These LODO figures are also contaminated** by the same feature-semantics bug and cannot
+> be read as a generalisation result. A corrected re-run is step 4 of
+> [`generalisation-plan.md`](generalisation-plan.md). The argument against a *fourth* corpus on
+> schema grounds (CIC IoT-DIAD 2024 shares none of the 39 canonical columns) is unaffected.
 
 ---
 
@@ -168,7 +177,9 @@ demonstrated. The fix is capture on the *target* network, not more public corpor
 - **No ransomware coverage.** CICIoT2023 has no ransomware class. This is the one real loss.
 - **No MQTT- or Modbus-level features.** The detector operates on IP/TCP/UDP-layer features, so
   attacks visible only in MQTT or Modbus payload semantics are outside its view.
-- **Cross-testbed transfer is unproven and measured poor** (above). The deployment path is for
+- **Cross-testbed transfer is unproven** — the figures that appeared to measure it were
+  contaminated, so the honest position is that it has **not yet been measured**. The deployment
+  path is for
   each farm to capture its own traffic — including controlled attacks via the ESP32 scenario
   switch — and federate on that. This is where federated learning earns its place, and the gain
   is already measured: every farm scored better federated than alone (+0.1338 / +0.0789 /

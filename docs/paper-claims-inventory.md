@@ -97,7 +97,7 @@ system and its measured results.
 
 | Claim | Figure | Source |
 | --- | --- | --- |
-| Adding CICIoMT2024 costs accuracy | 0.8443 → 0.8211 (mixed), 0.7742 (corpus-per-farm) | `manifest_phase9_generalised_percorpus_mixed.json` |
+| ~~Adding CICIoMT2024 costs accuracy~~ | ~~0.8443 → 0.8211~~ | **STRUCK — contaminated by the same feature-semantics bug.** The corpus is still excluded, on domain coherence and on supplying no missing attack family. |
 | It supplies no family CICIoT2023 lacks | 6 of 8; no Mirai, no BruteForce | same |
 | Edge-IIoTset in the canonical language | macro-F1 **0.12** | `manifest_phase9_generalised.json` |
 | Edge-IIoTset on its **native** 26-column schema | macro-F1 **0.9822 ± 0.0043** | `manifest_agri_native.json` |
@@ -108,14 +108,23 @@ system and its measured results.
 
 | Result | Figure | Source |
 | --- | --- | --- |
-| **Leave-one-dataset-out fails** | 0.0853 ± 0.0288 and 0.0763 ± 0.0251, FPR to 0.95 | `manifest_phase9_generalised_percorpus_mixed.json` |
-| Cross-testbed transfer is not achieved | — | same |
+| ~~Leave-one-dataset-out fails~~ | ~~0.0853 / 0.0763~~ | **STRUCK 2026-10-01 — contaminated.** Three of the 16 features (`Variance`, `Header_Length`, `IAT`) do not denote the same quantity in the two corpora, so these numbers measure a broken alias mapping, not generalisation. See `docs/generalisation-plan.md`. |
 | A G1 run that passed vacuously | 1 malicious reading; a 10 %-leak system would pass 90 % of the time | `docs/g1-path-disjointness.md` |
 | The analytical K model mispredicted the mechanism | predicted a knee from class starvation; measured gradual dilution with 0 empty clients | `k_threshold_analysis.json` vs sweep |
 
-**A9 is not a weakness section — it is a contribution.** The LODO result is the paper's honest
-statement about IoT IDS generalisation, and the vacuous-G1 finding is a reusable methodological
-point about verifying safety properties.
+**A9 is not a weakness section — it is a contribution**, with one entry withdrawn. The vacuous-G1
+finding is a reusable methodological point about verifying safety properties, and the
+analytical-vs-measured K discrepancy is a real result. The LODO entry is struck because the
+measurement was contaminated; a corrected LODO number is pending the work in
+`docs/generalisation-plan.md` §3, and only that number may be called a generalisation result.
+
+### A10. Pending — planned, with the measurement that will fill it in
+
+| Claim | Will come from |
+| --- | --- |
+| Validated on two Raspberry Pis + six ESP32s | the hardware run; per-round `round_seconds` are the real feasibility numbers |
+| Real Pi timing and energy feasibility | same |
+| Corrected leave-one-dataset-out | re-run after the alias verification of `generalisation-plan.md` §3 |
 
 ---
 
@@ -126,8 +135,7 @@ point about verifying safety properties.
 | "Detects attacks on a live agricultural deployment" | The runtime classifies **held-out CICIoT2023 records** paired to each message (G6). No live feature extractor exists. | "demonstrates architectural correctness; detection on live farm traffic requires capture and feature re-extraction on the target network" |
 | "The model generalises across IoT testbeds" | LODO = 0.0853 / 0.0763 | "cross-testbed transfer was measured and **failed**; per-farm capture and fine-tuning is the deployment path" |
 | "Ascon protects the telemetry end-to-end" | Ascon protects the **weight channel**. Pi→cloud is plain TLS, by design. | "Ascon-AEAD128 secures the bidirectional weight exchange; the cloud hop uses TLS — one cipher per hop" |
-| "Validated on Raspberry Pi hardware" | No hardware has run. Everything is containers tagged `platform=docker-arm64-simulation`. | "validated on a containerised twin at the Pi's architecture (aarch64); **container timings are not Pi timings**" |
-| Any latency/throughput number as a Pi figure | Same | Report hardware timings only after the hardware run |
+| Any latency/throughput number as a Pi figure **before the hardware run** | Container timings are not Pi timings; manifests are tagged `platform=docker-arm64-simulation` | Report Pi timings from the hardware run, which is planned and is where they come from (see §E) |
 | "K=3 is the optimal client count" | It is a budget constraint, and K=2 federation is degenerate. | "K=3 is the hardware configuration; the sweep measures behaviour to K=50" |
 | "Edge-IIoTset's 0.9822 shows generalisation" | 434,553 rows hold only **1,791 distinct packets**; train/test share the packet vocabulary and differ only in ordering. | "within-corpus class separation; not demonstrated generalisation" |
 | "Three datasets were used" | Two were measured and **rejected**. | "three were characterised and evaluated; one was selected, and §X gives the measurements behind rejecting the other two" |
@@ -178,4 +186,6 @@ IX   Conclusion and future work (live extractor, hardware)
 ```
 
 **Pending before drafting §VI-C:** the K sweep's final 3 points (K=50).
+**Pending before drafting §VI-E:** the feature-semantics fix and a corrected LODO re-run.
+**Pending before §VII can claim hardware:** the hardware run itself.
 **Needed from the user:** target venue and page limit, which decide how much of §VI survives.
