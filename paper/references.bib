@@ -204,8 +204,8 @@
 % CLAIM: the design and security specification of the Ascon family, by its designers.
 
 @techreport{nist2025sp800232,
-  author      = {Turan, Meltem S{\"o}nmez and Chang, Donghoon and Kang, Jinkeon and
-                 Kelsey, John},
+  author      = {Sönmez Turan, Meltem and McKay, Kerry A. and Chang, Donghoon and
+                 Kang, Jinkeon and Kelsey, John},
   title       = {Ascon-Based Lightweight Cryptography Standards for Constrained Devices:
                  Authenticated Encryption, Hash, and Extendable Output Functions},
   institution = {National Institute of Standards and Technology},
@@ -215,7 +215,12 @@
   month       = aug,
   doi         = {10.6028/NIST.SP.800-232}
 }
-% CHECKED at source: title, four authors, final publication 13 August 2025.
+% CHECKED against the published PDF: FIVE authors, as the document's own "How to cite"
+% block gives them -- Meltem Sönmez Turan, Kerry A. McKay, Donghoon Chang, Jinkeon Kang,
+% John Kelsey. Approved by the NIST Editorial Review Board 2025-07-09, published August 2025.
+% >>> CITATION-ACCURACY PROBLEM (ours, not the review paper's). An earlier note here recorded
+% "four authors" and the entry omitted Kerry A. McKay, who is the second author and a NIST
+% Computer Security Division staff member. Corrected from the source document.
 % CLAIM: standardises Ascon-AEAD128 -- the exact variant used here -- plus Ascon-Hash256,
 % Ascon-XOF128 and Ascon-CXOF128, which we do not use.
 
@@ -363,8 +368,21 @@
   howpublished = {\url{https://github.com/ascon/ascon-c}},
   year         = {2025}
 }
-% CLAIM: source of the known-answer-test vectors gating our cryptographic integration;
-% provenance recorded in tests/kat/PROVENANCE.md and in every run manifest.
+% CLAIM: the designers' own C implementations, which this work binds rather than reimplementing.
+% CHECKED: SP 800-232 Sec. 6 names the Cryptographic Algorithm Validation Program as the source
+% of example test vectors, so the KAT gate cites nistcavp as well.
+
+@misc{nistcavp,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {{ACVP}-Server: Automated Cryptographic Validation Test System ---
+                  Generators and Validators},
+  howpublished = {\url{https://github.com/usnistgov/ACVP-Server/tree/master/gen-val/json-files}},
+  year         = {2025}
+}
+% CHECKED: cited as reference [25] of SP 800-232 Sec. 6, "Example test vectors are available
+% from the Cryptographic Algorithm Validation Program (CAVP)". This is the authoritative
+% provenance of the vectors our KAT gate asserts; recorded in tests/kat/PROVENANCE.md and in
+% every run manifest.
 
 @misc{layeghy2022generalisability,
   author       = {Layeghy, Siamak and Portmann, Marius},

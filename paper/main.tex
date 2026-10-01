@@ -168,26 +168,64 @@ This paper is an empirical study of a built and measured system. Its contributio
 \subsection{Ascon and Ascon-AEAD128}\label{sec:ascon}
 Ascon is a family of lightweight authenticated-encryption and hashing algorithms designed by
 Dobraunig, Eichlseder, Mendel and Schl\"affer~\cite{dobraunig2021ascon}. It is built from a
-single 320-bit permutation applied in a sponge-based duplex mode: the state is initialised from
-the key, nonce and an algorithm-specific initial value, associated data is absorbed, plaintext
-is absorbed and ciphertext squeezed block by block, and a tag is extracted at finalisation. The
-same permutation serves every stage, which is what makes the primitive small enough for a
-constrained device and simple enough to mask against side channels. Ascon-128 and Ascon-128a
-were selected as the primary choice for lightweight authenticated encryption in the final CAESAR
-portfolio\verifycite{}.
+single 320-bit permutation, applied as five 64-bit words through a substitution--permutation
+round of constant addition, a 5-bit S-box and a linear diffusion layer, in a sponge-based duplex
+mode: the state is initialised from the key, nonce and an algorithm-specific initial value,
+associated data is absorbed, plaintext is absorbed and ciphertext squeezed block by block, and a
+tag is extracted at finalisation. Ascon-AEAD128 runs that permutation for 12 rounds at
+initialisation and finalisation and 8 rounds while absorbing, at a rate of 128 bits against a
+192-bit capacity. The same permutation serves every stage, and it is used only in the forward
+direction, so no inverse need be implemented --- which is what makes the primitive small enough
+for a constrained device and simple enough to mask against side channels. In 2019 Ascon-128 and
+Ascon-128a were selected as the first choice for the lightweight authenticated-encryption use
+case in the final CAESAR portfolio.
 
 In August 2025 NIST published SP~800-232~\cite{nist2025sp800232}, standardising
 \textbf{Ascon-AEAD128} together with Ascon-Hash256, Ascon-XOF128 and Ascon-CXOF128. This system
-uses Ascon-AEAD128 exclusively: a 128-bit key, a 128-bit nonce and a 128-bit tag.
+uses Ascon-AEAD128 exclusively: a 128-bit key, a 128-bit nonce and an untruncated 128-bit tag.
 
 One implementation detail is worth stating because it is a trap. \emph{The standardised
-Ascon-AEAD128 is not the pre-standard Ascon-128 or Ascon-128a}: the initial values and the byte
-order differ. A widely installed Python package named \texttt{ascon} implements only the
-pre-standard variants, and a system built on it would interoperate with nothing that follows the
-standard while passing its own round-trip tests. We therefore bind the designers' own C reference
-implementation~\cite{asconc} and gate all cryptographic integration behind conformance to the
-standard's known-answer vectors, which is asserted by a test that must pass before any other
-cryptographic code is exercised. No primitive is implemented from scratch in this work.
+Ascon-AEAD128 is not the pre-standard Ascon-128 or Ascon-128a.} It is based on Ascon-128a, but
+the standard changes seven things, and two of them break interoperability silently: the initial
+values were reformatted, and \textbf{the byte order was switched from big-endian to
+little-endian} to suit little-endian microcontrollers. A widely installed Python package named
+\texttt{ascon} implements only the pre-standard variants, and a system built on it would
+interoperate with nothing that follows the standard while passing its own round-trip tests ---
+because a round-trip test encrypts and decrypts with the same wrong constants. We therefore bind
+the designers' own C implementations~\cite{asconc} and gate all cryptographic integration behind
+conformance to the standard's known-answer vectors, whose provenance is the Cryptographic
+Algorithm Validation Program that SP~800-232 itself names~\cite{nistcavp}. That gate is asserted
+by a test which must pass before any other cryptographic code is exercised. No primitive is
+implemented from scratch in this work.
+
+\subsection{What the standard requires of a design that uses many keys}\label{sec:multikey}
+Two conformance requirements bear directly on an architecture that, like this one, issues a
+separate key per client and per direction rather than sharing one.
+
+\textbf{Multi-key security has a price, and it is small.} SP~800-232 states that with $u$
+independently selected keys and no tag truncation, Ascon-AEAD128 provides
+\begin{equation}
+s(u) = 128 - \log_2 u \quad \text{bits}
+\label{eq:multikey}
+\end{equation}
+of security for both confidentiality and integrity in the nonce-respecting setting. Our design
+holds one key per client per direction, so $u = 2K$ and the cost of federating is
+$\log_2 2K$ bits: $125.4$ bits at $K=3$, and still $121.4$ bits at the $K=50$ of
+Section~\ref{sec:ksweep}. \emph{Scaling the federation by a factor of sixteen costs four bits of
+security.} The standard also offers a nonce-masking option that restores the full 128 bits in
+the multi-key setting; we do not use it, because it requires a second 128-bit key per channel and
+forfeits context-commitment security, and Eq.~\eqref{eq:multikey} shows there is nothing here
+worth buying back.
+
+\textbf{The key-lifetime limit is not reachable by this system.} The standard caps the data
+processed under one key at $2^{54}$ bytes and requires a key update at that point. At the
+$135{,}942$ bytes per client per direction per round measured in Section~\ref{sec:commcost}, a
+key would reach the limit after $1.3\times10^{11}$ rounds --- some $6.6\times10^{9}$ runs of the
+twenty-round schedule used throughout this paper. Rekeying is therefore a requirement the design
+satisfies by never approaching it, which is worth stating precisely rather than leaving a
+reviewer to wonder. The companion limit on decryption failures, $2^{96}$ for an untruncated tag,
+is likewise far above the zero rejections we observe; the aggregator counts them because a
+nonzero count is a signal, not because the bound is in play.
 
 \subsection{What Ascon protects here, and what it does not}
 Ascon protects \emph{the model parameters}, in both directions, between each local detector and

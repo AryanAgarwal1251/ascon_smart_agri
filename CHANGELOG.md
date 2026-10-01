@@ -35,6 +35,48 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The Ascon section rewritten against the published standard, which also caught our own citation error
+
+The user supplied the actual NIST SP 800-232 document. Checking the paper against it resolved the
+last outstanding citation marker, corrected an error of ours, and produced genuinely new material.
+
+**An error of our own making.** Our bibliography entry for SP 800-232 listed four authors and
+carried a note claiming it had been checked at source. The published document's own "How to cite"
+block gives **five**: Meltem Sonmez Turan, Kerry A. McKay, Donghoon Chang, Jinkeon Kang and John
+Kelsey. **Kerry A. McKay, the second author, was missing.** This is the fourth citation-accuracy
+problem the audit has surfaced and the first that is ours rather than the review paper's.
+
+**Claims now confirmed from the primary source**, and the `\verifycite` marker on the CAESAR
+sentence removed: Ascon-128 and Ascon-128a were selected in 2019 as the *first choice* for the
+lightweight authenticated-encryption use case in the final CAESAR portfolio. The variant-mismatch
+warning is confirmed and sharpened --- Ascon-AEAD128 **is based on Ascon-128a**, and of the seven
+changes the standard enumerates, two break interoperability silently: reformatted initial values
+and a switch **from big-endian to little-endian**. The section now also states why a round-trip
+test does not catch this (it encrypts and decrypts with the same wrong constants), and cites the
+Cryptographic Algorithm Validation Program that SP 800-232 Sec. 6 itself names as the provenance
+of the known-answer vectors our gate asserts.
+
+**New material the standard made available (Section II-D, "What the standard requires of a design
+that uses many keys").** Two conformance requirements bear on an architecture that issues a key
+per client *and per direction*:
+
+- **Multi-key security is quantified, and the cost of federating is small.** The standard gives
+  $(128 - \log_2 u)$-bit security for $u$ independent keys. Our design has $u = 2K$, so the price
+  is $\log_2 2K$ bits: 125.4 bits at $K = 3$ and 121.4 bits at $K = 50$. **Scaling the federation
+  sixteenfold costs four bits.** The nonce-masking option would restore the full 128 bits; we
+  decline it, because it needs a second key per channel and forfeits context-commitment security,
+  and the equation shows there is nothing worth buying back.
+- **The key-lifetime limit is unreachable here.** The standard caps one key at $2^{54}$ bytes and
+  requires rekeying there. At our measured 135,942 bytes per client per direction per round that
+  arrives after $1.3 \times 10^{11}$ rounds --- about $6.6 \times 10^{9}$ runs of the twenty-round
+  schedule. The companion $2^{96}$ decryption-failure bound is likewise far above our zero
+  rejections; the aggregator counts them because a nonzero count is a signal, not because the
+  bound binds.
+
+The permutation description is now accurate to the specification as well: five 64-bit words, 12
+rounds at initialisation and finalisation against 8 while absorbing, rate 128 against capacity
+192, and forward-only use so no inverse permutation need exist.
+
 ### The abstract rewritten to define the project rather than list its results
 
 The previous abstract opened on federated learning as a technique and reached the agricultural
