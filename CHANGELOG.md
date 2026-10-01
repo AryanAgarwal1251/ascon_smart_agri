@@ -35,6 +35,28 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Breadboard wiring, wire by wire
+
+`docs/breadboard-wiring.md` (new). The user asked for every individual wire and where it goes,
+and for the platform question: the ESP32 simulator they were thinking of is **Wokwi**, which
+this project already ships a diagram for. There is deliberately no equivalent for the Pi, and
+the document says why -- an ESP32 is a microcontroller and can be simulated in a browser, while
+a Raspberry Pi is a computer running Linux, so the only options are Docker (what the twin
+already does, with the real codebase on a real network) or QEMU for a full OS image. Wokwi's
+"Raspberry Pi Pico" is a microcontroller and does not run Linux, so it is not a substitute.
+
+Contents: the eight wires as a table and as breadboard art, with only two of them signal wires
+(GPIO 15 for DHT22 data, GPIO 34 for the moisture probe); the alternative layout with a 10 kOhm
+pull-up for anyone who buys a bare AM2302 instead of the 3-pin module; the per-board firmware
+table for all six nodes; and two hardware facts that are easy to get wrong -- **GPIO 34 must
+stay on ADC1 because ADC2 stops working entirely while Wi-Fi is active**, and the DevKitC V4 is
+wide enough to leave only one usable hole per pin row on a single breadboard.
+
+It also records the known gap in simulating the sensor hop: Wokwi's free gateway reaches the
+public internet but not a LAN, so a Wokwi board cannot reach a broker on the laptop or Pi. The
+documented workaround is to meet on a public broker, which is a simulation convenience only --
+on the real farm the broker runs on the Pi and readings never leave the farm on that hop.
+
 ### The registry now matches the documented decision, and the architecture has a diagram
 
 **CICIoMT2024 is registered `not_for_training`.** The decision had been documented in
