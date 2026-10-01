@@ -189,3 +189,75 @@ comparison to an *external* paper's number must state that the protocols differ.
 7. Write the 5 algorithm floats
 8. §VIII limitations from `paper-claims-inventory.md` §B
 9. Citation audit pass — open every link, confirm every attributed claim
+
+---
+
+## 8. Carry-over checklist from the submitted review paper
+
+Added 2026-10-02, after the user supplied the submitted paper. **`main.tex` currently carries a
+minority of it.** This is the precise gap.
+
+### Done
+
+| Item | State |
+| --- | --- |
+| Author block (4 authors, VIT Chennai) | ✅ in `main.tex` |
+| References [1]–[25] | ✅ merged into `references.bib`, plus 12 added = **37 entries** |
+| Eq. (5) routing, (12) sequences, (18) class weights, (19) params, (20) Dirichlet, (21) FedAvg, (22) bytes, (23)–(24) Chan | ✅ 9 of the original equations |
+| Weight-channel AD layout, pigeonhole bound | ✅ 2 new equations |
+| Algorithm 1 (federated round) | ✅ rewritten as the *sealed* round |
+| Figures | ✅ 11, all generated from manifests |
+
+### Owed — equations (21 of the original 31 are missing)
+
+| Eq. | What | Belongs in |
+| --- | --- | --- |
+| (1) | window matrix $X_i$ | §IV formal statement |
+| (2) | binary projection $b(\hat y)$ | §IV |
+| (3), (4) | federated objective $F(\theta)$, $F_k(\theta)$ | §IV |
+| (6) | imbalance ratio IR $\approx 5751$ | §IV-A |
+| (7) | per-class cap $n^{\text{sub}}_c$ | §IV-A |
+| (8) | **leakage inflation** $\Delta \approx \delta\rho(1-\text{Acc})$ | §IV-A — this is the argument for dedup-before-split and must not be dropped |
+| (9) | the ordering dedup $\to$ split $\to$ fit $\to$ transform | §IV-A |
+| (10) | mutual information $I(X_j;Y)$ | §IV-B |
+| (11) | reciprocal rank fusion | §IV-B |
+| (13)–(16) | GRU gates | §IV-C |
+| (17) | softmax over LayerNorm | §IV-C |
+| (25), (26) | $\mathrm{Enc}$, and $\mathrm{Dec} \in \{p, \bot\}$ | §IV-E |
+| (27) | telemetry AD layout | §IV-E |
+| (28) | nonce birthday bound | §IV-E |
+| (29) | wire overhead $|p| + 32$ | §IV-E |
+| (30) | macro-F1 | §V |
+| (31) | FPR | §V |
+
+### Owed — tables (5 of the original 6 are missing)
+
+| Table | What | Why it matters |
+| --- | --- | --- |
+| I | Attack families and their **agricultural consequence** | The only place the paper connects a class label to a farm outcome |
+| II | Assumptions A1–A7 with status | Separates simulation artefacts from facts; A3 is the provenance boundary |
+| III | Selection parameters P1–P6 | Makes the review auditable |
+| V | **The 20 reviewed studies S1–S20** | The literature review *is* this table |
+| VI | Risks R1–R7 with controls | R3 dedup leakage, R5 Ascon variant, R6 nonce reuse |
+
+### Owed — prose
+
+| Section | Content in the submitted paper |
+| --- | --- |
+| Deployment environment | Constraints **C1–C4**: resource, backhaul, physical exposure, data ownership |
+| Threat model | **Three channels**, each with its own adversary |
+| Why the three sub-problems are coupled | detection at the edge / collaborative learning / classification protects nothing |
+| Objectives | **O1–O5**, each with a completion criterion |
+| Scope | in-scope and out-of-scope lists |
+| Review protocol | sources, search strings, screening funnel (Fig. 1) |
+| Threads A–D | the four literature threads, with limitations L1–L5 |
+| Patent landscape | four filings and what remains unclaimed |
+| Ethics | no human subjects, replayed records only, keys out of version control |
+| Communication argument | 0.77 MiB per round against ~276 MB to pool — factor ~18 |
+
+### Two things in the submitted paper that measurement has since contradicted
+
+- The communication comparison quotes **0.77 MiB per round**; we measured **815,136 B**
+  (0.78 MiB) at $K=3$, which confirms it — but the sweep shows it reaching **13.59 MB** at
+  $K=50$, so the "factor of 18 cheaper" claim is specific to small $K$ and must be stated that way.
+- "We claim no new algorithm; the contribution is the composition" is no longer accurate; see §1.
