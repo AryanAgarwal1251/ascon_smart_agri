@@ -35,6 +35,29 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Tables were overflowing the page; fixed, and the references audited for relevance
+
+The user compiled the draft and found two tables running past the right margin with their last
+column cut off. The cause was column specification: `l` columns size themselves to their content,
+so a long cell pushes the table past the margin with no warning -- LaTeX reports an overfull box
+and carries on. The reviewed-corpus table was `@{}llllp{6.3cm}@{}` in a full-width float and the
+assumptions table `@{}llp{3.1cm}@{}` in a single column; both had four or five centimetres of
+unbudgeted `l`-column width.
+
+**Every column in every table is now a fixed-width `p{}`**, with `\tabcolsep` reduced so the
+budget goes to content rather than padding, and a check added that sums each table's declared
+widths plus padding against its container (8.89 cm for a column, 18.19 cm full width). All seven
+tables now fit, the tightest at 18.14 of 18.19 cm.
+
+**Reference audit.** All 37 entries are cited, and the citation context of each was inspected
+rather than assumed. They fall into three tiers: fifteen are load-bearing, in that a claim or a
+design decision rests on them; eighteen are supporting context; and **two are weak enough to
+consider cutting** -- a multi-level federated Industry 4.0 patent filing and a distributed-IoT
+differential-privacy paper, each cited once inside a list and each doing little work. Those two
+are also, as it happens, the two still marked `**INCOMPLETE**` in the bibliography for want of
+authors or a resolvable venue. Dropping them would resolve both problems at once and leave 35
+references, still well clear of the target.
+
 ### Paper batches 2-5: the draft is complete
 
 `main.tex` goes 816 -> **1,368 lines** and the last `\todo` is gone. Every section is written
