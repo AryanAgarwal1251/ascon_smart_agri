@@ -35,6 +35,57 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Literature review: our cross-corpus failure is the published result, and the headline changes
+
+The user asked for proper research before any further decision. `docs/generalisation-literature-review.md`
+(new) is that research, and it overturns how the previous two entries framed the problem.
+
+**Zero-shot cross-dataset transfer fails for everyone.** The decisive study (arXiv 2205.04112)
+converts four NIDS corpora to **one standardised 43-feature NetFlow schema** -- built precisely to
+remove feature-schema mismatch as an excuse -- and still measures **56.28 % average performance
+decay**, sometimes near 0 % F1, with Extra Trees scoring 94.83 % in one direction and 4.90 %
+reversed. SHAP attributes within-dataset performance to shortcut features that do not transfer.
+Corroborated for IIoT (arXiv 2607.00553) and in an 89-dataset survey reporting F1 drops up to 76 %
+(arXiv 2502.06688).
+
+**So the feature-semantics bug is still a bug, but it is not why LODO fails, and fixing it will not
+rescue LODO.** The previous entry struck the LODO number as contaminated; it is now reinstated and
+reframed as a **replication of a known result, with citations** -- which is stronger than either
+hiding it or presenting it as novel.
+
+**What does work is what we already built.** The closest published work (Nature Scientific Reports,
+federated IDS over Edge-IIoTset + CIC-IoT2023 + TII-SSRC-23) reports in-domain 96.5/95.2/93.0 %
+macro-F1, **up to 30 pp loss** cross-dataset, and **~90 % macro-F1 across all corpora under
+combined multi-dataset federated training**, recommending exactly that. This is our mixed-farm
+design, and it independently reproduces our own 0.7742 -> 0.8211 result. Two of their secondary
+findings are now recorded as alternatives the paper should acknowledge: FedNova cuts communication
+15-25 % against FedAvg, and a Transformer beats an LSTM by 1-2 points.
+
+**A better generalisation test exists, and we cannot run it.** The paper this project already cites
+for the Edge-IIoTset placeholder artefact goes considerably further than we knew: it rebuilds the
+corpus from raw captures as **AgriEdge** (1,276,122 rows, five devices with full attribution, no
+column separating classes above 0.0288, MIT licence on GitHub and Zenodo) and runs
+**leave-one-device-out**, locating the generalisation boundary at the perception/actuation layer
+where random forest falls 0.9988 -> 0.5083. Leave-one-device-out is the right question for a
+federated farm deployment -- a new farm is unseen devices, not an unseen testbed -- and it needs
+device attribution rather than four corpora. **CICIoT2023's published CSVs cannot support it**, which
+was verified directly: 47 source files across 34 attack-type directories, no device identity in
+either the feature columns or `source_file`.
+
+**Agriculture-specific corpora that do exist:** **Farm-Flow** (real AG-IoT testbed, >1 M flows, 101
+features, 8 attacks including **MQTT Flood** -- an attack on the protocol our ESP32s actually speak,
+absent from both CIC corpora, Zenodo) and **AgriEdge**. Neither shares CICIoT2023's 39-column DPKT
+schema, and no NetFlow conversion of CICIoT2023 exists -- but per the first finding, schema
+standardisation does not buy generalisation anyway, so compatibility matters only for pooling into
+one model.
+
+Recommendation recorded: do not chase zero-shot LODO; fix the semantics bug on its own merits (the
+7.33x window-size difference between the two CIC extractors is itself reportable, and per-packet
+normalisation recovers four of the eight broken columns); make combined multi-dataset FL the
+headline; and shift the generalisation claim to leave-one-device-out only if Farm-Flow or AgriEdge
+is added. Do not add TII-SSRC-23 or the NF-v2 family -- not agricultural, and they would not deliver
+zero-shot transfer either.
+
 ### Three of the sixteen features do not mean the same thing in the two corpora
 
 The user asked how to make the model generalise across IoT testbeds. Diagnosing before proposing

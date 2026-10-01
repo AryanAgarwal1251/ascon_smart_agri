@@ -108,15 +108,19 @@ system and its measured results.
 
 | Result | Figure | Source |
 | --- | --- | --- |
-| ~~Leave-one-dataset-out fails~~ | ~~0.0853 / 0.0763~~ | **STRUCK 2026-10-01 — contaminated.** Three of the 16 features (`Variance`, `Header_Length`, `IAT`) do not denote the same quantity in the two corpora, so these numbers measure a broken alias mapping, not generalisation. See `docs/generalisation-plan.md`. |
+| **Zero-shot cross-corpus transfer collapses — reported as a REPLICATION, with citations** | our 0.0853 / 0.0763, after the semantics fix of `generalisation-plan.md` §3 | Consistent with **56.28 % average cross-dataset decay** on purpose-built standardised-feature corpora ([arXiv 2205.04112](https://arxiv.org/abs/2205.04112)) and **up to 30 pp macro-F1 loss** for federated IoT IDS ([Nature Sci Rep](https://www.nature.com/articles/s41598-025-32567-w)). Frame as replication, never as a novel finding or an unexplained failure. |
+| The two CIC extractors use different window sizes | **7.33x** (`Number` 69.66 vs 9.51); per-packet normalisation recovers 4 of 8 broken columns | our measurement — a reportable observation about combining CIC corpora |
 | A G1 run that passed vacuously | 1 malicious reading; a 10 %-leak system would pass 90 % of the time | `docs/g1-path-disjointness.md` |
 | The analytical K model mispredicted the mechanism | predicted a knee from class starvation; measured gradual dilution with 0 empty clients | `k_threshold_analysis.json` vs sweep |
 
-**A9 is not a weakness section — it is a contribution**, with one entry withdrawn. The vacuous-G1
+**A9 is not a weakness section — it is a contribution.** The vacuous-G1
 finding is a reusable methodological point about verifying safety properties, and the
-analytical-vs-measured K discrepancy is a real result. The LODO entry is struck because the
-measurement was contaminated; a corrected LODO number is pending the work in
-`docs/generalisation-plan.md` §3, and only that number may be called a generalisation result.
+analytical-vs-measured K discrepancy is a real result. The cross-corpus
+entry is now framed as a **replication of a known result** rather than a novel finding: the
+literature review in `docs/generalisation-literature-review.md` establishes that zero-shot
+cross-dataset transfer fails for everyone, **including on corpora purpose-built with a single
+standardised 43-feature NetFlow schema**, so the feature-semantics fix is owed on its own merits
+but will not change the conclusion.
 
 ### A10. Pending — planned, with the measurement that will fill it in
 
@@ -127,6 +131,30 @@ measurement was contaminated; a corrected LODO number is pending the work in
 | Corrected leave-one-dataset-out | re-run after the alias verification of `generalisation-plan.md` §3 |
 
 ---
+
+## A11. The headline, and what the literature supports
+
+**The headline generalisation claim is combined multi-dataset federated training, not zero-shot
+transfer.** `docs/generalisation-literature-review.md` establishes why:
+
+| Claim | Our figure | Published anchor |
+| --- | --- | --- |
+| Mixing every corpus into every farm beats allocating a corpus per farm | 0.7742 -> **0.8211** (CICIoT2023), 0.8034 -> **0.8714** (CICIoMT2024) | Nature Sci Rep reaches **~90 % macro-F1 across three corpora** with combined-dataset FL and recommends exactly this |
+| Per-client gain is the deployment argument | +0.1338 / +0.0789 / +0.0516, every seed | AgriEdge: non-IID federated partitioning costs **<= 0.0037 macro-F1** |
+| Zero-shot cross-corpus fails | 0.0853 / 0.0763 | 56.28 % decay / up to 30 pp loss (above) |
+
+**Two alternatives we should acknowledge rather than appear unaware of**, both from the Nature
+study: **FedNova** cuts communication 15-25 % against FedAvg and converges in fewer rounds, and a
+**Transformer** backbone beats an LSTM by 1-2 points macro-F1. Our FedAvg + GRU choices are
+defensible -- FedAvg is the Eq. (21) baseline and a GRU is the cheapest recurrent option for a
+Raspberry Pi -- but the paper should say so explicitly, with the citation.
+
+**The generalisation test we cannot run, and why:** leave-one-**device**-out is the right question
+for a federated farm deployment, and AgriEdge gives a reference point (random forest
+**0.9988 -> 0.5083** balanced accuracy across the perception/actuation boundary). It needs device
+attribution, which CICIoT2023's published CSVs do not carry -- verified: 47 source files across 34
+attack-type directories, no device column. State this as a limitation with the named remedy
+(Farm-Flow or AgriEdge), not as an oversight.
 
 ## B. Claims we must NOT make
 
