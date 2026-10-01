@@ -84,9 +84,12 @@
                Mavromatis, Ioannis and Carnelli, Pietro and Khan, Aftab},
   title     = {Federated Deep Learning for Intrusion Detection in {IoT} Networks},
   booktitle = {Proc. IEEE Global Communications Conference (GLOBECOM)},
-  year      = {2023}
+  address   = {Kuala Lumpur, Malaysia},
+  pages     = {237--242},
+  year      = {2023},
+  doi       = {10.1109/GLOBECOM54140.2023.10437860}
 }
-% VERIFY: full author list against the published version.
+% CHECKED: six authors, GLOBECOM 2023, Kuala Lumpur, pp. 237-242, DOI.
 
 @article{ruzafa2021ppfl,
   author  = {Ruzafa-Alc{\'a}zar, Pedro and Fern{\'a}ndez-Saura, Pablo and
@@ -99,19 +102,22 @@
   volume  = {19},
   number  = {2},
   pages   = {1145--1154},
-  year    = {2023}
+  year    = {2021}
 }
-% VERIFY: the review paper gives 2021; IEEE TII 19(2) is 2023. Resolve before submission.
+% CHECKED: seven authors, IEEE TII 19(2):1145-1154. The year is 2021, as the review paper had
+% it; an earlier note here wrongly suspected 2023.
 
 @article{karunamurthy2025optimal,
-  author  = {Karunamurthy, A. and Vijayan, K. and Kshirsagar, Pravin R.},
+  author  = {Karunamurthy, A. and Vijayan, K. and Kshirsagar, Pravin R. and Tan, Kuan Tak},
   title   = {An Optimal Federated Learning-Based Intrusion Detection for {IoT} Environment},
   journal = {Scientific Reports},
   volume  = {15},
   pages   = {8696},
-  year    = {2025}
+  year    = {2025},
+  doi     = {10.1038/s41598-025-93501-8}
 }
-% VERIFY: full author list ("et al." in the source).
+% CHECKED: four authors, Scientific Reports 15 art. 8696, published 13 March 2025, DOI.
+% The review paper's "et al." hid a fourth author.
 
 @article{abdelaziz2025tabtransformer,
   author  = {Abd Elaziz, Mohamed and Fares, Esraa and Dahou, Abdelghani and Shrahili, Mansour},
@@ -163,15 +169,20 @@
 % VERIFY: **INCOMPLETE** -- no authors and no venue beyond "IEEE".
 
 @article{bai2025ietinfsec,
-  author  = {Bai, Yu},
+  author  = {Bai, Ye and Jiang, Weiwei and Mu, Jianbin and Liu, Shang and Gu, Weixi and
+             Wang, Shuke},
   title   = {Enhancing {IoT} Security via Federated Learning: A Comprehensive Approach to
              Intrusion Detection},
   journal = {IET Information Security},
-  year    = {2025}
+  year    = {2025},
+  doi     = {10.1049/ise2/8432654}
 }
 % CLAIM: the dissenting result -- benchmarking nine models, a tree ensemble beat GRU/LSTM on
 % tabular flow features; this is why the evaluation includes a random-forest baseline.
-% VERIFY: full author list ("Bai et al." in the source) and the first author's given name.
+% CHECKED: six authors, IET Information Security 2025, DOI. The first author is Ye Bai, not
+% "Yu" as an earlier note here guessed. Their experiments use UNSW-NB15 and report the random
+% forest achieving the highest classification accuracy -- precisely the result our own
+% baseline table puts to the test.
 
 % ---- Thread C: lightweight authenticated encryption -----------------
 
@@ -359,10 +370,13 @@
 % cross-corpus collapse a replication rather than a defect.
 
 @article{dataset_centric_fl_ids,
+  author  = {Bilal, Muhammad Ahmad and Islam, Ihtesham Ul and Idrees, Sarmad and
+             Qasim, Muhammad and Khan, Muhammad Junaid and Khan, Jaleed},
   title   = {Dataset-Centric Evaluation of Federated Intrusion Detection Models in {IoT}
              Networks},
   journal = {Scientific Reports},
-  year    = {2025},
+  year    = {2026},
+  doi     = {10.1038/s41598-025-32567-w},
   url     = {https://www.nature.com/articles/s41598-025-32567-w}
 }
 % CHECKED at source: federated IDS over Edge-IIoTset, CIC-IoT2023 and TII-SSRC-23; in-domain
@@ -371,7 +385,9 @@
 % communication 15-25% against FedAvg; Transformer beats LSTM by 1-2 points.
 % WHY IT MATTERS: the closest published work, and it recommends the mixed-farm design we
 % arrived at independently.
-% VERIFY: author list, volume, article number.
+% CHECKED: six authors, Scientific Reports, DOI 10.1038/s41598-025-32567-w, published
+% 16 January 2026.
+% VERIFY: volume and article number once the issue is assigned.
 
 @misc{galal2026provenance,
   author       = {Galal, Mostafa M.},
@@ -414,17 +430,22 @@
 % CLAIM: the medical IoT corpus characterised, trained on, and rejected here.
 % VERIFY: article number.
 
-@misc{farmflow2024,
-  title        = {Farm-Flow Dataset: Intrusion Detection in Smart Agriculture Based on Network
-                  Flows},
-  journal      = {Computers and Electrical Engineering},
-  year         = {2024},
-  doi          = {10.5281/zenodo.10964647}
+@article{ferreira2025farmflow,
+  author  = {Ferreira, Rafael and Bispo, Ivo and Rabad{\~a}o, Carlos and Santos, Leonel and
+             Costa, Rog{\'e}rio Lu{\'i}s de C.},
+  title   = {Farm-Flow Dataset: Intrusion Detection in Smart Agriculture Based on Network Flows},
+  journal = {Computers and Electrical Engineering},
+  volume  = {121},
+  pages   = {109892},
+  year    = {2025},
+  doi     = {10.1016/j.compeleceng.2024.109892}
 }
 % CLAIM: a real agricultural IoT testbed; over one million flow instances, 101 features, eight
 % attack types including MQTT Flood; publicly available; reported baselines above 90% F1. NOT
 % used here -- cited as the corpus that would enable a leave-one-device-out claim.
-% VERIFY: authors, volume, article number.
+% CHECKED: five authors, Computers and Electrical Engineering vol. 121 art. 109892, 2025,
+% DOI; dataset on Zenodo at 10.5281/zenodo.10964647.
+% VERIFY: the 101-feature count came from a secondary page, not from the article text.
 
 @misc{tiissrc23,
   title        = {{TII-SSRC-23} Dataset: Typological Exploration of Diverse Traffic Patterns

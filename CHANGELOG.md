@@ -35,6 +35,39 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### A hardware deployment section, and the citation audit begins
+
+**`main.tex` gains Section VII-C, "Hardware deployment"** (1,430 lines, 12 figures, 8 tables).
+It states that the containerised topology maps one-to-one onto physical hardware and that moving
+between them changes where processes run and nothing else; carries the bill of materials as a
+table; and embeds the new pin-and-wiring figure. Two constraints are called out because neither
+announces itself at run time: the moisture probe must be capacitive, since resistive probes
+corrode within weeks in wet soil, and it must be read on an ADC1 pin, because the ESP32's second
+ADC is disabled while the Wi-Fi radio is active and a permanently associated node would read
+noise and report it as a moisture value.
+
+The section also names **the three quantities only hardware can supply** -- per-round wall-clock
+time on a gateway CPU, energy per round and per inference, and the behaviour of the sensor hop
+over real Wi-Fi -- so the paper says what it cannot measure rather than leaving the reader to
+assume.
+
+**Citation audit: 17 of 37 entries now checked at source, 19 outstanding, 2 incomplete.** Six
+were resolved this round, and two of them corrected errors:
+
+- **Ruzafa-Alcazar et al.** --- an earlier note in this bibliography suspected the review paper's
+  year was wrong and that IEEE TII 19(2) was 2023. It is **2021**, exactly as the review paper had
+  it. The note was wrong, not the citation.
+- **Bai et al.** --- the first author is **Ye** Bai, not "Yu" as a previous guess here recorded,
+  and there are six authors rather than one. Their experiments use UNSW-NB15 and report the random
+  forest achieving the highest classification accuracy, which is precisely the comparison our own
+  baseline table puts to the test, so the entry now records that.
+- **Karunamurthy et al.** --- the review paper's "et al." concealed a fourth author.
+- **Belarbi et al.** --- GLOBECOM 2023, Kuala Lumpur, pp. 237--242, with DOI.
+- **Bilal et al.** --- the closest published work now has its six authors and DOI; it is dated
+  January 2026, not 2025.
+- **Ferreira et al.** --- Farm-Flow is *Computers and Electrical Engineering* vol. 121 art.
+  109892 (2025); the key was renamed and the citation in `main.tex` updated with it.
+
 ### A pin and wiring figure for the hardware node
 
 `scripts/make_figures.py` gains `fig_pinout`, drawn rather than photographed so the pin

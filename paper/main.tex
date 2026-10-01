@@ -370,7 +370,7 @@ readings in transit changes what the farm does.
 Two agricultural corpora deserve mention even though neither is used here.
 Edge-IIoTset~\cite{ferrag2022edgeiiotset} is the reference IIoT benchmark and includes
 agricultural sensing over MQTT; Section~\ref{sec:semantics} reports what we measured on it and why
-it was excluded. Farm-Flow~\cite{farmflow2024} is a real agricultural IoT testbed of over a
+it was excluded. Farm-Flow~\cite{ferreira2025farmflow} is a real agricultural IoT testbed of over a
 million network flows whose attack set includes MQTT Flood, an attack on the protocol our sensor
 nodes actually speak and one that neither CIC corpus contains.
 
@@ -1252,6 +1252,68 @@ Malicious $\rightarrow$ local alert & 1{,}160 & 3{,}079 & \textbf{4{,}239}\\
 The receiver's own independent count was 8{,}924 accepted and zero rejected, matching the sum of
 what the two gateways sent, so the disjointness result is not a self-report.
 
+\subsection{Hardware deployment}\label{sec:hardware}
+The software-in-the-loop topology maps one-to-one onto physical hardware, which is why the
+containers were built for the target CPU architecture rather than the host's. Each container
+stands in for exactly one physical component, and moving between them changes where processes
+run and nothing else: no code, no protocol, and no configuration structure.
+
+\begin{table}[t]
+\caption{Hardware for the deployment. $K = 3$ requires only two gateways, because the third
+federated client runs on the laptop that already hosts the aggregator.}
+\label{tab:bom}
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{3.6cm}p{0.5cm}p{4.2cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Qty} & \textbf{Role}\\
+\midrule
+Raspberry Pi 5, 8\,GB & 2 & Farm gateway: local detector, MQTT broker, runtime pipeline\\
+ESP32 DevKitC V4 & 6 & Sensor node, three per farm\\
+DHT22 module & 6 & Temperature and humidity, GPIO 15\\
+Capacitive soil-moisture sensor & 6 & Analogue moisture, GPIO 34\\
+Laptop & 1 & Aggregator, TLS receiver, third federated client\\
+Wi-Fi access point & 1 & One LAN for all nodes\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{pinout.pdf}
+\caption{Sensor-node wiring, built six times. Only two of the six wires carry signal. The
+moisture probe must sit on an ADC1 pin: ADC2 is unusable while Wi-Fi is active, and a node that
+is permanently associated would otherwise read noise without failing.}
+\label{fig:pinout}
+\end{figure}
+
+\textbf{Node design.} Each sensor node is an ESP32 with a temperature/humidity sensor and a
+capacitive soil-moisture probe, wired as in Fig.~\ref{fig:pinout}. Two constraints in that figure
+are worth stating because neither announces itself at run time. The moisture probe must be
+capacitive rather than resistive, since resistive probes corrode within weeks in wet soil. And it
+must be read on an ADC1 pin: the ESP32's second ADC is disabled while the Wi-Fi radio is active,
+so a node that is permanently associated --- which every node here is --- would read noise from an
+ADC2 pin and report it as a moisture value.
+
+\textbf{Gateway placement.} Each gateway runs its own MQTT broker, so sensor readings never leave
+the farm on the device-to-gateway hop, and the farm boundary of
+Section~\ref{sec:threat} is a physical one rather than a convention. The detector, the verdict
+router and the alert sink all run on the same gateway; only the sealed parameter exchange and the
+TLS benign path leave it.
+
+\textbf{What changes, and what does not.} Nothing in the software changes. Per node the
+deployment requires Python~3.12 or newer --- which rules out distributions still shipping 3.11 ---
+the channel key and cloud certificate copied to each gateway, a broker per farm, and the sensor
+firmware flashed with that farm's gateway address. Manifests record the platform string, so a
+figure produced on hardware can never be confused with one produced in a container.
+
+\textbf{What hardware will measure that this paper cannot.} Three quantities are unavailable
+here and are the reason the hardware stage exists: per-round wall-clock time on a gateway-class
+CPU, from which the feasible round schedule follows; energy per round and per inference, which
+determines whether a solar-powered deployment can sustain the training plane at all; and the
+behaviour of the sensor hop over real Wi-Fi rather than a container network, including loss and
+reassociation. Everything reported in this paper is architectural, and
+Section~\ref{sec:limitations} states that boundary rather than inviting the reader to assume it
+away.
+
 \subsection{A safety property can pass vacuously}\label{sec:vacuous}
 An earlier run of this same configuration reported the disjointness property satisfied, on
 \emph{one} malicious reading: the sensor simulators began publishing before the gateways had
@@ -1315,7 +1377,7 @@ not the reason the value was chosen.
 \textbf{Leave-one-device-out could not be run.} It is the generalisation question a federated farm
 actually faces, and Galal~\cite{galal2026provenance} shows it is answerable and discriminating.
 Our corpus's published records carry no device attribution --- they are organised by attack type
---- so the experiment is unavailable here. A corpus such as Farm-Flow~\cite{farmflow2024} would
+--- so the experiment is unavailable here. A corpus such as Farm-Flow~\cite{ferreira2025farmflow} would
 enable it.
 
 \textbf{Threats the federation does not address.} Gradient inversion and model poisoning are both
