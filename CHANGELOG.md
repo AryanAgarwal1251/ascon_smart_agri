@@ -35,6 +35,34 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Paper batch 1: the literature review, written
+
+`main.tex` grows from 592 to 816 lines. Section II now carries the review protocol with its
+selection-parameter table, the full twenty-study corpus as Table~V, five literature threads, and
+the patent landscape. **35 of the 37 bibliography entries are now cited**; the two that are not
+belong to the dataset-selection results still to be written.
+
+Threads A--D follow the submitted review paper, with its limitations restated as the named gaps
+rather than as `L1`--`L5`. **Thread E is new** and exists because our own results demanded it: it
+sets out why cross-corpus transfer fails for everyone, that four corpora sharing a *single*
+standardised 43-feature schema still lose 56.28 % on average, that the failure is strongly
+asymmetric (94.83 % one direction, 4.90 % reversed), and that the published remedy is combined
+multi-corpus federated training recovering about 90 % --- the design this work reached
+independently. It also records why we keep weighted FedAvg and a GRU despite FedNova's 15--25 %
+communication saving and a Transformer's 1--2 point gain, and introduces leave-one-device-out as
+the generalisation question a federated farm actually faces.
+
+**Two citation corrections are now in the prose, not just the `.bib`.** Thread C states plainly
+that Oztuerk et al. build a *chaos-based Ascon variant* and that their result is evidence
+Ascon-class cryptography runs on gateway hardware, **not** evidence about standardised
+Ascon-AEAD128 over MQTT --- the claim the review paper made. Table~V's S19 row says the same in
+its relevance column. El-Hajj and Gebremariam are cited as the published journal article with
+their actual memory figures (about 1 KB additional RAM and Flash for Ascon against roughly 8 KB
+RAM and 5.6 KB Flash for AES-GCM) rather than as an unnamed preprint.
+
+Checks after writing: no dangling cross-references, all environments balanced, braces matched,
+every `\cite` key resolving.
+
 ### The submitted review paper supplies the authors and 25 references; verification finds two wrong citations
 
 The user provided the submitted review-and-design paper. Its author block is now in `main.tex`

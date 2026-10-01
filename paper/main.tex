@@ -173,19 +173,243 @@ traverses the untrusted field network and is the channel this work introduces, w
 gateway-to-cloud hop is an ordinary authenticated transport problem already solved by TLS.
 \todo{state the threat model formally in Section~\ref{sec:threat}}
 
-\subsection{Sequence models for intrusion detection}
-\todo{Thread A. Rebuild from verified citations; the design draft's reference list is unusable.}
+\subsection{Review protocol}\label{sec:protocol}
+A reading list assembled by judgement cannot be audited, so every candidate was scored against
+six parameters, each on $\{0,1,2\}$ for a maximum of twelve. Sources were IEEE Xplore, the ACM
+Digital Library, SpringerLink, MDPI, ScienceDirect, arXiv, the NIST Computer Security Resource
+Center and Google Patents. Search strings combined four term groups: (\texttt{"federated
+learning"} OR \texttt{FedAvg}), (\texttt{"intrusion detection"} OR \texttt{IDS} OR
+\texttt{"anomaly detection"}), (\texttt{IoT} OR \texttt{IIoT} OR \texttt{"smart agriculture"} OR
+\texttt{"precision agriculture"}), and (\texttt{Ascon} OR \texttt{"lightweight cryptography"} OR
+\texttt{AEAD} OR \texttt{MQTT}).
 
-\subsection{Federated learning for IoT intrusion detection}
-\todo{Thread B. Include \cite{dataset_centric_fl_ids}, which is the closest published work: a
-federated IDS evaluated across three IoT corpora, reporting up to 30 percentage points of
-macro-F1 lost cross-corpus and approximately 90\% recovered under combined multi-corpus
-federated training. Note their findings that FedNova reduces communication 15--25\% against
-FedAvg and that a Transformer backbone gains 1--2 points over an LSTM, and say why this work
-uses weighted FedAvg and a GRU regardless.}
+\begin{table}[t]
+\caption{Selection parameters. Each scored 0--2; admission at $s \ge 8$ of 12, with a zero on
+P1 or P2 disqualifying regardless of total.}
+\label{tab:params}
+\centering\footnotesize
+\begin{tabular}{@{}p{0.9cm}p{6.4cm}@{}}
+\toprule
+\textbf{} & \textbf{Scored on}\\
+\midrule
+P1 & Domain proximity: IoT, IIoT or agricultural network security rather than enterprise or vehicular\\
+P2 & Method overlap: federated optimisation, recurrent sequence models, or lightweight AEAD\\
+P3 & Benchmark comparability: CICIoT2023 or a comparable public IoT flow dataset\\
+P4 & Evidential strength: peer-reviewed venue, stated protocol, metrics beyond accuracy\\
+P5 & Recency: 2021 onward, with foundational exceptions where the method is still the reference\\
+P6 & Gap-analytic value: states or exhibits a limitation this project can act on\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsection{Lightweight authenticated encryption in deployment}
-\todo{Thread C.}
+The threshold was set at eight so that a study had to be strong on \emph{both} domain proximity
+and method overlap rather than compensating for weakness in one with strength in the other.
+Applying the protocol yielded twenty studies, S1--S20, summarised in Table~\ref{tab:corpus}. Two
+admissions need explaining. S2 and S3 fall outside the recency window and were admitted under the
+foundational exception, federated averaging and its proximal variant still being the algorithms
+against which later methods are measured. S13 was admitted \emph{because} it cuts against our own
+architectural choice: it reports a tree ensemble outperforming the recurrent models it tested,
+which is why Section~\ref{sec:fedresults} carries a random-forest baseline.
+
+\begin{table*}[t]
+\caption{Reviewed corpus (S1--S20), admitted under the protocol of Section~\ref{sec:protocol}.
+FL: federated learning. AEAD: authenticated encryption with associated data. ``Relevance''
+states what the study contributes to the present design or to the gap analysis.}
+\label{tab:corpus}
+\centering\footnotesize
+\begin{tabular}{@{}llllp{6.3cm}@{}}
+\toprule
+ & \textbf{Focus} & \textbf{Method} & \textbf{Data / platform} & \textbf{Relevance to this work}\\
+\midrule
+S1~\cite{neto2023ciciot} & IoT attack benchmark & Testbed capture, 105 devices & CICIoT2023 & Supplies the corpus; establishes the imbalance and the packet-window record semantics\\
+S2~\cite{mcmahan2017fedavg} & Decentralised training & FedAvg & Image benchmarks & Aggregation rule adopted, Eq.~\eqref{eq:fedavg}\\
+S3~\cite{li2020fedprox} & Heterogeneous federation & FedProx & Mixed & Explains client drift under non-IID data; documented fallback if FedAvg diverges\\
+S4~\cite{nguyen2021flsurvey} & FL for IoT & Survey & --- & Frames the bandwidth and governance motivation for federation\\
+S5~\cite{hernandezramos2025fedidsreview} & Federated IDS & Systematic review & --- & Umbrella reference; source of the Thread~B limitations\\
+S6~\cite{belarbi2023federated} & IoT IDS & Federated deep learning & IoT flow data & Confirms feasibility of federated deep detectors at the edge\\
+S7~\cite{ruzafa2021ppfl} & Industrial IoT IDS & Privacy-preserving FL & Industrial data & Quantifies the privacy--utility trade-off we place out of scope\\
+S8~\cite{karunamurthy2025optimal} & IoT IDS & Optimised FL & IoT benchmarks & Reports GRU clients sharing parameters to a central aggregator\\
+S9~\cite{abdelaziz2025tabtransformer} & IoT IDS & FL + TabTransformer & N-BaIoT, UNSW-NB15, CICIoT2023 & Alternative architecture on the same benchmark\\
+S10~\cite{okey2024cnngru} & IoT IDS & FL, CNN-GRU / LSTM-GRU, wFedAvg, wFedProx & CICIoT2023, FLNET2023 & \textbf{Closest prior work}; validates GRU + weighted FedAvg on our corpus at 98.25\% accuracy; stops at the label\\
+S11~\cite{khraisat2025discoveriot} & IoT IDS & Privacy-preserving FL & IoT data & Evidence on privacy-preserving aggregation strategy\\
+S12~\cite{distributediot2025dp} & Distributed IoT security & Adaptive weighting + per-device DP & Tabular IoT, Edge-IIoTset & Shows differential-privacy cost is modest; supports our future-work path\\
+S13~\cite{bai2025ietinfsec} & IoT IDS & Nine ML/DL models; three aggregation rules & UNSW-NB15 & \textbf{Dissenting evidence}: a tree ensemble beat GRU/LSTM; motivates our random-forest baseline\\
+S14~\cite{dobraunig2021ascon} & Lightweight AEAD & Ascon v1.2 design & --- & Primitive specification and design rationale\\
+S15~\cite{khan2024asconasic} & Ascon hardware & ASIC realisation & Constrained hardware & Evidence of suitability for field-node cost budgets\\
+S16~\cite{khan2022asconperf} & Ascon performance & Benchmarking & AI-enabled IoT devices & Latency and resource evidence on IoT-class hardware\\
+S17~\cite{suleiman2026lweiot} & Lightweight encryption over IoT protocols & Ascon, PRESENT, SIMON, SPECK, ChaCha20 & MQTT and CoAP, ESP32 & Directly comparable protocol-level measurement methodology\\
+S18~\cite{elhajj2024asconindustry40} & Industry 4.0 security & Ascon AEAD vs.\ AES-GCM & MQTT, digital twin & Memory and execution-time figures used in our constrained-device argument\\
+S19~\cite{ozturk2025chaosascon} & IoRT data security & \emph{Chaos-based} Ascon variant & MQTT, Raspberry Pi 3B & Evidence Ascon-class cryptography runs on gateway hardware; \emph{not} evidence about the standardised variant\\
+S20~\cite{fathy2023irrigation} & Precision agriculture & Lightweight cipher for irrigation & Agricultural IoT & Establishes the agricultural threat scenario for the telemetry channel; no detection layer\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Thread A: benchmark data and sequence-based detection}
+CICIoT2023~\cite{neto2023ciciot} is the corpus this work trains on. It was built on a testbed of
+105 real IoT devices and contains roughly 46.7~million labelled records with 46--47 flow-derived
+features, spanning one benign class and 33 attack classes grouped into families. Two of its
+properties drive the design.
+
+Each record summarises a fixed-size \emph{packet window} rather than a single packet. The data is
+therefore already aggregated once over time, and a recurrent model reading a sequence of records
+performs a second-order temporal analysis: it observes how flow statistics evolve. That is the
+justification for recurrence here, and it rests on the record semantics rather than on the
+general observation that network traffic is sequential.
+
+The class distribution is severely imbalanced, with a reported imbalance ratio near $5751$,
+so a classifier predicting the majority class alone attains high accuracy while detecting nothing
+of interest. Any evaluation on this corpus reporting accuracy alone is uninformative, which is
+why macro-F1 and false-positive rate are treated as primary throughout.
+
+Recurrent and convolutional-recurrent architectures dominate the applied
+literature~\cite{okey2024cnngru,bai2025ietinfsec}. S13~\cite{bai2025ietinfsec} is the useful
+dissent: benchmarking nine methods, it found a random forest strongest on tabular flow features,
+then compared simple, weighted and difference-based aggregation rules federated over that model.
+
+\textbf{Limitation across Thread A.} Papers building sequences from flow records frequently
+shuffle rows before windowing, or do not state the ordering procedure at all. Where the source
+data carries no timestamp or flow identifier, a sliding window is a \emph{positional} construct
+and not a temporal one. We found this distinction rarely acknowledged; it is the
+sequence-construction gap of Section~\ref{sec:gaps}.
+
+\subsection{Thread B: federated learning for IoT intrusion detection}
+Federated averaging~\cite{mcmahan2017fedavg} is the reference algorithm: clients perform local
+stochastic gradient descent and the server averages parameters weighted by local sample count.
+FedProx~\cite{li2020fedprox} adds a proximal term constraining client drift under statistical
+heterogeneity, and is the standard citation for why non-identically distributed client data
+degrades plain FedAvg. Broader context comes from a survey of federated learning for
+IoT~\cite{nguyen2021flsurvey} and a systematic review of federated intrusion
+detection~\cite{hernandezramos2025fedidsreview}.
+
+Applied results are consistent in direction. Federated deep detectors reach accuracy close to
+their centralised counterparts on IoT
+benchmarks~\cite{belarbi2023federated,karunamurthy2025optimal}, including on CICIoT2023 itself.
+Work on the industrial IoT quantifies the privacy--utility trade-off when differential privacy is
+added~\cite{ruzafa2021ppfl}, and further studies report that tightening the privacy budget costs
+only low single-digit percentage points of accuracy~\cite{distributediot2025dp}. Alternative
+architectures~\cite{abdelaziz2025tabtransformer} and privacy-preserving
+strategies~\cite{khraisat2025discoveriot} fill out the space.
+
+S10~\cite{okey2024cnngru} is the closest prior work to our detection layer. It builds a federated
+ensemble over CNN, GRU and LSTM with two aggregation functions, weighted FedAvg and weighted
+FedProx, evaluated on CICIoT2023 and FLNET2023; CNN-GRU reaches 98.25\% accuracy on CICIoT2023 and
+LSTM-GRU 93.36\% and 95.66\% on the two corpora respectively. It establishes that GRU plus
+weighted federated averaging on CICIoT2023 is workable, which de-risks our detection design. It
+does not consider what happens to traffic after classification, does not model a runtime IoT
+stream, and is not set in an agricultural context.
+
+\textbf{Limitations across Thread B.} Four recur, and they become four of the gaps in
+Section~\ref{sec:gaps}. Privacy is asserted rather than bounded, many papers treating ``raw data
+does not move'' as equivalent to privacy, which parameter-inversion attacks show it is not.
+Client partitioning is under-specified, and a uniform random split is often described as
+heterogeneous when it is identically distributed by construction. The local-only baseline is
+usually absent, although it is the comparison that matters operationally, since local-only is what
+an operator gets by declining to federate. And the pipeline terminates at a label.
+
+\subsection{Thread C: lightweight authenticated encryption in deployment}
+Performance evidence for Ascon on constrained platforms is substantial. An ASIC
+realisation~\cite{khan2024asconasic} and benchmarking on AI-enabled IoT
+devices~\cite{khan2022asconperf} establish suitability for field-node cost budgets. There are
+also direct evaluations over IoT application protocols. LWE-IoT~\cite{suleiman2026lweiot} compares
+Ascon, PRESENT, SIMON, SPECK and ChaCha20 over both MQTT and CoAP on ESP32 nodes across payload
+sizes, which is the protocol-level measurement methodology closest to our own.
+
+El-Hajj and Gebremariam~\cite{elhajj2024asconindustry40} validate Ascon against AES-GCM over MQTT
+in an Industry~4.0 digital-twin setting, reporting lower execution time for Ascon and a memory
+footprint roughly 1~KB larger in RAM and Flash, against approximately 8~KB additional RAM and
+5.6~KB additional Flash for AES-GCM at equivalent security. Those figures bear directly on the
+constrained-device argument of Section~\ref{sec:threat}.
+
+A note on scope, because it is easy to over-read this literature. Öztürk et
+al.~\cite{ozturk2025chaosascon} integrate keys and nonces from a Zaslavsky chaotic map to build a
+\emph{chaos-based Ascon variant}, claiming higher security than standard Ascon, and test it on
+Raspberry~Pi~3B hardware with ROS~2 robots. That is useful evidence that Ascon-class
+cryptography runs on gateway hardware of the kind this work targets. It is \emph{not} evidence
+about standardised Ascon-AEAD128 over MQTT, and we do not cite it as such.
+
+\textbf{Limitation across Thread C.} These evaluations benchmark the cipher on a channel that
+carries no intelligence about whether the traffic should be forwarded at all. Encryption and
+detection are treated as independent layers --- the verdict-routing gap.
+
+\subsection{Thread D: agricultural and application-layer security}
+Work specific to agriculture confirms both the relevance of lightweight cryptography and the
+shape of the deployment. Fathy and Ali~\cite{fathy2023irrigation} secure an IoT irrigation system
+for precision agriculture, protecting published sensor data and the irrigation decisions returned
+to actuators, and reporting improvements in power consumption, execution time and memory over
+AES. It uses a non-standardised cipher and contains no detection layer, but it establishes the
+threat scenario this work adopts for the gateway-to-cloud channel: an adversary who alters sensor
+readings in transit changes what the farm does.
+
+Two agricultural corpora deserve mention even though neither is used here.
+Edge-IIoTset~\cite{ferrag2022edgeiiotset} is the reference IIoT benchmark and includes
+agricultural sensing over MQTT; Section~\ref{sec:semantics} reports what we measured on it and why
+it was excluded. Farm-Flow~\cite{farmflow2024} is a real agricultural IoT testbed of over a
+million network flows whose attack set includes MQTT Flood, an attack on the protocol our sensor
+nodes actually speak and one that neither CIC corpus contains.
+
+\subsection{Thread E: cross-corpus generalisation}\label{sec:thread_e}
+A fifth thread, absent from the original review and added because our own results demanded it,
+concerns whether a detector trained on one corpus works on another.
+
+The finding is consistent and negative. Layeghy and
+Portmann~\cite{layeghy2022generalisability} convert four NIDS corpora to a \emph{single}
+standardised 43-feature NetFlow schema~\cite{sarhan2021standardfeature} --- removing feature-schema
+mismatch as an explanation --- and still measure an average 56.28\% performance decay when a
+supervised model trained on one is evaluated on another, with scores sometimes falling near zero.
+Their conclusion is that ``none of the considered models is able to generalise over all studied
+datasets.'' The failure is also strongly asymmetric: one model scores 94.83\% in one direction and
+4.90\% reversed. A SHAP analysis attributes high within-corpus performance to shortcut features
+that do not transfer. The same failure is documented for
+IIoT~\cite{iiot_cross_domain_failure}, and a survey of 89 NIDS
+corpora~\cite{nids_dataset_survey} lists weak cross-dataset generalisation among the field's
+standing failure modes.
+
+What does work is combining corpora during training rather than hoping for zero-shot transfer. The
+closest published work to this paper's setting~\cite{dataset_centric_fl_ids} evaluates a federated
+IDS across three IoT corpora and reports up to 30 percentage points of macro-F1 lost cross-corpus,
+but approximately 90\% recovered under combined multi-corpus federated training --- which is the
+design this work arrived at independently. Two of their secondary findings bear noting: FedNova
+reduces communication by 15--25\% against FedAvg, and a Transformer backbone gains 1--2 points of
+macro-F1 over an LSTM. This work nonetheless uses weighted FedAvg and a GRU: FedAvg is the
+baseline Eq.~\eqref{eq:fedavg} defines and the one an operator can reason about, and a GRU is the
+cheapest recurrent option for a gateway-class device, which Section~\ref{sec:sil} shows matters.
+
+Domain-adversarial training is the principled alternative. DI-NIDS~\cite{di_nids} extracts
+domain-invariant features adversarially and detects on them with a one-class SVM, reporting
+superior cross-domain performance on standardised NetFlow corpora. It requires several source
+domains, which this work does not have.
+
+Finally, Galal~\cite{galal2026provenance} is directly relevant twice over. It shows that four of
+the seven columns Edge-IIoTset's official preprocessing recipe one-hot encodes separate attack
+from normal traffic with accuracy $1.0000$ \emph{on their own}, through the spelling of a
+placeholder for an absent protocol field --- a serialisation artefact encoding file provenance
+rather than behaviour --- and that five of six standard classifiers consequently reach exactly
+$1.0000 \pm 0.0000$. Under a corrected protocol the strongest model settles at $0.9503 \pm
+0.0011$. It then rebuilds the benchmark from raw captures with full per-device attribution and
+runs a \emph{leave-one-device-out} sweep, locating the generalisation boundary at the
+perception/actuation layer where a random forest falls from $0.9988$ to $0.5083$ balanced
+accuracy. Leave-one-device-out is the generalisation question a federated farm deployment actually
+faces --- a new site is unseen devices, not an unseen testbed --- and
+Section~\ref{sec:limitations} states why this work could not run it.
+
+\subsection{Patent landscape}
+Four filings bound the space. A granted US patent~\cite{patent_us12301597} trains a random-forest
+classifier on CICIoT2023 features at the network edge using a digital-twin representation; it is
+the closest granted patent by corpus and placement, but training is centralised and there is no
+payload cryptography. An Indian filing~\cite{patent_vit_fl} claims collaborative training of
+intrusion-detection models without sharing traffic, applying differential-privacy noise to
+parameters before transmission and aggregating with FedAvg --- adjacent to our federation layer,
+and adding the differential privacy we place out of scope. A further filing claims
+privacy-preserving global threat detection with standardised threat-intelligence
+dissemination~\cite{patent_mallareddy}, and a multi-level federated framework for
+Industry~4.0~\cite{patent_multilevel_fl} establishes prior art for federation across heterogeneous
+device tiers.
+
+The conclusion is narrow. Federated intrusion detection is actively claimed, and edge detection on
+CICIoT2023 is actively claimed. What the surveyed landscape does not contain is an architecture in
+which a standardised lightweight-AEAD channel is conditioned on the output of a federated
+detector. The components are well covered; the composition appears unclaimed.
 
 \subsection{Research gaps}\label{sec:gaps}
 The review exposes six gaps. We name them rather than number them, because each recurs
@@ -573,7 +797,7 @@ carries no information unless the number of opportunities to violate it is repor
 We report both throughout.
 
 %=======================================================================
-\section{Limitations and Threats to Validity}
+\section{Limitations and Threats to Validity}\label{sec:limitations}
 \todo{write from docs/paper-claims-inventory.md Section B, in our own voice and before a reviewer
 raises them: the feature-provenance boundary means detection on live farm traffic is not
 demonstrated; cross-corpus transfer was measured and failed; Ascon protects the parameter channel
