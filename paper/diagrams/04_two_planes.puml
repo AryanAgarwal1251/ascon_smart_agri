@@ -3,7 +3,7 @@
 ' render at 2x so the raster export is print-resolution at column width
 scale 2
 skinparam defaultFontName Helvetica
-skinparam defaultFontSize 20
+skinparam defaultFontSize 28
 skinparam shadowing false
 skinparam ArrowColor #52514e
 skinparam rectangle {

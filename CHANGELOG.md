@@ -35,6 +35,30 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The sequence diagram removed, and the remaining diagrams sized down
+
+The user found the PlantUML figures dominating their pages, and asked for the sequence diagram to
+go.
+
+**It was redundant, which is the best reason to cut a figure.** `Algorithm 2` states the same
+sealed round --- local training, the nonce and associated data, the seal, the frame that opens to
+$\bot$ and is never applied, the weighted average, the sealed download --- as numbered text that a
+reader can search and a reviewer can check line by line. The diagram restated it as a bitmap, and
+it was the largest float in the paper at 6.9 inches of full-width height.
+
+**The remaining three were then sized to the smallest width that keeps their text at or above
+about 6.9 pt**, which is where IEEE caption text sits. Rather than guess, each diagram's font size
+on the page was computed across candidate widths and the smallest passing one chosen: the
+component view at 0.90 of text width (6.9 pt), the two-planes figure at 0.70 (7.7 pt), and the
+verdict-routing diagram at 0.70 of a column (6.9 pt). Their base font went from 20 to 28 first,
+which is what made the smaller display sizes affordable --- with the notes already stripped, the
+canvases were narrow enough that a larger font buys legibility instead of just inflating the
+canvas.
+
+**The diagrams now occupy 17.8 column-inches instead of 40.1**, which is about 1.1 two-column
+pages returned to text. The page estimate still reads ~16 because that estimator charges a flat
+cost per float rather than measuring height; the column-inch figure is the real one.
+
 ### Review-paper apparatus cut; the paper is a systems paper again
 
 At 20 pages the draft was carrying machinery that belongs in a literature review, not in a paper
