@@ -35,6 +35,27 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Both architecture views kept, and the deployment diagram made symmetric
+
+The user asked for the PlantUML component diagram to stay. It does, because the two figures
+answer different questions and neither substitutes for the other. **Fig. 1 (component view)** is
+the only figure showing what runs *inside* a gateway --- broker, detector, verdict router, alert
+sink --- and therefore the only one that shows the verdict being *routed* rather than logged.
+**Fig. 9 (physical view)** is the only one showing *how many* boxes there are and what connects
+to what, with pin assignments on each node's face. Each caption now names what the other does,
+so a reader is never left wondering why there are two.
+
+**The deployment diagram was asymmetric and undercounted the hardware.** Farm 1 drew three named
+sensor nodes while Farm 2 collapsed its three into a single box labelled `soil04..06`, so a
+figure illustrating a six-node deployment showed four boxes. Farm 2 now carries `soil04`,
+`soil05` and `soil06` as separate components with their own links to that farm's broker, which
+also happened to settle Farm 1's node ordering into `soil01, soil02, soil03` left to right.
+
+Re-rendering it needed the plantuml.com service, which `paper/diagrams/README.md` already
+documents as this repository's renderer; the PNG and SVG were refetched and recommitted. The SVG
+came back empty on the first attempt and was refetched --- worth noting because an empty file
+would have compiled fine and silently shipped a missing vector asset.
+
 ### The two weak references cut, and the deployment drawn at the scale it is built
 
 **Two references removed, 38 down to 36.** The distributed-IoT differential-privacy paper and the

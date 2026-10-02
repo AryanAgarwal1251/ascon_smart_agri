@@ -624,13 +624,13 @@ defences, adversarial-example robustness, production key management and device a
 dashboards, and cloud agronomic analytics.
 
 \begin{figure*}[t]\centering
-\includegraphics[width=0.98\textwidth]{topology.pdf}
-\caption{The deployment at the scale it is built: six sensor nodes, two farm gateways and one
-laptop, with the cryptographic protection named on every hop. Ascon-AEAD128 seals the parameter
-exchange in both directions; the gateway-to-cloud hop is TLS and carries benign readings only;
-the device-to-gateway hop never leaves the farm. \textbf{The malicious path is the one with no
-line to draw} --- a verdict of ``malicious'' terminates at the gateway that raised it, because
-the alert sink holds no transport (Section~\ref{sec:routing}).}
+\includegraphics[width=0.96\textwidth]{01_deployment.png}
+\caption{Component view: what runs inside each gateway, and what protects each hop. A reading
+enters at the broker, is classified, and is then \emph{routed} --- the verdict selects the path
+rather than being written to a log. Ascon-AEAD128 seals the parameter exchange in both
+directions; the gateway-to-cloud hop is TLS; the malicious-verdict path has no network endpoint
+at all, which is a property of the object graph rather than of a coding rule
+(Section~\ref{sec:routing}).}
 \label{fig:arch}
 \end{figure*}
 
@@ -1302,6 +1302,17 @@ The software-in-the-loop topology maps one-to-one onto physical hardware, which 
 containers were built for the target CPU architecture rather than the host's. Each container
 stands in for exactly one physical component, and moving between them changes where processes
 run and nothing else: no code, no protocol, and no configuration structure.
+
+\begin{figure*}[t]\centering
+\includegraphics[width=0.98\textwidth]{topology.pdf}
+\caption{The same system at the scale it is built: six sensor nodes, two farm gateways and one
+laptop, each node's sensors and pin assignments on its face. Where Fig.~\ref{fig:arch} shows what
+runs inside a gateway, this shows how many there are and what connects to what.
+\textbf{The malicious path is the one with no line to draw} --- a malicious verdict terminates at
+the gateway that raised it, because the alert sink holds no transport. A reader who counts the
+arrows finds the disjointness property rather than being told it.}
+\label{fig:topology}
+\end{figure*}
 
 \begin{table}[t]
 \caption{Hardware for the deployment. $K = 3$ requires only two gateways, because the third

@@ -41,7 +41,9 @@ node "Farm 1 gateway\n(Raspberry Pi)" as G1 {
 }
 
 node "Farm 2 field" as F2 {
-  component "ESP32 soil04..06" as S4
+  component "ESP32 soil04" as S4
+  component "ESP32 soil05" as S5
+  component "ESP32 soil06" as S6
 }
 
 node "Farm 2 gateway\n(Raspberry Pi)" as G2 {
@@ -61,6 +63,8 @@ S1 --> B1 : MQTT (plain)\nfarm-local
 S2 --> B1
 S3 --> B1
 S4 --> B2 : MQTT (plain)\nfarm-local
+S5 --> B2
+S6 --> B2
 
 B1 --> D1
 B2 --> D2
