@@ -254,76 +254,11 @@ gateway-to-cloud hop is an ordinary authenticated transport problem already solv
 The three channels, and which adversary each faces, are set out in
 Section~\ref{sec:threat}.
 
-\subsection{Review protocol}\label{sec:protocol}
-A reading list assembled by judgement cannot be audited, so every candidate was scored against
-six parameters, each on $\{0,1,2\}$ for a maximum of twelve. Sources were IEEE Xplore, the ACM
-Digital Library, SpringerLink, MDPI, ScienceDirect, arXiv, the NIST Computer Security Resource
-Center and Google Patents. Search strings combined four term groups: (\texttt{"federated
-learning"} OR \texttt{FedAvg}), (\texttt{"intrusion detection"} OR \texttt{IDS} OR
-\texttt{"anomaly detection"}), (\texttt{IoT} OR \texttt{IIoT} OR \texttt{"smart agriculture"} OR
-\texttt{"precision agriculture"}), and (\texttt{Ascon} OR \texttt{"lightweight cryptography"} OR
-\texttt{AEAD} OR \texttt{MQTT}).
-
-\begin{table}[tbp]
-\caption{Selection parameters. Each scored 0--2; admission at $s \ge 8$ of 12, with a zero on
-P1 or P2 disqualifying regardless of total.}
-\label{tab:params}
-\centering\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{0.5cm}p{7.8cm}@{}}
-\toprule
-\textbf{} & \textbf{Scored on}\\
-\midrule
-P1 & Domain proximity: IoT, IIoT or agricultural network security rather than enterprise or vehicular\\
-P2 & Method overlap: federated optimisation, recurrent sequence models, or lightweight AEAD\\
-P3 & Benchmark comparability: CICIoT2023 or a comparable public IoT flow dataset\\
-P4 & Evidential strength: peer-reviewed venue, stated protocol, metrics beyond accuracy\\
-P5 & Recency: 2021 onward, with foundational exceptions where the method is still the reference\\
-P6 & Gap-analytic value: states or exhibits a limitation this project can act on\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The threshold was set at eight so that a study had to be strong on \emph{both} domain proximity
-and method overlap rather than compensating for weakness in one with strength in the other.
-Applying the protocol yielded nineteen studies, S1--S19, summarised in Table~\ref{tab:corpus}. Two
-admissions need explaining. S2 and S3 fall outside the recency window and were admitted under the
-foundational exception, federated averaging and its proximal variant still being the algorithms
-against which later methods are measured. S12 was admitted \emph{because} it cuts against our own
-architectural choice: it reports a tree ensemble outperforming the recurrent models it tested,
-which is why Section~\ref{sec:fedresults} carries a random-forest baseline.
-
-\begin{table*}[tp]
-\caption{Reviewed corpus (S1--S19), admitted under the protocol of Section~\ref{sec:protocol}.
-FL: federated learning. AEAD: authenticated encryption with associated data. ``Relevance''
-states what the study contributes to the present design or to the gap analysis.}
-\label{tab:corpus}
-\centering\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{1.15cm}p{1.75cm}p{3.05cm}p{2.3cm}p{8.9cm}@{}}
-\toprule
- & \textbf{Focus} & \textbf{Method} & \textbf{Data / platform} & \textbf{Relevance to this work}\\
-\midrule
-S1~\cite{neto2023ciciot} & IoT attack benchmark & Testbed capture, 105 devices & CICIoT2023 & Supplies the corpus; establishes the imbalance and the packet-window record semantics\\
-S2~\cite{mcmahan2017fedavg} & Decentralised training & FedAvg & Image benchmarks & Aggregation rule adopted, Eq.~\eqref{eq:fedavg}\\
-S3~\cite{li2020fedprox} & Heterogeneous federation & FedProx & Mixed & Explains client drift under non-IID data; documented fallback if FedAvg diverges\\
-S4~\cite{nguyen2021flsurvey} & FL for IoT & Survey & --- & Frames the bandwidth and governance motivation for federation\\
-S5~\cite{hernandezramos2025fedidsreview} & Federated IDS & Systematic review & --- & Umbrella reference; source of the Thread~B limitations\\
-S6~\cite{belarbi2023federated} & IoT IDS & Federated deep learning & IoT flow data & Confirms feasibility of federated deep detectors at the edge\\
-S7~\cite{ruzafa2021ppfl} & Industrial IoT IDS & Privacy-preserving FL & Industrial data & Quantifies the privacy--utility trade-off we place out of scope\\
-S8~\cite{karunamurthy2025optimal} & IoT IDS & Optimised FL & IoT benchmarks & Reports GRU clients sharing parameters to a central aggregator\\
-S9~\cite{abdelaziz2025tabtransformer} & IoT IDS & FL + TabTransformer & N-BaIoT, UNSW-NB15, CICIoT2023 & Alternative architecture on the same benchmark\\
-S10~\cite{okey2024cnngru} & IoT IDS & FL, CNN-GRU / LSTM-GRU, wFedAvg, wFedProx & CICIoT2023, FLNET2023 & \textbf{Closest prior work}; validates GRU + weighted FedAvg on our corpus at 98.25\% accuracy; stops at the label\\
-S11~\cite{khraisat2025discoveriot} & IoT IDS & Privacy-preserving FL & IoT data & Evidence on privacy-preserving aggregation strategy\\
-S12~\cite{bai2025ietinfsec} & IoT IDS & Nine ML/DL models; three aggregation rules & UNSW-NB15 & \textbf{Dissenting evidence}: a tree ensemble beat GRU/LSTM; motivates our random-forest baseline\\
-S13~\cite{dobraunig2021ascon} & Lightweight AEAD & Ascon v1.2 design & --- & Primitive specification and design rationale\\
-S14~\cite{khan2024asconasic} & Ascon hardware & ASIC realisation & Constrained hardware & Evidence of suitability for field-node cost budgets\\
-S15~\cite{khan2022asconperf} & Ascon performance & Benchmarking & AI-enabled IoT devices & Latency and resource evidence on IoT-class hardware\\
-S16~\cite{suleiman2026lweiot} & Lightweight encryption over IoT protocols & Ascon, PRESENT, SIMON, SPECK, ChaCha20 & MQTT and CoAP, ESP32 & Directly comparable protocol-level measurement methodology\\
-S17~\cite{elhajj2024asconindustry40} & Industry 4.0 security & Ascon AEAD vs.\ AES-GCM & MQTT, digital twin & Memory and execution-time figures used in our constrained-device argument\\
-S18~\cite{ozturk2025chaosascon} & IoRT data security & \emph{Chaos-based} Ascon variant & MQTT, Raspberry Pi 3B & Evidence Ascon-class cryptography runs on gateway hardware; \emph{not} evidence about the standardised variant\\
-S19~\cite{fathy2023irrigation} & Precision agriculture & Lightweight cipher for irrigation & Agricultural IoT & Establishes the agricultural threat scenario for the telemetry channel; no detection layer\\
-\bottomrule
-\end{tabular}
-\end{table*}
+Candidates were admitted against stated criteria --- domain proximity, method overlap,
+benchmark comparability, evidential strength, recency and whether the study exhibits a limitation
+this work can act on --- rather than by judgement. Two are outside the recency window and are kept
+because they remain the reference algorithms~\cite{mcmahan2017fedavg,li2020fedprox}, and one is
+kept \emph{because} it cuts against our own architectural choice~\cite{bai2025ietinfsec}.
 
 \subsection{Thread A: benchmark data and sequence-based detection}
 CICIoT2023~\cite{neto2023ciciot} is the corpus this work trains on. It was built on a testbed of
@@ -343,8 +278,7 @@ of interest. Any evaluation on this corpus reporting accuracy alone is uninforma
 why macro-F1 and false-positive rate are treated as primary throughout.
 
 Recurrent and convolutional-recurrent architectures dominate the applied
-literature~\cite{okey2024cnngru,bai2025ietinfsec}. S12~\cite{bai2025ietinfsec} is the useful
-dissent: benchmarking nine methods, it found a random forest strongest on tabular flow features,
+literature~\cite{okey2024cnngru,bai2025ietinfsec}. Bai et al.~\cite{bai2025ietinfsec} are the useful dissent: benchmarking nine methods, it found a random forest strongest on tabular flow features,
 then compared simple, weighted and difference-based aggregation rules federated over that model.
 
 \textbf{Limitation across Thread A.} Papers building sequences from flow records frequently
@@ -370,7 +304,7 @@ added~\cite{ruzafa2021ppfl}. Alternative
 architectures~\cite{abdelaziz2025tabtransformer} and privacy-preserving
 strategies~\cite{khraisat2025discoveriot} fill out the space.
 
-S10~\cite{okey2024cnngru} is the closest prior work to our detection layer. It builds a federated
+Okey et al.~\cite{okey2024cnngru} are the closest prior work to our detection layer. It builds a federated
 ensemble over CNN, GRU and LSTM with two aggregation functions, weighted FedAvg and weighted
 FedProx, evaluated on CICIoT2023 and FLNET2023; CNN-GRU reaches 98.25\% accuracy on CICIoT2023 and
 LSTM-GRU 93.36\% and 95.66\% on the two corpora respectively. It establishes that GRU plus
@@ -481,21 +415,14 @@ faces --- a new site is unseen devices, not an unseen testbed --- and
 Section~\ref{sec:limitations} states why this work could not run it.
 
 \subsection{Patent landscape}
-Three filings bound the space. A granted US patent~\cite{patent_us12301597} trains a random-forest
-classifier on CICIoT2023 features at the network edge using a digital-twin representation; it is
-the closest granted patent by corpus and placement, but training is centralised and there is no
-payload cryptography. An Indian filing~\cite{patent_vit_fl} claims collaborative training of
-intrusion-detection models without sharing traffic, applying differential-privacy noise to
-parameters before transmission and aggregating with FedAvg --- adjacent to our federation layer,
-and adding the differential privacy we place out of scope. A further filing claims
-privacy-preserving global threat detection with standardised threat-intelligence
-dissemination~\cite{patent_mallareddy}, establishing prior art for federation across heterogeneous
-device tiers.
-
-The conclusion is narrow. Federated intrusion detection is actively claimed, and edge detection on
-CICIoT2023 is actively claimed. What the surveyed landscape does not contain is an architecture in
-which a standardised lightweight-AEAD channel is conditioned on the output of a federated
-detector. The components are well covered; the composition appears unclaimed.
+Three filings bound the space. A granted US patent~\cite{patent_us12301597} trains a random forest
+on our corpus's features at the network edge, but centrally and with no payload cryptography; two
+Indian filings claim collaborative training without sharing
+traffic~\cite{patent_vit_fl,patent_mallareddy}, one adding the differential privacy we place out
+of scope. Federated intrusion detection is actively claimed, and so is edge detection on
+CICIoT2023. What the landscape does not contain is an architecture in which a standardised
+lightweight-AEAD channel is \emph{conditioned on} the output of a federated detector: the
+components are well covered, the composition appears unclaimed.
 
 \subsection{Research gaps}\label{sec:gaps}
 The review exposes six gaps. We name them rather than number them, because each recurs
@@ -1329,7 +1256,10 @@ what the two gateways sent, so the disjointness result is not a self-report.
 The software-in-the-loop topology maps one-to-one onto physical hardware, which is why the
 containers were built for the target CPU architecture rather than the host's. Each container
 stands in for exactly one physical component, and moving between them changes where processes
-run and nothing else: no code, no protocol, and no configuration structure.
+run and nothing else: no code, no protocol, and no configuration structure. The build is two
+Raspberry~Pi~5 gateways, six ESP32 sensor nodes each carrying a DHT22 and a capacitive soil probe,
+and one laptop hosting the aggregator, the TLS receiver and the third federated client --- which
+is why $K=3$ needs only two gateways.
 
 \begin{figure*}[tp]\centering
 \includegraphics[width=0.98\textwidth]{topology.pdf}
@@ -1341,25 +1271,6 @@ the gateway that raised it, because the alert sink holds no transport. A reader 
 arrows finds the disjointness property rather than being told it.}
 \label{fig:topology}
 \end{figure*}
-
-\begin{table}[tbp]
-\caption{Hardware for the deployment. $K = 3$ requires only two gateways, because the third
-federated client runs on the laptop that already hosts the aggregator.}
-\label{tab:bom}
-\centering\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{3.6cm}p{0.5cm}p{4.2cm}@{}}
-\toprule
-\textbf{Component} & \textbf{Qty} & \textbf{Role}\\
-\midrule
-Raspberry Pi 5, 8\,GB & 2 & Farm gateway: local detector, MQTT broker, runtime pipeline\\
-ESP32 DevKitC V4 & 6 & Sensor node, three per farm\\
-DHT22 module & 6 & Temperature and humidity, GPIO 15\\
-Capacitive soil-moisture sensor & 6 & Analogue moisture, GPIO 34\\
-Laptop & 1 & Aggregator, TLS receiver, third federated client\\
-Wi-Fi access point & 1 & One LAN for all nodes\\
-\bottomrule
-\end{tabular}
-\end{table}
 
 \begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{pinout.pdf}
@@ -1383,11 +1294,8 @@ Section~\ref{sec:threat} is a physical one rather than a convention. The detecto
 router and the alert sink all run on the same gateway; only the sealed parameter exchange and the
 TLS benign path leave it.
 
-\textbf{What changes, and what does not.} Nothing in the software changes. Per node the
-deployment requires Python~3.12 or newer --- which rules out distributions still shipping 3.11 ---
-the channel key and cloud certificate copied to each gateway, a broker per farm, and the sensor
-firmware flashed with that farm's gateway address. Manifests record the platform string, so a
-figure produced on hardware can never be confused with one produced in a container.
+Nothing in the software changes, and manifests record the platform string, so a figure
+produced on hardware can never be confused with one produced in a container.
 
 \textbf{What hardware will measure that this paper cannot.} Three quantities are unavailable
 here and are the reason the hardware stage exists: per-round wall-clock time on a gateway-class
@@ -1412,26 +1320,6 @@ We report both throughout.
 
 %=======================================================================
 \section{Limitations and Threats to Validity}\label{sec:limitations}
-
-\begin{table}[tbp]
-\caption{Risks carrying a design consequence, and the control adopted for each.
-L: likelihood, I: impact.}
-\label{tab:risks}
-\centering\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{0.45cm}p{2.3cm}p{0.25cm}p{0.25cm}p{4.5cm}@{}}
-\toprule
- & \textbf{Risk} & \textbf{L} & \textbf{I} & \textbf{Control}\\
-\midrule
-R1 & Memory exhaustion on load & H & M & Chunked reads, per-class caps, float32\\
-R2 & Rare classes collapse to zero recall & H & M & Family taxonomy, weighted loss, per-class reporting\\
-R3 & Duplicate-row leakage inflates results & H & H & Dedup before split, Eq.~\eqref{eq:order}; blocking test\\
-R4 & FedAvg diverges under non-IID data & M & M & Fewer local epochs, layer norm, FedProx fallback; negative result reported\\
-R5 & Ascon variant mismatch & M & M & Known-answer tests as a gating check\\
-R6 & Nonce reuse & L & H & CSPRNG per message; collision assertion\\
-R7 & Near-perfect results accepted uncritically & M & M & Stated expectation, Section~\ref{sec:setup}; leakage audit\\
-\bottomrule
-\end{tabular}
-\end{table}
 
 We state these before a reviewer has to.
 

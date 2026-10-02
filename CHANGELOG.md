@@ -35,6 +35,33 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### Review-paper apparatus cut; the paper is a systems paper again
+
+At 20 pages the draft was carrying machinery that belongs in a literature review, not in a paper
+reporting a built system. Four pieces were removed, and what each one was actually doing is worth
+recording, because none of them was load-bearing:
+
+- **The review protocol subsection, its scoring rubric (Table I) and the nineteen-study inventory
+  (Table II).** 71 lines, including a full-page full-width table. A scoring table exists so a
+  reading list can be audited; the thread prose below it already states what every study
+  contributes, so the table restated the paper in a grid. One sentence now records that candidates
+  were admitted against stated criteria, and names the two admissions that need explaining.
+- **The risk register (Table VIII, R1--R7).** Project-management material. Likelihood/impact
+  ratings are planning artefacts, and each control it listed is already stated where the decision
+  is made.
+- **The bill of materials (Table VII).** A shopping list. The hardware figure shows the build with
+  pin assignments on each node, and the count now sits in one sentence of prose.
+- **The patent landscape**, compressed 161 to 97 words: the novelty argument survives, the
+  filing-by-filing tour does not.
+
+The deployment checklist in the hardware section went too --- Python versions and which files to
+copy to each gateway are operational notes, not a result.
+
+**Tables 8 to 4, and the estimated page count 20 to 16.** No reference was orphaned: all 36 are
+still cited, and there are no dangling cross-references. Two prose sentences that pointed into the
+deleted table by study number (`S10`, `S12`) now name their authors instead, which reads better
+anyway.
+
 ### The figures were landing after the bibliography; float placement fixed
 
 The user compiled the draft and found almost every figure sitting on pages 17--20, after the
