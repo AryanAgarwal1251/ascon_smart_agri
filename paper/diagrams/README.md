@@ -1,13 +1,21 @@
 # Architecture diagrams (PlantUML)
 
-Four diagrams, each as `.puml` source plus rendered `.png` and `.svg`:
+Four diagrams, each as `.puml` source plus rendered `.png` and `.svg`. **Three are in the
+paper**; `02_sealed_round` was removed from it because Algorithm 2 states the same protocol as
+numbered text, which a reviewer can check line by line and a reader can search. Its source is kept
+here because it remains the clearest picture of the round for anyone reading the code.
 
-| File | What it shows |
-| --- | --- |
-| `01_deployment` | What runs where, and the cryptography on each hop |
-| `02_sealed_round` | One federated round, with the associated data on every frame |
-| `03_verdict_routing` | The path a single sensor reading takes, and where it can end |
-| `04_two_planes` | Training plane, runtime plane, and the feature-provenance boundary |
+| File | What it shows | In the paper |
+| --- | --- | --- |
+| `01_deployment` | What runs where, and the cryptography on each hop | yes |
+| `02_sealed_round` | One federated round, with the associated data on every frame | no |
+| `03_verdict_routing` | The path a single sensor reading takes, and where it can end | yes |
+| `04_two_planes` | Training plane, runtime plane, and the feature-provenance boundary | yes |
+
+Explanatory `note` blocks were removed from the three that ship: a note is the widest element in a
+PlantUML canvas, and LaTeX scales the whole diagram down to fit a column, so one long note shrinks
+every label in the figure. That prose now lives in the LaTeX captions, where it is set in the
+paper's own 8 pt caption font as selectable text.
 
 **The PNGs are already rendered and committed** — for Overleaf you need nothing else. Upload the
 `paper/` folder and the images are there.
