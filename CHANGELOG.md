@@ -35,6 +35,37 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The figures were landing after the bibliography; float placement fixed
+
+The user compiled the draft and found almost every figure sitting on pages 17--20, after the
+references, while the text that discusses them ends on page 15. The diagrams were not wasted ---
+they were **unreachable**, which for a reader is the same thing.
+
+**The cause is one character repeated twenty-one times.** Every float in the paper was declared
+`[t]`, meaning *top of page only*. LaTeX allows at most two top floats per page by default and
+three in total, and --- the part that turns a small problem into this one --- **it preserves float
+order**. Once a single float cannot be placed, every later float of the same class must also be
+deferred, so one stuck figure drags the whole remaining set to the end of the document.
+
+The fix is in two parts. Every float now declares where it may actually go: `[tbp]` for
+single-column floats, which may now use the bottom of a column or a page of their own, and `[tp]`
+for the five full-width ones, which cannot sit at a column bottom in a two-column layout. And the
+preamble raises the per-page allowance that was never going to fit 21 floats into 15 pages ---
+`topnumber` 2 to 3, `totalnumber` 3 to 4, `\topfraction` 0.7 to 0.92 and `\textfraction` 0.2 to
+0.07, so a page may be mostly float where that is what the content needs.
+
+**Three further defects were visible in the compiled PDF and are fixed with it.** Table II's ID
+column was 0.55 cm, too narrow for `S10 [14]`, so the citation collided with the next column and
+printed as `S6 [10]IoT IDS`; the column is now 1.15 cm with the others rebalanced to hold the
+total at 17.99 of 18.19 cm. The title broke across four lines, stranding `IoT` alone on the
+last, and is now rebroken into three. And both associated-data equations ran under their own
+equation numbers, so the field lists are rebroken across two lines with thin spacing inside the
+delimiters.
+
+None of this is verified by compilation --- there is no LaTeX in this environment --- so the page
+layout needs checking on the next Overleaf build. The widths and the float counters are arithmetic
+and are checked; where the floats actually land is not.
+
 ### The PlantUML diagrams were unreadable in print; measured, diagnosed and fixed
 
 The user reported that text inside the UML figures could not be read in the compiled paper. It

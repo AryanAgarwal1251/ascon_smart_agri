@@ -27,6 +27,23 @@
 \usepackage[hidelinks]{hyperref}
 \graphicspath{{figures/}{diagrams/}}
 
+% --- float placement ----------------------------------------------------
+% This paper carries 21 floats across roughly 15 pages of text. LaTeX's defaults
+% allow at most two at the top of a page and three in total, and it preserves float
+% order -- so one deferred float defers every later one, and the whole set lands
+% after the bibliography. These raise the allowance and let a float use the bottom
+% of a column or a page of its own.
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+\setcounter{dbltopnumber}{3}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.70}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.70}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\dblfloatpagefraction}{0.70}
+
 % --- draft aids -------------------------------------------------------
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
 \newcommand{\verifycite}[1]{\textcolor{orange}{$^{\mathrm{[verify]}}$}}
@@ -38,8 +55,9 @@
 
 \begin{document}
 
-\title{Federated GRU Intrusion Detection with an Ascon-Sealed\\
-Bidirectional Weight Channel for Smart-Agriculture IoT}
+\title{Federated GRU Intrusion Detection with an\\
+Ascon-Sealed Bidirectional Weight Channel\\
+for Smart-Agriculture IoT}
 
 \author{%
 \IEEEauthorblockN{Abhishek Jadli}
@@ -246,7 +264,7 @@ learning"} OR \texttt{FedAvg}), (\texttt{"intrusion detection"} OR \texttt{IDS} 
 \texttt{"precision agriculture"}), and (\texttt{Ascon} OR \texttt{"lightweight cryptography"} OR
 \texttt{AEAD} OR \texttt{MQTT}).
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Selection parameters. Each scored 0--2; admission at $s \ge 8$ of 12, with a zero on
 P1 or P2 disqualifying regardless of total.}
 \label{tab:params}
@@ -274,13 +292,13 @@ against which later methods are measured. S12 was admitted \emph{because} it cut
 architectural choice: it reports a tree ensemble outperforming the recurrent models it tested,
 which is why Section~\ref{sec:fedresults} carries a random-forest baseline.
 
-\begin{table*}[t]
+\begin{table*}[tp]
 \caption{Reviewed corpus (S1--S19), admitted under the protocol of Section~\ref{sec:protocol}.
 FL: federated learning. AEAD: authenticated encryption with associated data. ``Relevance''
 states what the study contributes to the present design or to the gap analysis.}
 \label{tab:corpus}
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{0.55cm}p{1.95cm}p{3.3cm}p{2.5cm}p{9.0cm}@{}}
+\begin{tabular}{@{}p{1.15cm}p{1.75cm}p{3.05cm}p{2.3cm}p{8.9cm}@{}}
 \toprule
  & \textbf{Focus} & \textbf{Method} & \textbf{Data / platform} & \textbf{Relevance to this work}\\
 \midrule
@@ -548,7 +566,7 @@ reasonable inside a building, does not hold.
 predicts yield, and cooperatives are increasingly unwilling to hand raw records to a third-party
 aggregator.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Attack families in the corpus and their consequence in a farm deployment.}
 \label{tab:families}
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
@@ -592,7 +610,7 @@ world and others are artefacts of working without hardware. Presenting a simulat
 empirical fact is a common failure in this class of system; A3 is the one comparable work most
 often leaves unstated, and Section~\ref{sec:provenance} addresses it directly.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Assumptions, classified by status.}
 \label{tab:assumptions}
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
@@ -623,7 +641,7 @@ Byzantine-robust aggregation, differential privacy, secure aggregation, gradient
 defences, adversarial-example robustness, production key management and device attestation,
 dashboards, and cloud agronomic analytics.
 
-\begin{figure*}[t]\centering
+\begin{figure*}[tp]\centering
 \includegraphics[width=\textwidth]{01_deployment.png}
 \caption{Component view: what runs inside each gateway, and what protects each hop. A reading
 enters at the broker, is classified, and is then \emph{routed} --- the verdict selects the path
@@ -635,7 +653,7 @@ never applies a frame that opens to $\bot$.}
 \label{fig:arch}
 \end{figure*}
 
-\begin{figure*}[t]\centering
+\begin{figure*}[tp]\centering
 \includegraphics[width=\textwidth]{04_two_planes.png}
 \caption{The training plane, the runtime plane, and the feature-provenance boundary between
 them. The detector never sees the sensor JSON; it classifies a held-out flow-derived record
@@ -876,7 +894,7 @@ within $5\times10^{-12}$ at every client count tested.
 \end{algorithmic}
 \end{algorithm}
 
-\begin{figure*}[t]\centering
+\begin{figure*}[tp]\centering
 \includegraphics[width=\textwidth]{02_sealed_round.png}
 \caption{One sealed federated round. Keys are per client \emph{and} per direction, and the
 associated data binds client, round, direction and schema version --- so a frame cannot be
@@ -904,8 +922,8 @@ would return \emph{some} plaintext for a modified ciphertext, and a farm would a
 \textbf{Associated data.} The associated data is authenticated but not encrypted, because a
 receiver must read the sender's identity before it can select a key. For telemetry we set
 \begin{equation}
-a = \langle \texttt{edge\_id},\; \texttt{device\_id},\; \texttt{counter},\;
-\texttt{schema\_version} \rangle,
+a = \langle\, \texttt{edge\_id},\; \texttt{device\_id},\;
+\texttt{counter},\; \texttt{schema\_version} \,\rangle,
 \label{eq:telemetryad}
 \end{equation}
 and for the weight channel the layout of Eq.~\eqref{eq:weightad}. Authenticating a monotonic
@@ -935,7 +953,8 @@ batching several readings per message --- and a measurement we report rather tha
 \subsection{The sealed weight channel}\label{sec:channel}
 Each frame carries associated data
 \begin{equation}
-a = \langle \texttt{client\_id},\; \texttt{round},\; \texttt{direction},\; \texttt{schema\_version} \rangle,
+a = \langle\, \texttt{client\_id},\; \texttt{round},\;
+\texttt{direction},\; \texttt{schema\_version} \,\rangle,
 \label{eq:weightad}
 \end{equation}
 authenticated but not encrypted, so a frame cannot be replayed into a different round, reflected
@@ -950,7 +969,7 @@ B = 2K\big(|\theta| s + h\big),
 which predicts 811{,}200 bytes per round at $K=3$ against 815{,}136 measured, the
 0.5\% excess being safetensors framing.
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{03_verdict_routing.png}
 \caption{The runtime path of a single reading. The payload is never parsed into features: the
 model consumes a held-out flow-derived record paired to the message, and nothing is synthesised
@@ -1039,7 +1058,7 @@ to macro-F1 on the rare families and to FPR, where differences between methods a
 %=======================================================================
 \section{Results}
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{baselines.pdf}
 \caption{Centralised baselines at an identical budget and split. Recurrence is worth $+0.2322$
 macro-F1 against the otherwise-matched multilayer perceptron.}
@@ -1065,14 +1084,14 @@ non-recurrent model, beating the perceptron by $0.0785$; the recurrent detector 
 $0.1442$. The disagreement is informative rather than embarrassing: a tree ensemble is a good
 classifier of one record, and the detector's advantage comes from reading sixteen.
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{federation_bracket.pdf}
 \caption{The three-way comparison. The federated model sits inside the bracket its two baselines
 define, recovering 82.4\% of the gap.}
 \label{fig:bracket}
 \end{figure}
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{per_client_gain.pdf}
 \caption{What each farm gains by federating rather than training alone, on both corpora. Every
 bar is positive on every seed.}
@@ -1108,7 +1127,7 @@ because other farms have, and only parameters crossed the network.
 \subsection{Client-count scalability}\label{sec:ksweep}
 Table~\ref{tab:ksweep} reports 21 configurations, three seeds each, at the Phase-4 budget.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Client-count sweep. Three seeds per row. ``Rarest'' is the mean per-class F1 of the
 weakest class at that client count.}
 \label{tab:ksweep}
@@ -1148,7 +1167,7 @@ hidden it, and the false-positive rate---worst at $K=50$---tracks the collapse m
 than macro-F1 does. No client was ever empty, at any $K$ including 50, so the mechanism is
 dilution of the rare class rather than its absence.
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{ksweep_f1.pdf}
 \caption{Aggregate macro-F1 degrades gently with client count while the weakest class collapses.
 Both series are F1 on a single axis, which is the point: the aggregate conceals the rare-class
@@ -1156,14 +1175,14 @@ fall. The second descent begins at the pigeonhole bound of Eq.~\eqref{eq:pigeonh
 \label{fig:ksweep}
 \end{figure}
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{communication.pdf}
 \caption{Per-round traffic against client count. Plotted separately from
 Fig.~\ref{fig:ksweep} because bytes and F1 do not share a scale.}
 \label{fig:comm}
 \end{figure}
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{convergence.pdf}
 \caption{Per-round macro-F1 at three client counts, seed 0. Higher client counts converge no more
 slowly; they converge lower.}
@@ -1191,7 +1210,7 @@ $16.6\times$ increase. Since accuracy has already fallen $0.079$ by $K = 50$
 the binding constraint. For this system, client count is limited by rare-class dilution rather
 than by bandwidth.
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{feature_overlap.pdf}
 \caption{Cross-corpus overlap of each selected feature's 1st--99th percentile range. Three
 features share a column name while denoting different quantities; \texttt{IAT} medians differ by
@@ -1283,7 +1302,7 @@ receiver and a one-shot key provisioning step. \emph{Container timings are not g
 every manifest records the platform so no timing figure can be mistaken for a hardware
 measurement. On-device validation (hardware-in-the-loop) is future work.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Software-in-the-loop run, 20 federated rounds then continuous classification.}
 \label{tab:sil}
 \centering\footnotesize\setlength{\tabcolsep}{4pt}
@@ -1312,7 +1331,7 @@ containers were built for the target CPU architecture rather than the host's. Ea
 stands in for exactly one physical component, and moving between them changes where processes
 run and nothing else: no code, no protocol, and no configuration structure.
 
-\begin{figure*}[t]\centering
+\begin{figure*}[tp]\centering
 \includegraphics[width=0.98\textwidth]{topology.pdf}
 \caption{The same system at the scale it is built: six sensor nodes, two farm gateways and one
 laptop, each node's sensors and pin assignments on its face. Where Fig.~\ref{fig:arch} shows what
@@ -1323,7 +1342,7 @@ arrows finds the disjointness property rather than being told it.}
 \label{fig:topology}
 \end{figure*}
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Hardware for the deployment. $K = 3$ requires only two gateways, because the third
 federated client runs on the laptop that already hosts the aggregator.}
 \label{tab:bom}
@@ -1342,7 +1361,7 @@ Wi-Fi access point & 1 & One LAN for all nodes\\
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\columnwidth]{pinout.pdf}
 \caption{Sensor-node wiring, built six times. Only two of the six wires carry signal. The
 moisture probe must sit on an ADC1 pin: ADC2 is unusable while Wi-Fi is active, and a node that
@@ -1394,7 +1413,7 @@ We report both throughout.
 %=======================================================================
 \section{Limitations and Threats to Validity}\label{sec:limitations}
 
-\begin{table}[t]
+\begin{table}[tbp]
 \caption{Risks carrying a design consequence, and the control adopted for each.
 L: likelihood, I: impact.}
 \label{tab:risks}
