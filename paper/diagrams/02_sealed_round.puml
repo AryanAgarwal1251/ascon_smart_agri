@@ -3,7 +3,7 @@
 ' render at 2x so the raster export is print-resolution at column width
 scale 2
 skinparam defaultFontName Helvetica
-skinparam defaultFontSize 12
+skinparam defaultFontSize 20
 skinparam shadowing false
 skinparam ParticipantBackgroundColor #eef4fc
 skinparam ParticipantBorderColor #2a78d6
@@ -18,10 +18,6 @@ participant "Aggregator\n(master GRU)" as A
 
 == Local training ==
 C -> C : theta_k <- LocalTrain(theta_t, S_k, E)
-note over C
-  n_k = number of training <b>sequences</b>,
-  not raw rows
-end note
 
 == Upload, sealed ==
 C -> C : nu <- CSPRNG(128 bits)
@@ -43,13 +39,5 @@ A -> A : nu' <- CSPRNG(128 bits)
 A -> A : a' = <k, t, "down", schema>
 A -> C : Seal(k_down_k, nu', a', safetensors(theta_{t+1}))
 C -> C : theta <- Open(k_down_k, frame)
-
-note over C, A
-  Keys are per client <b>and</b> per direction.
-  The associated data binds client, round,
-  direction and schema version, so a frame
-  cannot be replayed into another round,
-  reflected, or reattributed.
-end note
 
 @enduml

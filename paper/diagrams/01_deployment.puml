@@ -5,7 +5,7 @@
 ' render at 2x so the raster export is print-resolution at column width
 scale 2
 skinparam defaultFontName Helvetica
-skinparam defaultFontSize 12
+skinparam defaultFontSize 20
 skinparam shadowing false
 skinparam roundCorner 8
 skinparam ArrowColor #52514e
@@ -80,17 +80,5 @@ R2 --> CLOUD : <b>benign only</b>\nTLS
 D1 <--> AGG : <b>Ascon-AEAD128</b>\nsealed both directions
 D2 <--> AGG : <b>Ascon-AEAD128</b>\nsealed both directions
 SIM <--> AGG : <b>Ascon-AEAD128</b>
-
-note right of A1
-  The alert sink holds <b>no</b> transport.
-  There is no code path from a malicious
-  verdict to any network endpoint.
-end note
-
-note bottom of AGG
-  Weighted FedAvg over sequence counts.
-  A frame that opens to the bottom element
-  is never applied.
-end note
 
 @enduml

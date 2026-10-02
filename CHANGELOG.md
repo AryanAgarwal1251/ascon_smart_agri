@@ -35,6 +35,45 @@ are the Ascon-AEAD128 crypto core (`crypto/ascon_aead.py`), implemented ahead of
 
 ## 2026-10-01
 
+### The PlantUML diagrams were unreadable in print; measured, diagnosed and fixed
+
+The user reported that text inside the UML figures could not be read in the compiled paper. It
+was worse than it looked, and guessing would not have found it --- so the effective point size of
+each diagram's text *as it lands on the page* was computed, from the PNG's pixel width, the
+diagram's declared font size and the width LaTeX scales it to:
+
+| diagram | before | after |
+| --- | --- | --- |
+| component view | 4.8 pt | **7.1 pt** |
+| sealed round | 3.9 pt | **9.3 pt** |
+| verdict routing | 4.9 pt | **9.5 pt** |
+| two planes | 3.0 pt | **10.5 pt** |
+
+**All four were unreadable.** IEEE caption text is 8 pt, and these were landing between 3 and 5.
+
+**The diagnosis is that raising the font does almost nothing.** PlantUML grows every box to fit
+its text, so the canvas grows with the font and the ratio that actually matters --- font size
+against canvas width --- barely moves. What drives that ratio is the *widest* element, and in
+every one of these diagrams that was a multi-line `note` block of explanatory prose. A 60-character
+note stretches the canvas, LaTeX then scales the whole thing down to fit a 3.5-inch column, and
+every label in the diagram pays for the note.
+
+So the notes came out of the diagrams and went into the captions, where they are set in the
+paper's own 8 pt caption font and are searchable, selectable text rather than pixels. Nothing was
+lost: each caption now states what its note said, including the two that carry real claims --- the
+aggregation weight being sequences rather than rows, and the runtime demonstration establishing
+architectural correctness and *not* detection on live farm traffic.
+
+Two diagrams still could not fit a column at readable size, being inherently wide --- a sequence
+diagram and two side-by-side planes --- so they were promoted to full-width floats, and the
+component view took back the 4 % of text width it was leaving unused.
+
+Two process notes. The first attempt patched only one of the four files: the loop wrote each file
+and then fetched its render, and the fetch threw on the first iteration, so files two to four were
+never reached while the first was already modified --- a half-applied edit that looked like a
+rendering problem. And the note-stripping regex initially matched only `note <side> of <target>`,
+missing the sequence diagram's `note over A` and a bare `note right`.
+
 ### Both architecture views kept, and the deployment diagram made symmetric
 
 The user asked for the PlantUML component diagram to stay. It does, because the two figures

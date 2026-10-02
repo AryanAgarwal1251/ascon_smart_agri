@@ -3,7 +3,7 @@
 ' render at 2x so the raster export is print-resolution at column width
 scale 2
 skinparam defaultFontName Helvetica
-skinparam defaultFontSize 12
+skinparam defaultFontSize 20
 skinparam shadowing false
 skinparam ArrowColor #52514e
 skinparam ActivityBackgroundColor #eef4fc
@@ -24,12 +24,6 @@ if (accepted?) then (no)
 endif
 
 :feature-provenance adapter;
-note right
-  The payload is <b>never</b> parsed into features.
-  The model consumes a held-out flow-derived
-  record paired to this message.
-  Nothing is synthesised.
-end note
 
 :append to this device's window buffer;
 if (buffer has W = 16 records?) then (no)
@@ -45,10 +39,6 @@ if (verdict benign?) then (yes)
   stop
 else (no)
   :raise local alert;
-  note right
-    The alert sink has no transport.
-    This path has <b>no</b> network endpoint.
-  end note
   stop
 endif
 

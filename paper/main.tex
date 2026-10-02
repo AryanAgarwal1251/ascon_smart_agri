@@ -624,22 +624,25 @@ defences, adversarial-example robustness, production key management and device a
 dashboards, and cloud agronomic analytics.
 
 \begin{figure*}[t]\centering
-\includegraphics[width=0.96\textwidth]{01_deployment.png}
+\includegraphics[width=\textwidth]{01_deployment.png}
 \caption{Component view: what runs inside each gateway, and what protects each hop. A reading
 enters at the broker, is classified, and is then \emph{routed} --- the verdict selects the path
 rather than being written to a log. Ascon-AEAD128 seals the parameter exchange in both
 directions; the gateway-to-cloud hop is TLS; the malicious-verdict path has no network endpoint
 at all, which is a property of the object graph rather than of a coding rule
-(Section~\ref{sec:routing}).}
+(Section~\ref{sec:routing}). The aggregator averages by weighted FedAvg over sequence counts, and
+never applies a frame that opens to $\bot$.}
 \label{fig:arch}
 \end{figure*}
 
-\begin{figure}[t]\centering
-\includegraphics[width=\columnwidth]{04_two_planes.png}
+\begin{figure*}[t]\centering
+\includegraphics[width=\textwidth]{04_two_planes.png}
 \caption{The training plane, the runtime plane, and the feature-provenance boundary between
-them. The detector never consumes the application payload.}
+them. The detector never sees the sensor JSON; it classifies a held-out flow-derived record
+paired to the message. The runtime demonstration therefore establishes architectural
+correctness, \textbf{not} detection on live farm traffic.}
 \label{fig:planes}
-\end{figure}
+\end{figure*}
 
 %=======================================================================
 \section{Methodology}
@@ -873,12 +876,15 @@ within $5\times10^{-12}$ at every client count tested.
 \end{algorithmic}
 \end{algorithm}
 
-\begin{figure}[t]\centering
-\includegraphics[width=\columnwidth]{02_sealed_round.png}
-\caption{One sealed federated round. Keys are per client and per direction; the associated data
-binds client, round, direction and schema version.}
+\begin{figure*}[t]\centering
+\includegraphics[width=\textwidth]{02_sealed_round.png}
+\caption{One sealed federated round. Keys are per client \emph{and} per direction, and the
+associated data binds client, round, direction and schema version --- so a frame cannot be
+replayed into another round, reflected into the opposite direction, or reattributed to a
+different client. The aggregation weight $n_k$ is the number of training \emph{sequences}, not of
+raw rows (Eq.~\eqref{eq:fedavg}).}
 \label{fig:round}
-\end{figure}
+\end{figure*}
 
 \subsection{Authenticated encryption construction}\label{sec:aead}
 Both protected channels use Ascon-AEAD128 as specified in SP~800-232~\cite{nist2025sp800232},
@@ -946,7 +952,10 @@ which predicts 811{,}200 bytes per round at $K=3$ against 815{,}136 measured, th
 
 \begin{figure}[t]\centering
 \includegraphics[width=\columnwidth]{03_verdict_routing.png}
-\caption{The runtime path of a single reading. The malicious branch has no network endpoint.}
+\caption{The runtime path of a single reading. The payload is never parsed into features: the
+model consumes a held-out flow-derived record paired to the message, and nothing is synthesised
+(Section~\ref{sec:provenance}). The malicious branch has no network endpoint, because the alert
+sink holds no transport that could reach one.}
 \label{fig:routing}
 \end{figure}
 
